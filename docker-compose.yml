@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: docker/postgres/Dockerfile.dev
+
+
+  blockchain:
+    image: ethereum/client-go:latest
+    container_name: elite-tena-blockchain
+    command: >
+      --dev
+      --datadir /eth-data
+      --http
+      --http.addr 0.0.0.0
+      --http.port 8545
+      --http.api web3,eth,net,personal,debug
+      --http.corsdomain "*"
+      --allow-insecure-unlock
+      --rpc.enabledeprecatedpersonal
+    ports:
+      - "8545:8545"
+    volumes:
+      - blockchain_data:/eth-data
+    networks:
+      - elite-tena-network
+
+  # PostgreSQL database
+  database:
+    image: postgres:15
+    container_name: elite-tena-database
+    environment:
+      - POSTGRES_DB=elitetena
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - elite-tena-network
+
+  # (Optional) PGAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: elite-tena-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@elitetena.com
+      - PGADMIN_DEFAULT_PASSWORD=password
+    ports:
+      - "8080:80"
+    depends_on:
+      - database
+    networks:
+      - elite-tena-network
+
+volumes:
+  blockchain_data:
+  postgres_data:
+
+networks:
+  elite-tena-network:
+    driver: bridge
