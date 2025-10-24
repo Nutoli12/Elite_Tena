@@ -2,27 +2,17 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
 
-# Install Hardhat globally for easier access
-RUN npm install -g hardhat
-
-# Copy source code
 COPY contracts/ ./contracts/
 COPY scripts/ ./scripts/
 COPY test/ ./test/
 COPY hardhat.config.js ./
-
-# Create a script to wait for blockchain and deploy
 COPY wait-for-blockchain.sh ./
+
 RUN chmod +x wait-for-blockchain.sh
 
-# Expose port (though Hardhat node runs on 8545)
 EXPOSE 8545
 
-# Default command - run hardhat node
 CMD ["./wait-for-blockchain.sh"]
