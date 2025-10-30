@@ -1,0 +1,14 @@
+FROM node:18-alpine
+
+# Install netcat for health checks
+RUN apk add --no-cache netcat-openbsd
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+RUN chmod +x ./wait-for-blockchain.sh
+
+CMD ["./wait-for-blockchain.sh"]

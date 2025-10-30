@@ -1,16 +1,19 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Basic Setup Test", function () {
-  it("Should have accounts available", async function () {
-    const [owner] = await ethers.getSigners();
-    expect(owner.address).to.not.be.undefined;
-    console.log("Owner address:", owner.address);
+describe("Basic EliteHealthSystem Setup", function () {
+  it("Should deploy the contract", async function () {
+    const EliteHealthSystem = await ethers.getContractFactory("EliteHealthSystem");
+    const eliteHealth = await EliteHealthSystem.deploy();
+    
+    // Use the correct ethers v6 syntax
+    expect(eliteHealth.target).to.not.equal(ethers.ZeroAddress);
+    console.log("✅ Contract deployed to:", eliteHealth.target);
   });
 
-  it("Should compile contracts", async function () {
-    // This will fail if contracts don't compile
-    const EliteHealthSystem = await ethers.getContractFactory("EliteHealthSystem");
-    expect(EliteHealthSystem).to.not.be.undefined;
+  it("Should have accounts available", async function () {
+    const [deployer] = await ethers.getSigners();
+    expect(deployer.address).to.not.be.undefined;
+    console.log("✅ Accounts available");
   });
 });

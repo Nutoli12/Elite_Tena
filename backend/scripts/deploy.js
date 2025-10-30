@@ -4,19 +4,18 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   
   console.log("Deploying contracts with account:", deployer.address);
-  console.log("Account balance:", (await deployer.getBalance()).toString());
+  
+  // Use correct ethers v6 syntax
+  const balance = await ethers.provider.getBalance(deployer.address);
+  console.log("Account balance:", ethers.formatEther(balance), "ETH");
 
-  // Deploy HelloWorld (or whatever contract you have)
-  const HelloWorld = await ethers.getContractFactory("HelloWorld");
-  const helloWorld = await HelloWorld.deploy();
+  // Deploy EliteHealthSystem
+  const EliteHealthSystem = await ethers.getContractFactory("EliteHealthSystem");
+  const eliteHealth = await EliteHealthSystem.deploy();
   
-  await helloWorld.deployed();
+  await eliteHealth.waitForDeployment();
   
-  console.log("HelloWorld deployed to:", helloWorld.address);
-  
-  // Test basic functions
-  const greeting = await helloWorld.getGreeting();
-  console.log("Initial greeting:", greeting);
+  console.log("EliteHealthSystem deployed to:", eliteHealth.target);
 }
 
 main()
