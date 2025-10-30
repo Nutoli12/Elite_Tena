@@ -4,15 +4,18 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   
   console.log("Deploying contracts with account:", deployer.address);
-  console.log("Account balance:", (await deployer.getBalance()).toString());
+  
+  // Get balance using provider
+  const balance = await ethers.provider.getBalance(deployer.address);
+  console.log("Account balance:", ethers.formatEther(balance), "ETH");
 
-  // Deploy HelloWorld (or whatever contract you have)
+  // Deploy HelloWorld
   const HelloWorld = await ethers.getContractFactory("HelloWorld");
   const helloWorld = await HelloWorld.deploy();
   
-  await helloWorld.deployed();
+  await helloWorld.waitForDeployment();
   
-  console.log("HelloWorld deployed to:", helloWorld.address);
+  console.log("HelloWorld deployed to:", helloWorld.target);
   
   // Test basic functions
   const greeting = await helloWorld.getGreeting();
