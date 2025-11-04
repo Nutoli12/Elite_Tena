@@ -1,10 +1,9 @@
-// scripts/init-db.js
-import pool from '../src/config/database.js';
+﻿const pool = require('../src/config/database.js');
 
 const initDB = async () => {
   try {
     // Create users table
-    await pool.query(`
+    await pool.query('
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         wallet_address VARCHAR(42) UNIQUE NOT NULL,
@@ -15,10 +14,10 @@ const initDB = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `);
+    ');
 
     // Create file_metadata table
-    await pool.query(`
+    await pool.query('
       CREATE TABLE IF NOT EXISTS file_metadata (
         id SERIAL PRIMARY KEY,
         cid VARCHAR(255) UNIQUE NOT NULL,
@@ -32,7 +31,7 @@ const initDB = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (wallet_address) REFERENCES users(wallet_address) ON DELETE CASCADE
       )
-    `);
+    ');
 
     console.log('✅ Database tables created successfully');
   } catch (error) {

@@ -1,8 +1,8 @@
-﻿const { Session } = require('../models/Session.js');
-const Web3Service = require('../utils/web3.js');
+import { Session } from '../models/Session.js';
+import { Web3Service } from '../utils/web3.js';
 
 // Middleware to require authentication
-const requireAuth = async (req, res, next) => {
+export const requireAuth = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
 
@@ -13,7 +13,7 @@ const requireAuth = async (req, res, next) => {
       });
     }
 
-    const session = await Session.findByToken(token);
+    const session = await Session.validate(token);
 
     if (!session) {
       return res.status(401).json({
@@ -22,15 +22,11 @@ const requireAuth = async (req, res, next) => {
       });
     }
 
-    // Get user details
-    const { User } = require('../models/User.js');
-    const user = await User.findByWalletAddress(session.wallet_address);
-
     // Attach user data to request
     req.user = {
       walletAddress: session.wallet_address,
-      role: user?.role || 'patient',
-      specialization: user?.specialization
+      role: session.role,
+      specialization: session.specialization
     };
 
     next();
@@ -44,7 +40,7 @@ const requireAuth = async (req, res, next) => {
 };
 
 // Middleware to require specific role
-const requireRole = (allowedRoles) => {
+export const requireRole = (allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
@@ -55,7 +51,7 @@ const requireRole = (allowedRoles) => {
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
         error: 'Insufficient permissions',
-        message: 'Required role: ' + allowedRoles.join(', ')
+        message: `Required role: ${allowedRoles.join(', ')}`
       });
     }
 
@@ -64,14 +60,14 @@ const requireRole = (allowedRoles) => {
 };
 
 // Middleware to require doctor approval
-const requireDoctorApproval = async (req, res, next) => {
+export const requireDoctorApproval = async (req, res, next) => {
   if (req.user.role !== 'doctor') {
     return next();
   }
 
   try {
     const isApproved = await Web3Service.isDoctorApproved(req.user.walletAddress);
-
+    
     if (!isApproved) {
       return res.status(403).json({
         error: 'Doctor not approved',
@@ -90,20 +86,17 @@ const requireDoctorApproval = async (req, res, next) => {
 };
 
 // Optional auth middleware (attaches user if available)
-const optionalAuth = async (req, res, next) => {
+export const optionalAuth = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
 
     if (token) {
-      const session = await Session.findByToken(token);
+      const session = await Session.validate(token);
       if (session) {
-        const { User } = require('../models/User.js');
-        const user = await User.findByWalletAddress(session.wallet_address);
-        
         req.user = {
           walletAddress: session.wallet_address,
-          role: user?.role || 'patient',
-          specialization: user?.specialization
+          role: session.role,
+          specialization: session.specialization
         };
       }
     }
@@ -113,11 +106,4 @@ const optionalAuth = async (req, res, next) => {
     // Continue without authentication
     next();
   }
-};
-
-module.exports = {
-  requireAuth,
-  requireRole,
-  requireDoctorApproval,
-  optionalAuth
 };

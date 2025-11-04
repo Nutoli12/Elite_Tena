@@ -1,63 +1,58 @@
-import pool from '../config/database.js';
+﻿const pool = require('../config/database.js');
 
-export class User {
+class User {
   // Create new user
-  static async create(walletAddress, role = 'patient', specialization = null, email = null, phone = null) {
+  static async create(walletAddress, role = 'patient', specialization = null, email = null, phone = null) { 
     try {
       const result = await pool.query(
-        `INSERT INTO users (wallet_address, role, specialization, email, phone) 
-         VALUES ($1, $2, $3, $4, $5) 
-         RETURNING *`,
+        'INSERT INTO users (wallet_address, role, specialization, email, phone) VALUES (, , , , ) RETURNING *',
         [walletAddress, role, specialization, email, phone]
       );
       return result.rows[0];
     } catch (error) {
-      if (error.code === '23505') { // Unique violation
-        throw new Error('User already exists');
-      }
-      throw error;
+      throw new Error('Error creating user: ' + error.message);
     }
   }
 
   // Find user by wallet address
-  static async findByWallet(walletAddress) {
-    const result = await pool.query(
-      'SELECT * FROM users WHERE wallet_address = $1',
-      [walletAddress]
-    );
-    return result.rows[0];
-  }
-
-  // Update user last login
-  static async updateLastLogin(walletAddress) {
-    await pool.query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE wallet_address = $1',
-      [walletAddress]
-    );
-  }
-
-  // Get all doctors
-  static async getDoctors() {
-    const result = await pool.query(
-      'SELECT * FROM users WHERE role = $1 ORDER BY created_at DESC',
-      ['doctor']
-    );
-    return result.rows;
+  static async findByWalletAddress(walletAddress) {
+    try {
+      const result = await pool.query(
+        'SELECT * FROM users WHERE wallet_address = ',
+        [walletAddress]
+      );
+      return result.rows[0];
+    } catch (error) {
+      throw new Error('Error finding user: ' + error.message);
+    }
   }
 
   // Update user profile
-  static async updateProfile(walletAddress, updates) {
-    const { email, phone, specialization } = updates;
-    const result = await pool.query(
-      `UPDATE users 
-       SET email = COALESCE($2, email), 
-           phone = COALESCE($3, phone),
-           specialization = COALESCE($4, specialization),
-           updated_at = CURRENT_TIMESTAMP
-       WHERE wallet_address = $1 
-       RETURNING *`,
-      [walletAddress, email, phone, specialization]
-    );
-    return result.rows[0];
+  static async update(walletAddress, updates) {
+    try {
+      const { email, phone, specialization } = updates;
+      const result = await pool.query(
+        'UPDATE users SET email = COALESCE(, email), phone = COALESCE(, phone), specialization = COALESCE(, specialization), updated_at = CURRENT_TIMESTAMP WHERE wallet_address =  RETURNING *',
+        [walletAddress, email, phone, specialization]
+      );
+      return result.rows[0];
+    } catch (error) {
+      throw new Error('Error updating user: ' + error.message);
+    }
+  }
+
+  // Get all users by role
+  static async findByRole(role) {
+    try {
+      const result = await pool.query(
+        'SELECT * FROM users WHERE role =  ORDER BY created_at DESC',
+        [role]
+      );
+      return result.rows;
+    } catch (error) {
+      throw new Error('Error finding users by role: ' + error.message);
+    }
   }
 }
+
+module.exports = { User };
