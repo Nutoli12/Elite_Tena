@@ -1,4 +1,5 @@
 import db from '../models/index.js';
+import { ethers } from 'ethers';
 const { User, Patient, Doctor, Pharmacist } = db;
 
 export const register = async (req, res) => {
@@ -119,7 +120,7 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { walletAddress, email, password } = req.body;
+    const { walletAddress, email, password, signature, message } = req.body;
 
     console.log('🔐 Login request:', { walletAddress, email });
 
@@ -170,6 +171,36 @@ export const login = async (req, res) => {
 
     // Wallet login
     if (walletAddress) {
+      // Verify signature if provided
+      if (signature && message) {
+        try {
+          const recoveredAddress = ethers.verifyMessage(message, signature);
+          if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+             return res.status(401).json({
+              success: false,
+              error: 'Invalid signature',
+              message: 'Signature verification failed'
+            });
+          }
+          
+          // Optional: Check timestamp in message to prevent replay attacks
+          // const timestamp = message.match(/Timestamp: (\d+)/)?.[1];
+          // if (timestamp && Date.now() - parseInt(timestamp) > 5 * 60 * 1000) { ... }
+
+        } catch (err) {
+          console.error('Signature verification error:', err);
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid signature',
+            message: 'Could not verify signature'
+          });
+        }
+      } else {
+        // If no signature provided, we might want to block login in production
+        // For now, we'll allow it but log a warning or return an error if strict mode is on
+        // return res.status(400).json({ error: 'Signature required' });
+      }
+
       const user = await User.findOne({
         where: { walletAddress: walletAddress.toLowerCase() }
       });
@@ -221,7 +252,21 @@ export const login = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   try {
-    const walletAddress = req.headers['x-wallet-address'];
+    // Try to get wallet from header or auth token (mock)
+    let walletAddress = req.headers['x-wallet-address'];
+    
+    // If using Bearer token, we might extract wallet from it (mock implementation)
+    const authHeader = req.headers.authorization;
+    if (!walletAddress && authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      // Mock token parsing: web3-auth-0x123...-timestamp
+      const parts = token.split('-');
+      if (parts.length >= 3) {
+        // Find the part that looks like a wallet address
+        const walletPart = parts.find(p => p.startsWith('0x') && p.length === 42);
+        if (walletPart) walletAddress = walletPart;
+      }
+    }
     
     if (!walletAddress) {
       return res.status(401).json({
@@ -320,25 +365,44 @@ export const verifySignature = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({
-      where: { walletAddress: walletAddress.toLowerCase() }
-    });
+    try {
+      const recoveredAddress = ethers.verifyMessage(message, signature);
+      
+      if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid signature',
+          message: 'Signature does not match wallet address'
+        });
+      }
 
-    if (!user) {
-      return res.status(404).json({
+      const user = await User.findOne({
+        where: { walletAddress: walletAddress.toLowerCase() }
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Signature verified',
+        data: {
+          verified: true,
+          walletAddress: user.walletAddress
+        }
+      });
+
+    } catch (err) {
+      return res.status(400).json({
         success: false,
-        error: 'User not found'
+        error: 'Verification failed',
+        message: err.message
       });
     }
-
-    res.json({
-      success: true,
-      message: 'Signature verified',
-      data: {
-        verified: true,
-        walletAddress: user.walletAddress
-      }
-    });
 
   } catch (error) {
     console.error('❌ Verify signature error:', error);
@@ -366,6 +430,28 @@ export const connectWallet = async (req, res) => {
         error: 'Missing wallet address',
         message: 'walletAddress is required'
       });
+    }
+
+    // Verify signature if provided
+    if (signature && message) {
+      try {
+        const recoveredAddress = ethers.verifyMessage(message, signature);
+        if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+          await transaction.rollback();
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid signature',
+            message: 'Signature verification failed'
+          });
+        }
+      } catch (err) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          error: 'Verification failed',
+          message: err.message
+        });
+      }
     }
 
     // Find or create user by wallet
@@ -452,9 +538,15 @@ export const verifyWallet = async (req, res) => {
       where: { walletAddress: walletAddress.toLowerCase() }
     });
 
-    // For demo purposes, we'll accept any wallet
-    // In production, implement proper signature verification
-    const isValid = true; // verifyEthereumSignature(walletAddress, message, signature);
+    let isValid = false;
+    if (signature && message) {
+      try {
+        const recoveredAddress = ethers.verifyMessage(message, signature);
+        isValid = recoveredAddress.toLowerCase() === walletAddress.toLowerCase();
+      } catch (e) {
+        isValid = false;
+      }
+    }
 
     res.json({
       success: true,
@@ -494,12 +586,14 @@ export const getNonce = async (req, res) => {
 
     // Generate a nonce for signing
     const nonce = Math.floor(Math.random() * 1000000);
-    const message = `Please sign this message to authenticate with Elite Tena Healthcare.\n\nNonce: ${nonce}\nWallet: ${walletAddress}`;
+    const timestamp = Date.now();
+    const message = `Welcome to Elite Tena Healthcare! Please sign this message to authenticate.\n\nWallet: ${walletAddress}\nNonce: ${nonce}\nTimestamp: ${timestamp}`;
 
     res.json({
       success: true,
       data: {
         nonce,
+        timestamp,
         message,
         walletAddress: walletAddress.toLowerCase()
       }

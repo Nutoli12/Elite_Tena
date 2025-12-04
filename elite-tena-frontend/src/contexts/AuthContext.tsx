@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const token = localStorage.getItem('auth_token');
         const wallet = localStorage.getItem('user_wallet');
-        
+
         if (token && wallet) {
           // Demo mode - create mock user
           if (token === 'demo-token') {
@@ -77,19 +77,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Real mode - verify with backend
           try {
-            const response = await axios.get('/api/auth/verify', {
+            const response = await axios.get('/auth/profile', {
               headers: { Authorization: `Bearer ${token}` }
             });
-            
-            if (response.data) {
-              dispatch({ type: 'SET_USER', payload: response.data });
+
+            if (response.data && response.data.data && response.data.data.user) {
+              dispatch({ type: 'SET_USER', payload: response.data.data.user });
             } else {
               localStorage.removeItem('auth_token');
               localStorage.removeItem('user_wallet');
             }
           } catch (error) {
             // Backend not available - use demo mode
-            console.log('Backend not available, using demo mode');
+            console.log('Backend not available or session invalid, using demo mode');
             const demoUser: UserProfile = {
               id: 'demo-user-1',
               walletAddress: wallet,
@@ -141,21 +141,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (walletAddress: string, signature: string): Promise<void> => {
+  const login = async (walletAddress: string, signature: string, message?: string): Promise<void> => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const response = await axios.post('/api/auth/login', {
+      // Use wallet/connect endpoint which handles both login and registration (findOrCreate)
+      const response = await axios.post('/auth/wallet/connect', {
         walletAddress,
-        signature
+        signature,
+        message
       });
 
-      const { user, token } = response.data;
-      
-      localStorage.setItem('auth_token', token);
+      const { user, auth } = response.data.data;
+
+      localStorage.setItem('auth_token', auth.token);
       localStorage.setItem('user_wallet', walletAddress);
-      
+
       dispatch({ type: 'SET_USER', payload: user });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed';
@@ -171,17 +173,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const response = await axios.post('/api/auth/login', {
+      const response = await axios.post('/auth/login', {
         email,
         password
       });
 
       const { data } = response.data;
       const { user, auth } = data;
-      
+
       localStorage.setItem('auth_token', auth.token);
       localStorage.setItem('user_wallet', user.walletAddress);
-      
+
       const userProfile: UserProfile = {
         id: user.walletAddress,
         walletAddress: user.walletAddress,
@@ -192,7 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString()
       };
-      
+
       dispatch({ type: 'SET_USER', payload: userProfile });
     } catch (error: any) {
       const message = error.response?.data?.message || 'Login failed';
@@ -208,16 +210,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const response = await axios.post('/api/auth/login', {
+      // Use wallet/connect endpoint which handles auto-registration
+      const response = await axios.post('/auth/wallet/connect', {
         walletAddress
       });
 
-      const { data } = response.data;
-      const { user, auth } = data;
-      
+      const { user, auth } = response.data.data;
+
       localStorage.setItem('auth_token', auth.token);
       localStorage.setItem('user_wallet', user.walletAddress);
-      
+
       const userProfile: UserProfile = {
         id: user.walletAddress,
         walletAddress: user.walletAddress,
@@ -228,7 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString()
       };
-      
+
       dispatch({ type: 'SET_USER', payload: userProfile });
     } catch (error: any) {
       const message = error.response?.data?.message || 'Login failed';
@@ -244,7 +246,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const response = await axios.post('/api/auth/register', {
+      await axios.post('/auth/register', {
         email: data.email,
         password: data.password,
         role: data.role,
@@ -271,7 +273,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const response = await axios.post('/api/auth/register', {
+      await axios.post('/auth/register', {
         walletAddress: data.walletAddress,
         email: `${data.walletAddress}@wallet.local`, // Temporary email for wallet-only users
         role: data.role,
@@ -306,12 +308,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = localStorage.getItem('auth_token');
       if (!token) return;
 
-      const response = await axios.get('/api/auth/profile', {
+      const response = await axios.get('/auth/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
-      if (response.data) {
-        dispatch({ type: 'SET_USER', payload: response.data });
+
+      if (response.data && response.data.data && response.data.data.user) {
+        dispatch({ type: 'SET_USER', payload: response.data.data.user });
       }
     } catch (error) {
       console.error('Failed to refresh user:', error);

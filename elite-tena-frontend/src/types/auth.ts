@@ -27,7 +27,7 @@ export interface AuthState {
 }
 
 export interface AuthContextType extends AuthState {
-  login: (wallet: string, signature: string) => Promise<void>;
+  login: (wallet: string, signature: string, message?: string) => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
   loginWithWallet: (walletAddress: string) => Promise<void>;
   registerWithEmail: (data: any) => Promise<void>;

@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Shield, CheckCircle, Loader2 } from 'lucide-react';
+import axios from '../../lib/axios';
 
 interface WalletConnectionModalProps {
   isOpen: boolean;
@@ -21,18 +22,33 @@ export const WalletConnectionModal: React.FC<WalletConnectionModalProps> = ({
     try {
       setIsSigning(true);
       const walletAddress = await connectWallet();
-      
+
       // Request signature for authentication
       if (window.ethereum) {
+        // 1. Get nonce/message from backend
+        let messageToSign = '';
+        try {
+          const nonceResponse = await axios.get(`/auth/wallet/nonce/${walletAddress}`);
+          if (nonceResponse.data && nonceResponse.data.data) {
+            messageToSign = nonceResponse.data.data.message;
+          }
+        } catch (error) {
+          console.error('Failed to get nonce, falling back to local message:', error);
+          // Fallback if backend is unreachable (though login will likely fail too if backend is down)
+          messageToSign = `Welcome to Elite Tena Healthcare! Please sign this message to authenticate. Timestamp: ${Date.now()}`;
+        }
+
+        // 2. Request signature
         const signature = await window.ethereum.request({
           method: 'personal_sign',
           params: [
-            `Welcome to Elite Tena Healthcare! Please sign this message to authenticate. Timestamp: ${Date.now()}`,
+            messageToSign,
             walletAddress
           ]
         });
 
-        await login(walletAddress, signature);
+        // 3. Login with signature and message
+        await login(walletAddress, signature, messageToSign);
         onClose();
       }
     } catch (error) {
