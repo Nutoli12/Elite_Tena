@@ -62,9 +62,32 @@ export interface Appointment {
   time: string;
   type: 'in-person' | 'telemedicine';
   location: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'scheduled' | 'approved';
   reason?: string;
   notes?: string;
+  fee?: number;
+  
+  // Phase 3: Payment & Approval
+  serviceType?: 'inPerson' | 'videoCall' | 'chat';
+  requiresApproval?: boolean;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  approvedAt?: string;
+  approvedBy?: string;
+  paymentMethod?: 'telebirr' | 'cbe_birr' | 'cash' | 'free';
+  paymentStatus?: 'pending' | 'paid' | 'confirmed' | 'refunded';
+  paymentReceiptUrl?: string;
+  paymentConfirmedAt?: string;
+  paymentConfirmedBy?: string;
+  
+  // Phase 4: Check-in & Queue
+  checkInStatus?: 'not_checked_in' | 'checked_in' | 'waiting' | 'in_progress' | 'completed';
+  checkedInAt?: string;
+  checkedInBy?: string;
+  queueNumber?: number;
+  qrCodeData?: string;
+  estimatedWaitTime?: number;
+  consultationStartedAt?: string;
+  consultationEndedAt?: string;
 }
 
 export interface Consent {

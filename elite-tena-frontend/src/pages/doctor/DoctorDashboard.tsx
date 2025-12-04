@@ -1,30 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { 
   Calendar, 
   Users, 
   FileText, 
-  Pill, 
-  Activity,
-  Clock,
-  CheckCircle,
-  AlertCircle
+  Pill,
+  DollarSign,
+  Bell
 } from 'lucide-react';
 import axios from '../../lib/axios';
+import { DoctorApprovalModal } from '../../components/modals/DoctorApprovalModal';
 
 export const DoctorDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useTranslation();
   const [stats, setStats] = useState({
     totalPatients: 0,
     todayAppointments: 0,
     pendingRecords: 0,
     prescriptionsIssued: 0
   });
-  const [appointments, setAppointments] = useState([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
 
   useEffect(() => {
     fetchDoctorData();
@@ -40,6 +40,18 @@ export const DoctorDashboard: React.FC = () => {
     try {
       console.log('🔍 Fetching doctor data for:', user.walletAddress);
       
+      // Fetch pending approvals
+      try {
+        const approvalsResponse = await axios.get(`/appointments/pending-approval?doctorWallet=${user.walletAddress}`);
+        if (approvalsResponse.data.success) {
+          setPendingApprovals(approvalsResponse.data.data || []);
+          console.log(`Found ${approvalsResponse.data.count} pending approvals`);
+        }
+      } catch (error) {
+        console.log('No pending approvals endpoint or no approvals');
+        setPendingApprovals([]);
+      }
+      
       // Fetch all appointments and filter for this doctor
       const appointmentsResponse = await axios.get('/appointments');
       if (appointmentsResponse.data.success) {
@@ -53,26 +65,18 @@ export const DoctorDashboard: React.FC = () => {
         
         // Calculate today's appointments
         const today = new Date().toDateString();
-        const todayCount = doctorAppointments.filter(apt => 
+        const todayCount = doctorAppointments.filter((apt: any) => 
           new Date(apt.appointmentDate).toDateString() === today
         ).length;
 
         setStats(prev => ({
           ...prev,
           todayAppointments: todayCount,
-          totalPatients: new Set(doctorAppointments.map(apt => apt.patientWalletAddress)).size
+          totalPatients: new Set(doctorAppointments.map((apt: any) => apt.patientWalletAddress)).size
         }));
       } else {
-        console.log('No appointments found, using demo data');
-        setAppointments([
-          {
-            id: 'demo-1',
-            patientWalletAddress: '0xpatient001',
-            reason: 'Regular checkup',
-            appointmentDate: new Date().toISOString(),
-            status: 'confirmed'
-          }
-        ]);
+        console.log('No appointments found');
+        setAppointments([]);
       }
 
       // Fetch prescriptions count
@@ -193,7 +197,7 @@ export const DoctorDashboard: React.FC = () => {
             animate={{ x: 0, opacity: 1 }}
             className="text-3xl font-bold mb-2"
           >
-            Welcome, {user?.profileData?.fullName || 'Doctor'}!
+            Welcome, {user?.fullName || 'Doctor'}!
           </motion.h1>
           <motion.p
             initial={{ x: -20, opacity: 0 }}
@@ -249,6 +253,65 @@ export const DoctorDashboard: React.FC = () => {
           </motion.div>
         ))}
       </div>
+
+      {/* Pending Approvals */}
+      {pendingApprovals.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
+                <Bell className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Pending Approvals</h2>
+                <p className="text-sm text-gray-600">{pendingApprovals.length} appointment{pendingApprovals.length !== 1 ? 's' : ''} awaiting your approval</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {pendingApprovals.slice(0, 3).map((appointment: any, index) => (
+              <motion.div
+                key={appointment.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 + index * 0.1 }}
+                className="bg-white p-4 rounded-xl border border-orange-200 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">
+                      {(appointment.patientDetails as any)?.user?.fullName || 'Patient'}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {new Date(appointment.appointmentDate).toLocaleDateString()} • {appointment.fee} ETB
+                    </p>
+                  </div>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setSelectedAppointment(appointment);
+                    setShowApprovalModal(true);
+                  }}
+                  className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-700"
+                >
+                  Review
+                </motion.button>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Recent Appointments */}
       <motion.div
@@ -349,6 +412,21 @@ export const DoctorDashboard: React.FC = () => {
           ))}
         </div>
       </motion.div>
+
+      {/* Approval Modal */}
+      {selectedAppointment && (
+        <DoctorApprovalModal
+          isOpen={showApprovalModal}
+          onClose={() => {
+            setShowApprovalModal(false);
+            setSelectedAppointment(null);
+          }}
+          appointment={selectedAppointment}
+          onApproved={() => {
+            fetchDoctorData();
+          }}
+        />
+      )}
     </motion.div>
   );
 };

@@ -21,7 +21,9 @@ export const LabResults: React.FC = () => {
   const fetchLabResults = async () => {
     try {
       const response = await axios.get('/lab-results');
-      setResults(response.data);
+      // Handle different response structures
+      const data = response.data?.data || response.data || [];
+      setResults(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch lab results:', error);
       // Mock data

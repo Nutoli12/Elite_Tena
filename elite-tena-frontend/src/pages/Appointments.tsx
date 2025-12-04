@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Plus, MapPin, Clock, Video, MoreVertical } from 'lucide-react';
+import { Calendar, Plus, MapPin, Clock, Video, MoreVertical, DollarSign, Upload, QrCode } from 'lucide-react';
 import axios from '../lib/axios';
 import type { Appointment } from '../types/healthcare';
 import { BookAppointmentModal } from '../components/modals/BookAppointmentModal';
+import { PaymentDetailsModal } from '../components/modals/PaymentDetailsModal';
+import { UploadReceiptModal } from '../components/modals/UploadReceiptModal';
+import { QRCodeDisplay } from '../components/QRCodeDisplay';
 
 export const Appointments: React.FC = () => {
   const { user } = useAuth();
@@ -13,6 +16,10 @@ export const Appointments: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBookModal, setShowBookModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showQRCode, setShowQRCode] = useState<string | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -86,6 +93,7 @@ export const Appointments: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed':
+      case 'scheduled':
         return 'bg-green-100 text-green-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
@@ -93,9 +101,27 @@ export const Appointments: React.FC = () => {
         return 'bg-red-100 text-red-800';
       case 'completed':
         return 'bg-blue-100 text-blue-800';
+      case 'approved':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getPaymentStatusBadge = (apt: any) => {
+    if (apt.approvalStatus === 'pending') {
+      return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">Pending Approval</span>;
+    }
+    if (apt.approvalStatus === 'approved' && apt.paymentStatus === 'pending') {
+      return <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">Payment Required</span>;
+    }
+    if (apt.paymentStatus === 'paid') {
+      return <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">Payment Pending Confirmation</span>;
+    }
+    if (apt.paymentStatus === 'confirmed') {
+      return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Payment Confirmed</span>;
+    }
+    return null;
   };
 
   if (loading) {
@@ -224,8 +250,59 @@ export const Appointments: React.FC = () => {
                       </div>
                     )}
 
+                    {/* Payment Status Badge */}
+                    {getPaymentStatusBadge(appointment) && (
+                      <div className="mt-3">
+                        {getPaymentStatusBadge(appointment)}
+                      </div>
+                    )}
+
                     {/* Action Buttons */}
-                    <div className="flex gap-2 mt-4">
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {/* Payment Actions */}
+                      {appointment.approvalStatus === 'approved' && appointment.paymentStatus === 'pending' && (
+                        <>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => {
+                              setSelectedAppointment(appointment);
+                              setShowPaymentModal(true);
+                            }}
+                            className="bg-medical-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                            View Payment Details
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => {
+                              setSelectedAppointment(appointment);
+                              setShowUploadModal(true);
+                            }}
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Upload Receipt
+                          </motion.button>
+                        </>
+                      )}
+
+                      {/* QR Code for confirmed appointments */}
+                      {(appointment.paymentStatus === 'confirmed' || appointment.fee === 0) && appointment.status === 'scheduled' && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setShowQRCode(appointment.id)}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                        >
+                          <QrCode className="w-4 h-4" />
+                          Show QR Code
+                        </motion.button>
+                      )}
+
+                      {/* Video Call */}
                       {appointment.type === 'telemedicine' && appointment.status === 'confirmed' && (
                         <motion.button
                           whileHover={{ scale: 1.05 }}
@@ -236,6 +313,8 @@ export const Appointments: React.FC = () => {
                           Join Video Call
                         </motion.button>
                       )}
+
+                      {/* Standard Actions */}
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -280,12 +359,68 @@ export const Appointments: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Book Appointment Modal */}
+      {/* Modals */}
       <BookAppointmentModal
         isOpen={showBookModal}
         onClose={() => setShowBookModal(false)}
         onSubmit={handleBookAppointment}
       />
+
+      {selectedAppointment && (
+        <>
+          <PaymentDetailsModal
+            isOpen={showPaymentModal}
+            onClose={() => {
+              setShowPaymentModal(false);
+              setSelectedAppointment(null);
+            }}
+            appointmentId={selectedAppointment.id}
+            onUploadReceipt={() => {
+              setShowPaymentModal(false);
+              setShowUploadModal(true);
+            }}
+          />
+
+          <UploadReceiptModal
+            isOpen={showUploadModal}
+            onClose={() => {
+              setShowUploadModal(false);
+              setSelectedAppointment(null);
+            }}
+            appointmentId={selectedAppointment.id}
+            onUploaded={() => {
+              fetchAppointments();
+            }}
+          />
+        </>
+      )}
+
+      {/* QR Code Modal */}
+      {showQRCode && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowQRCode(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <QRCodeDisplay appointmentId={showQRCode} />
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowQRCode(null)}
+              className="mt-4 w-full bg-gray-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700"
+            >
+              Close
+            </motion.button>
+          </motion.div>
+        </motion.div>
+      )}
     </motion.div>
   );
 };

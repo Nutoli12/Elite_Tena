@@ -18,8 +18,11 @@ export const ConsentManagement: React.FC = () => {
 
   const fetchConsents = async () => {
     try {
-      const response = await axios.get('/consents');
-      setConsents(response.data);
+      // Use the correct endpoint with wallet address
+      const walletAddress = user?.walletAddress || localStorage.getItem('user_wallet');
+      const response = await axios.get(`/consent/${walletAddress}`);
+      const data = response.data?.data || response.data || [];
+      setConsents(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch consents:', error);
       // Mock data

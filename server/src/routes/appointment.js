@@ -12,6 +12,28 @@ import {
   bookAppointmentSlot
 } from '../controllers/appointmentController.js';
 
+// 🆕 PHASE 3: Payment & Approval
+import {
+  approveAppointment,
+  rejectAppointment,
+  getPendingApprovals,
+  uploadPaymentReceipt,
+  confirmPayment,
+  getPaymentDetails
+} from '../controllers/appointmentPhase3Controller.js';
+
+// 🆕 PHASE 4: Check-in & Queue
+import {
+  generateQRCode,
+  checkInPatient,
+  scanQRAndCheckIn,
+  getCheckedInPatients,
+  getWaitingRoom,
+  callPatient,
+  completeAppointment,
+  getDoctorQueue
+} from '../controllers/appointmentPhase4Controller.js';
+
 const router = express.Router();
 
 // Get all appointments (with optional query filters)
@@ -49,5 +71,23 @@ router.patch('/:id/cancel', cancelAppointment);
 
 // Delete appointment
 router.delete('/:id', deleteAppointment);
+
+// 🆕 PHASE 3: Payment & Approval Routes
+router.get('/pending-approval', getPendingApprovals);
+router.post('/:id/approve', approveAppointment);
+router.post('/:id/reject', rejectAppointment);
+router.get('/:id/payment-details', getPaymentDetails);
+router.post('/:id/upload-receipt', uploadPaymentReceipt);
+router.post('/:id/confirm-payment', confirmPayment);
+
+// 🆕 PHASE 4: Check-in & Queue Routes
+router.get('/checked-in', getCheckedInPatients);
+router.get('/waiting-room', getWaitingRoom);
+router.get('/doctor/:doctorWallet/queue', getDoctorQueue);
+router.post('/scan-qr', scanQRAndCheckIn);
+router.post('/:id/generate-qr', generateQRCode);
+router.post('/:id/check-in', checkInPatient);
+router.post('/:id/call-patient', callPatient);
+router.post('/:id/complete', completeAppointment);
 
 export default router;

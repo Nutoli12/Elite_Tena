@@ -11,13 +11,20 @@ const axiosInstance = axios.create({
   },
 });
 
-// Request interceptor - Add auth token
+// Request interceptor - Add auth token and wallet address
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
+    const walletAddress = localStorage.getItem('user_wallet');
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    if (walletAddress) {
+      config.headers['x-wallet-address'] = walletAddress;
+    }
+
     return config;
   },
   (error) => {

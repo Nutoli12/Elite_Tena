@@ -41,8 +41,8 @@ dotenv.config();
 // Constants
 const PORT = process.env.PORT || 3003;
 const isProduction = process.env.NODE_ENV === 'production';
-const CORS_ORIGINS = process.env.CORS_ORIGIN 
-  ? process.env.CORS_ORIGIN.split(',') 
+const CORS_ORIGINS = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',')
   : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
 
 // Create Express app
@@ -132,7 +132,7 @@ app.use('/api/notifications', notificationRoutes); // Notification routes
 app.get('/api/health', async (req, res) => {
   try {
     const dbStatus = await testConnection();
-    
+
     const userCount = await db.User.count().catch(() => 0);
     const appointmentCount = await db.Appointment.count().catch(() => 0);
     const fileCount = await db.FileMetadata.count().catch(() => 0);
@@ -169,7 +169,7 @@ app.get('/api/health', async (req, res) => {
 app.get('/api/db-status', async (req, res) => {
   try {
     await db.sequelize.authenticate();
-    
+
     const [userCount, appointmentCount, fileCount, sessionCount] = await Promise.all([
       db.User.count().catch(() => 0),
       db.Appointment.count().catch(() => 0),
@@ -230,13 +230,13 @@ app.use('*', (req, res) => {
       'GET /api/health',
       'GET /api/db-status',
       'GET /api/test',
-      
+
       // Authentication
       'POST /api/auth/register',
       'POST /api/auth/login',
       'POST /api/auth/logout',
       'GET /api/auth/profile',
-      
+
       // Admin
       'GET /api/admin/stats',
       'GET /api/admin/analytics',
@@ -245,20 +245,20 @@ app.use('*', (req, res) => {
       'GET /api/admin/users/:walletAddress',
       'PATCH /api/admin/users/:walletAddress/status',
       'DELETE /api/admin/users/:walletAddress',
-      
+
       // Consent
       'POST /api/consent/grant',
       'POST /api/consent/revoke',
       'GET /api/consent/:patientWallet',
-      
+
       // Patients
       'GET /api/patients',
       'GET /api/patients/:walletAddress',
-      
+
       // Doctors
       'GET /api/doctors',
       'GET /api/doctors/:walletAddress',
-      
+
       // Appointments
       'GET /api/appointments',
       'GET /api/appointments/doctor/:doctorWallet',
@@ -268,14 +268,14 @@ app.use('*', (req, res) => {
       'PUT /api/appointments/:id',
       'PATCH /api/appointments/:id/cancel',
       'DELETE /api/appointments/:id',
-      
+
       // Medical Records
       'GET /api/medical-records/:patientWallet',
       'POST /api/medical-records',
       'POST /api/medical-records/:patientWallet',
       'PUT /api/medical-records/:id',
       'DELETE /api/medical-records/:id',
-      
+
       // Prescriptions
       'GET /api/prescriptions',
       'GET /api/prescriptions/patient/:patientWallet',
@@ -283,22 +283,22 @@ app.use('*', (req, res) => {
       'POST /api/prescriptions',
       'PUT /api/prescriptions/:id',
       'DELETE /api/prescriptions/:id',
-      
+
       // Lab Results
       'GET /api/lab-results',
       'GET /api/lab-results/:id',
       'POST /api/lab-results',
       'PUT /api/lab-results/:id',
       'DELETE /api/lab-results/:id',
-      
+
       // Lab Technicians
       'GET /api/lab-technicians',
       'POST /api/lab-technicians/upload-result',
-      
+
       // Pharmacists
       'GET /api/pharmacists',
       'POST /api/pharmacists/dispense',
-      
+
       // Payments
       'POST /api/payments/initialize',
       'GET /api/payments',
@@ -352,7 +352,7 @@ const startServer = async () => {
     console.log('2. Syncing database models...');
     await db.sequelize.sync({
       force: false,
-      alter: process.env.NODE_ENV === 'development'
+      alter: false  // Disabled to prevent PostgreSQL syntax errors with column type changes
     });
     console.log('✅ Database models synchronized');
 
