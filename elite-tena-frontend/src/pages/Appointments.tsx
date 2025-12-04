@@ -25,47 +25,6 @@ export const Appointments: React.FC = () => {
     fetchAppointments();
   }, []);
 
-  const fetchAppointments = async () => {
-    if (!user?.walletAddress) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      console.log('🔍 Fetching appointments for:', user.walletAddress);
-      const response = await axios.get(`/appointments/patient/${user.walletAddress}`);
-      
-      if (response.data.success) {
-        const backendAppointments = response.data.data.map((apt: any) => ({
-          id: apt.id.toString(),
-          patientId: apt.patientWallet,
-          doctorId: apt.doctorWallet,
-          date: apt.appointmentDate.split('T')[0],
-          time: new Date(apt.appointmentDate).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
-          type: 'in-person',
-          location: 'Elite-Tena Healthcare',
-          status: apt.status,
-          reason: apt.reason || 'Consultation',
-          notes: apt.notes
-        }));
-        
-        setAppointments(backendAppointments);
-        console.log('✅ Loaded', backendAppointments.length, 'appointments');
-      } else {
-        console.log('📝 No appointments found');
-        setAppointments([]);
-      }
-    } catch (error) {
-      console.error('❌ Failed to fetch appointments:', error);
-      setAppointments([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleBookAppointment = async (appointmentData: any) => {
     try {
       console.log('📅 Booking appointment:', appointmentData);
@@ -75,18 +34,75 @@ export const Appointments: React.FC = () => {
         doctorWalletAddress: appointmentData.doctorId,
         appointmentDate: `${appointmentData.date}T${appointmentData.time}:00`,
         reason: appointmentData.reason,
+        notes: appointmentData.notes,
         duration: 30,
-        fee: 100
+        serviceType: appointmentData.serviceType,
+        fee: appointmentData.fee || 0,
+        requiresApproval: appointmentData.requiresApproval || false,
+        paymentRequired: appointmentData.paymentRequired || false
       });
 
       if (response.data.success) {
         console.log('✅ Appointment booked successfully');
-        fetchAppointments(); // Refresh the list
         alert('Appointment booked successfully!');
+        fetchAppointments(); // Refresh the list
+        setShowBookModal(false);
       }
     } catch (error) {
       console.error('❌ Failed to book appointment:', error);
       alert('Failed to book appointment. Please try again.');
+    }
+  };
+
+  const fetchAppointments = async () => {
+    if (!user?.walletAddress) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log('🔍 Fetching patient appointments for:', user.walletAddress);
+      
+      // Fetch ONLY this patient's appointments (not doctor appointments!)
+      const response = await axios.get('/appointments', {
+        params: {
+          userRole: 'patient',
+          userId: user.walletAddress
+        }
+      });
+
+      if (response.data.success) {
+        const backendAppointments = response.data.data.map((apt: any) => ({
+          id: apt.id.toString(),
+          patientId: apt.patientWalletAddress,
+          doctorId: apt.doctorDetails?.user?.profileData?.fullName || apt.doctorWalletAddress,
+          date: apt.appointmentDate.split('T')[0],
+          time: new Date(apt.appointmentDate).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          type: apt.serviceType || 'in-person',
+          location: apt.serviceType === 'videoCall' ? 'Video Call' : 'Elite-Tena Healthcare',
+          status: apt.status,
+          reason: apt.reason || 'Consultation',
+          notes: apt.notes,
+          requiresApproval: apt.requiresApproval,
+          approvalStatus: apt.approvalStatus,
+          paymentStatus: apt.paymentStatus,
+          fee: apt.fee
+        }));
+
+        setAppointments(backendAppointments);
+        console.log('✅ Loaded', backendAppointments.length, 'patient appointments');
+      } else {
+        console.log('📝 No appointments found');
+        setAppointments([]);
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch patient appointments:', error);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
     }
   };
 

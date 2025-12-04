@@ -21,7 +21,9 @@ export const Prescriptions: React.FC = () => {
   const fetchPrescriptions = async () => {
     try {
       const response = await axios.get('/prescriptions');
-      setPrescriptions(response.data);
+      // Handle different response structures
+      const data = response.data?.data || response.data || [];
+      setPrescriptions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch prescriptions:', error);
       // Mock data for demo
@@ -84,7 +86,7 @@ export const Prescriptions: React.FC = () => {
   };
 
   const filteredPrescriptions = prescriptions.filter(prescription => {
-    const matchesSearch = prescription.medication.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = prescription.medication?.toLowerCase().includes(searchTerm.toLowerCase()) ?? true;
     const matchesFilter = filterStatus === 'all' || prescription.status === filterStatus;
     return matchesSearch && matchesFilter;
   });

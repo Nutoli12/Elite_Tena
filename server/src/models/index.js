@@ -39,6 +39,7 @@ import LabTechnician from './LabTechnician.js';
 import Pharmacist from './Pharmacist.js';
 import FollowUp from './FollowUp.js';
 import Notification from './Notification.js';
+import DoctorPaymentSettings from './DoctorPaymentSettings.js';
 
 // Initialize models with sequelize instance
 const db = {
@@ -58,7 +59,8 @@ const db = {
   LabTechnician: LabTechnician(sequelize, Sequelize.DataTypes),
   Pharmacist: Pharmacist(sequelize, Sequelize.DataTypes),
   FollowUp: FollowUp(sequelize, Sequelize.DataTypes),
-  Notification: Notification(sequelize, Sequelize.DataTypes)
+  Notification: Notification(sequelize, Sequelize.DataTypes),
+  DoctorPaymentSettings: DoctorPaymentSettings(sequelize, Sequelize.DataTypes)
 };
 
 // ... REST OF YOUR ASSOCIATIONS CODE REMAINS EXACTLY THE SAME ...
@@ -312,6 +314,20 @@ const initializeAssociations = () => {
       foreignKey: 'userId',
       targetKey: 'walletAddress',
       as: 'user'
+    });
+
+    // 💰 NEW: Doctor -> Payment Settings (One-to-One)
+    db.Doctor.hasOne(db.DoctorPaymentSettings, {
+      foreignKey: 'doctorWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'paymentSettings',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.DoctorPaymentSettings.belongsTo(db.Doctor, {
+      foreignKey: 'doctorWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'doctor'
     });
 
     console.log('✅ Database associations initialized successfully');

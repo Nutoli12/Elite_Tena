@@ -24,6 +24,8 @@ import appointmentRoutes from './routes/appointment.js';
 import paymentRoutes from './routes/payment.js';
 import fileUploadRoutes from './routes/fileUpload.js';
 import notificationRoutes from './routes/notifications.js';
+import premiumServiceRoutes from './routes/premiumService.js';
+import consultationRoutes from './routes/consultation.js';
 
 // Services (using require for CommonJS modules)
 import { createRequire } from 'module';
@@ -127,6 +129,8 @@ app.use('/api/pharmacy', pharmacistRoutes); // Alias for pharmacists
 app.use('/api/payments', paymentRoutes);
 app.use('/api/upload', fileUploadRoutes); // File upload routes (IPFS)
 app.use('/api/notifications', notificationRoutes); // Notification routes
+app.use('/api/premium-services', premiumServiceRoutes); // Premium service routes (peer-to-peer)
+app.use('/api/consultations', consultationRoutes); // Consultation routes
 
 // Enhanced health check
 app.get('/api/health', async (req, res) => {

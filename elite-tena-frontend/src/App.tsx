@@ -19,9 +19,14 @@ import { UserManagement } from './pages/admin/UserManagement';
 import { Analytics } from './pages/admin/Analytics';
 import { SystemSettings } from './pages/admin/SystemSettings';
 import { DoctorDashboard } from './pages/doctor/DoctorDashboard';
+import { ConsultationRoom } from './pages/doctor/ConsultationRoom';
+import { ConsultationInterface } from './pages/doctor/ConsultationInterface';
 import { LabDashboard } from './pages/lab/LabDashboard';
 import { PharmacyDashboard } from './pages/pharmacy/PharmacyDashboard';
+import { ReceptionCheckIn } from './pages/reception/ReceptionCheckIn';
+import { WaitingRoom } from './pages/WaitingRoom';
 import { DashboardRouter } from './components/DashboardRouter';
+import { AppointmentsRouter } from './components/AppointmentsRouter';
 import './i18n';
 
 const AppRoutes: React.FC = () => {
@@ -65,7 +70,7 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <HealthcareLayout>
-              <Appointments />
+              <AppointmentsRouter />
             </HealthcareLayout>
           </ProtectedRoute>
         }
@@ -161,6 +166,14 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
+        path="/consultation/:appointmentId"
+        element={
+          <ProtectedRoute requiredRole="doctor">
+            <ConsultationInterface />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/lab/dashboard"
         element={
           <ProtectedRoute requiredRole="lab_technician">
@@ -179,6 +192,30 @@ const AppRoutes: React.FC = () => {
             </HealthcareLayout>
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/doctor/consultation/:appointmentId"
+        element={
+          <ProtectedRoute requiredRole="doctor">
+            <HealthcareLayout>
+              <ConsultationRoom />
+            </HealthcareLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reception/check-in"
+        element={
+          <ProtectedRoute>
+            <HealthcareLayout>
+              <ReceptionCheckIn />
+            </HealthcareLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/waiting-room"
+        element={<WaitingRoom />}
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

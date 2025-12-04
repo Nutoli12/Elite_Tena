@@ -17,7 +17,7 @@ export const getAppointments = async (req, res) => {
     console.log('🔍 Fetching appointments...', { userRole, userId });
 
     const where = {};
-    
+
     // 👨‍⚕️ FIXED: Separate doctor vs patient views
     if (userRole && userId) {
       if (userRole === 'doctor') {
@@ -36,7 +36,7 @@ export const getAppointments = async (req, res) => {
         where.doctorWalletAddress = finalDoctorWallet.toLowerCase();
       }
     }
-    
+
     if (status) {
       where.status = status;
     }
@@ -199,10 +199,23 @@ export const createAppointment = async (req, res) => {
       duration: duration || 30,
       fee: fee || 0,
       status: 'scheduled',
-      paymentStatus: 'pending'
+      paymentStatus: 'pending',
+      // 🆕 Save new fields
+      serviceType: req.body.serviceType || 'inPerson',
+      requiresApproval: req.body.requiresApproval || false,
+      approvalStatus: req.body.approvalStatus || 'pending'
     });
 
-    console.log('✅ Appointment created:', appointment.id);
+
+
+    console.log('✅ Appointment created:', {
+      id: appointment.id,
+      patient: appointment.patientWalletAddress,
+      doctor: appointment.doctorWalletAddress,
+      date: appointment.appointmentDate,
+      requiresApproval: appointment.requiresApproval,
+      status: appointment.status
+    });
 
     res.status(201).json({
       success: true,
@@ -349,7 +362,7 @@ export const getDoctorSchedule = async (req, res) => {
       const startDate = new Date(date);
       const endDate = new Date(date);
       endDate.setDate(endDate.getDate() + 1);
-      
+
       where.appointmentDate = {
         [db.Sequelize.Op.between]: [startDate, endDate]
       };
@@ -477,7 +490,7 @@ export const getAvailableSlots = async (req, res) => {
       const startDate = new Date(date);
       const endDate = new Date(date);
       endDate.setDate(endDate.getDate() + 1);
-      
+
       where.appointmentDate = {
         [db.Sequelize.Op.between]: [startDate, endDate]
       };

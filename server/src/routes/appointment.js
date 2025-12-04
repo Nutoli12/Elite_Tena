@@ -34,10 +34,24 @@ import {
   getDoctorQueue
 } from '../controllers/appointmentPhase4Controller.js';
 
+// 🆕 Dashboard: Role-based queries
+import {
+  getDoctorAppointments,
+  getPatientAppointments,
+  getTodayAppointments,
+  getDoctorStats
+} from '../controllers/appointmentDashboardController.js';
+
 const router = express.Router();
 
 // Get all appointments (with optional query filters)
 router.get('/', getAppointments);
+
+// 🆕 Dashboard: Role-based appointment queries
+router.get('/dashboard/doctor/:doctorWallet', getDoctorAppointments);
+router.get('/dashboard/patient/:patientWallet', getPatientAppointments);
+router.get('/dashboard/doctor/:doctorWallet/today', getTodayAppointments);
+router.get('/dashboard/doctor/:doctorWallet/stats', getDoctorStats);
 
 // 👨‍⚕️ NEW: Get available appointment slots
 router.get('/available-slots', getAvailableSlots);

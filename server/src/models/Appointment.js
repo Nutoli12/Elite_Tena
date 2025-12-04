@@ -58,7 +58,7 @@ const Appointment = (sequelize) => {
       allowNull: true
     },
     
-    // 🆕 PHASE 3: Payment & Approval
+    // 🆕 PHASE 3: Payment & Approval (PEER-TO-PEER)
     serviceType: {
       type: DataTypes.ENUM('inPerson', 'videoCall', 'chat'),
       defaultValue: 'inPerson',
@@ -67,7 +67,7 @@ const Appointment = (sequelize) => {
     requiresApproval: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
-      comment: 'Whether appointment needs doctor approval'
+      comment: 'Whether appointment needs doctor approval (for paid services)'
     },
     approvalStatus: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
@@ -84,15 +84,37 @@ const Appointment = (sequelize) => {
       allowNull: true,
       comment: 'Doctor wallet who approved'
     },
+    rejectionReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Reason for rejection if denied'
+    },
+    
+    // PEER-TO-PEER PAYMENT (Direct doctor-patient)
     paymentMethod: {
-      type: DataTypes.ENUM('telebirr', 'cbe_birr', 'cash', 'free'),
+      type: DataTypes.ENUM('telebirr', 'cbe_birr', 'bank_transfer', 'cash', 'free'),
       defaultValue: 'free',
-      comment: 'Payment method used'
+      comment: 'Payment method for peer-to-peer payment'
+    },
+    doctorPaymentDetails: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Doctor payment details (telebirr number, bank account, etc.)'
+    },
+    paymentInstructions: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Doctor instructions for patient payment'
     },
     paymentReceiptUrl: {
       type: DataTypes.TEXT,
       allowNull: true,
-      comment: 'IPFS URL of payment receipt'
+      comment: 'IPFS URL of payment receipt uploaded by patient'
+    },
+    paymentTransactionId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Transaction ID from payment receipt'
     },
     paymentConfirmedAt: {
       type: DataTypes.DATE,
@@ -103,6 +125,11 @@ const Appointment = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: true,
       comment: 'Doctor wallet who confirmed payment'
+    },
+    paymentRejectionReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Reason if payment proof rejected'
     },
     
     // 🆕 PHASE 4: Check-in & Queue
@@ -145,6 +172,56 @@ const Appointment = (sequelize) => {
       type: DataTypes.DATE,
       allowNull: true,
       comment: 'When consultation ended'
+    },
+    consultationDuration: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Consultation duration in minutes'
+    },
+    consultationNotes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Doctor notes during consultation'
+    },
+    chiefComplaint: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Patient chief complaint'
+    },
+    historyPresentIllness: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'History of present illness'
+    },
+    examFindings: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Physical examination findings'
+    },
+    vitalSigns: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Vital signs recorded'
+    },
+    provisionalDiagnosis: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Initial diagnosis'
+    },
+    finalDiagnosis: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Final confirmed diagnosis'
+    },
+    icd10Codes: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+      comment: 'ICD-10 diagnosis codes'
+    },
+    treatmentPlan: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Treatment plan and instructions'
     }
   }, {
     tableName: 'appointments',
