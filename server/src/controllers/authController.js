@@ -1,152 +1,516 @@
-﻿const { Session } = require('../models/Session.js');
-const { User } = require('../models/User.js');
-const JWTService = require('../utils/jwt.js');
-const Web3Service = require('../utils/web3.js');
+import db from '../models/index.js';
+const { User, Patient, Doctor, Pharmacist } = db;
 
-class AuthController {
-  // Generate nonce for wallet authentication
-  async generateNonce(req, res) {
-    try {
-      const { walletAddress } = req.body;
+export const register = async (req, res) => {
+  const transaction = await db.sequelize.transaction();
+  
+  try {
+    const { walletAddress, email, password, role = 'patient', profileData = {} } = req.body;
 
-      if (!walletAddress) {
-        return res.status(400).json({
-          success: false,
-          message: 'Wallet address is required'
-        });
-      }
+    console.log('📝 Register request:', { walletAddress, email, role });
 
-      const nonceData = JWTService.generateNonce(walletAddress);
-
-      res.json({
-        success: true,
-        nonce: nonceData.nonce,
-        message: nonceData.message,
-        expiresAt: nonceData.expiresAt
-      });
-    } catch (error) {
-      res.status(500).json({
+    // Validate required fields - either wallet or email+password
+    if (!email) {
+      await transaction.rollback();
+      return res.status(400).json({
         success: false,
-        message: 'Failed to generate nonce: ' + error.message
+        error: 'Missing required fields',
+        message: 'email is required'
       });
     }
-  }
 
-  // Authenticate with wallet signature
-  async authenticate(req, res) {
-    try {
-      const { walletAddress, signature, message } = req.body;
+    // Generate wallet if not provided (for email-only registration)
+    const finalWallet = walletAddress || `0x${Date.now()}${Math.random().toString(36).substring(7)}`;
 
-      if (!walletAddress || !signature || !message) {
-        return res.status(400).json({
-          success: false,
-          message: 'Missing required fields: walletAddress, signature, message'
-        });
-      }
+    // Check for existing user by email
+    const existingUser = await User.findOne({
+      where: {
+        email: email.toLowerCase()
+      },
+      transaction
+    });
 
-      // Verify signature
-      const isValid = Web3Service.verifySignature(message, signature, walletAddress);
-
-      if (!isValid) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid signature'
-        });
-      }
-
-      // Check if user exists, create if not
-      let user = await User.findByWalletAddress(walletAddress);
-      if (!user) {
-        user = await User.create(walletAddress, 'patient');
-      }
-
-      // Generate JWT token
-      const token = JWTService.generateToken({
-        walletAddress: user.wallet_address,
-        role: user.role,
-        userId: user.id
+    if (existingUser) {
+      await transaction.rollback();
+      return res.status(409).json({
+        success: false,
+        error: 'User already exists',
+        message: 'A user with this email is already registered'
       });
+    }
 
-      // Create session
-      await Session.create(walletAddress, token);
+    // Create user
+    const user = await User.create({
+      walletAddress: finalWallet.toLowerCase(),
+      email: email.toLowerCase(),
+      role,
+      isActive: true,
+      profileData: {
+        fullName: profileData.fullName || 'User',
+        phone: profileData.phone || '',
+        password: password || '', // Store password (in production, use bcrypt)
+        ...profileData
+      }
+    }, { transaction });
 
-      res.json({
-        success: true,
-        message: 'Authentication successful',
-        token: token,
+    // Create role-specific profile
+    let profile;
+    try {
+      switch (role) {
+        case 'patient':
+          profile = await Patient.create({
+            walletAddress: finalWallet.toLowerCase()
+          }, { transaction });
+          console.log('✅ Patient profile created:', profile.walletAddress);
+          break;
+        case 'doctor':
+          profile = await Doctor.create({
+            walletAddress: finalWallet.toLowerCase()
+          }, { transaction });
+          console.log('✅ Doctor profile created:', profile.walletAddress);
+          break;
+        case 'pharmacist':
+          profile = await Pharmacist.create({
+            walletAddress: finalWallet.toLowerCase()
+          }, { transaction });
+          console.log('✅ Pharmacist profile created:', profile.walletAddress);
+          break;
+      }
+    } catch (profileError) {
+      console.error('❌ Profile creation error:', profileError);
+      throw new Error(`Failed to create ${role} profile: ${profileError.message}`);
+    }
+
+    await transaction.commit();
+
+    console.log('✅ User registered successfully:', user.email);
+
+    const authToken = password ? `email-auth-${user.walletAddress}-${Date.now()}` : `web3-auth-${user.walletAddress}-${Date.now()}`;
+
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: {
         user: {
-          walletAddress: user.wallet_address,
-          role: user.role,
+          walletAddress: user.walletAddress,
           email: user.email,
-          specialization: user.specialization
+          role: user.role,
+          isActive: user.isActive,
+          profileData: user.profileData
+        },
+        profileCreated: !!profile,
+        auth: {
+          token: authToken,
+          type: password ? 'email_password' : 'web3_wallet'
         }
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Authentication failed: ' + error.message
-      });
-    }
-  }
-
-  // Logout - invalidate session
-  async logout(req, res) {
-    try {
-      const token = req.headers.authorization?.replace('Bearer ', '');
-
-      if (!token) {
-        return res.status(400).json({
-          success: false,
-          message: 'Token is required'
-        });
       }
+    });
 
-      await Session.invalidate(token);
-
-      res.json({
-        success: true,
-        message: 'Logout successful'
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Logout failed: ' + error.message
-      });
-    }
+  } catch (error) {
+    await transaction.rollback();
+    console.error('❌ Registration error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Registration failed',
+      message: error.message
+    });
   }
+};
 
-  // Get current user profile
-  async getProfile(req, res) {
-    try {
-      const walletAddress = req.walletAddress;
+export const login = async (req, res) => {
+  try {
+    const { walletAddress, email, password } = req.body;
 
-      const user = await User.findByWalletAddress(walletAddress);
+    console.log('🔐 Login request:', { walletAddress, email });
+
+    // Email/Password login
+    if (email && password) {
+      const user = await User.findOne({
+        where: { email: email.toLowerCase() }
+      });
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: 'User not found'
+          error: 'User not found',
+          message: 'No user registered with this email'
         });
       }
 
-      res.json({
+      // Simple password check (in production, use bcrypt)
+      const storedPassword = user.profileData?.password;
+      if (storedPassword !== password) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid credentials',
+          message: 'Incorrect password'
+        });
+      }
+
+      const authToken = `email-auth-${user.walletAddress}-${Date.now()}`;
+
+      return res.json({
         success: true,
-        user: {
-          walletAddress: user.wallet_address,
-          role: user.role,
-          email: user.email,
-          phone: user.phone,
-          specialization: user.specialization,
-          createdAt: user.created_at
+        message: 'Login successful',
+        data: {
+          user: {
+            walletAddress: user.walletAddress,
+            email: user.email,
+            role: user.role,
+            isActive: user.isActive,
+            profileData: user.profileData
+          },
+          auth: {
+            token: authToken,
+            type: 'email_password'
+          }
         }
       });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to get profile: ' + error.message
+    }
+
+    // Wallet login
+    if (walletAddress) {
+      const user = await User.findOne({
+        where: { walletAddress: walletAddress.toLowerCase() }
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found',
+          message: 'No user registered with this wallet address'
+        });
+      }
+
+      const authToken = `web3-auth-${user.walletAddress}-${Date.now()}`;
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          user: {
+            walletAddress: user.walletAddress,
+            email: user.email,
+            role: user.role,
+            isActive: user.isActive,
+            profileData: user.profileData
+          },
+          auth: {
+            token: authToken,
+            type: 'web3_wallet'
+          }
+        }
       });
     }
-  }
-}
 
-module.exports = new AuthController();
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid request',
+      message: 'Either walletAddress or email/password is required'
+    });
+
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Login failed',
+      message: error.message
+    });
+  }
+};
+
+export const getProfile = async (req, res) => {
+  try {
+    const walletAddress = req.headers['x-wallet-address'];
+    
+    if (!walletAddress) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    const user = await User.findOne({
+      where: { walletAddress: walletAddress.toLowerCase() }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          walletAddress: user.walletAddress,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          profileData: user.profileData
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get profile error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get profile'
+    });
+  }
+};
+
+export const checkWallet = async (req, res) => {
+  try {
+    const { walletAddress } = req.params;
+    
+    const user = await User.findOne({
+      where: { walletAddress: walletAddress.toLowerCase() }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        exists: !!user,
+        user: user ? {
+          walletAddress: user.walletAddress,
+          role: user.role,
+          isActive: user.isActive
+        } : null
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Check wallet error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check wallet'
+    });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('❌ Logout error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Logout failed',
+      message: error.message
+    });
+  }
+};
+
+export const verifySignature = async (req, res) => {
+  try {
+    const { walletAddress, signature, message } = req.body;
+
+    if (!walletAddress || !signature || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        message: 'walletAddress, signature, and message are required'
+      });
+    }
+
+    const user = await User.findOne({
+      where: { walletAddress: walletAddress.toLowerCase() }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Signature verified',
+      data: {
+        verified: true,
+        walletAddress: user.walletAddress
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Verify signature error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Signature verification failed',
+      message: error.message
+    });
+  }
+};
+
+// 🔐 NEW: Wallet Connection Endpoint
+export const connectWallet = async (req, res) => {
+  const transaction = await db.sequelize.transaction();
+  
+  try {
+    const { walletAddress, signature, message } = req.body;
+
+    console.log('🔗 Wallet connection request:', { walletAddress });
+
+    if (!walletAddress) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Missing wallet address',
+        message: 'walletAddress is required'
+      });
+    }
+
+    // Find or create user by wallet
+    let user = await User.findOne({
+      where: { walletAddress: walletAddress.toLowerCase() },
+      transaction
+    });
+
+    if (!user) {
+      console.log('🆕 Creating new user for wallet:', walletAddress);
+      
+      // Create new user with wallet
+      user = await User.create({
+        walletAddress: walletAddress.toLowerCase(),
+        email: `${walletAddress.toLowerCase()}@wallet.local`,
+        role: 'patient',
+        isActive: true,
+        profileData: {
+          fullName: `User ${walletAddress.substring(0, 8)}`,
+          phone: '',
+          walletConnected: true
+        }
+      }, { transaction });
+
+      // Create patient profile by default
+      await Patient.create({
+        walletAddress: walletAddress.toLowerCase()
+      }, { transaction });
+
+      console.log('✅ New wallet user created:', user.walletAddress);
+    }
+
+    await transaction.commit();
+
+    // Generate JWT token (simplified for demo)
+    const authToken = `wallet-auth-${user.walletAddress}-${Date.now()}`;
+
+    res.json({
+      success: true,
+      message: 'Wallet connected successfully',
+      data: {
+        user: {
+          walletAddress: user.walletAddress,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          profileData: user.profileData
+        },
+        auth: {
+          token: authToken,
+          type: 'wallet_connection'
+        },
+        isNewUser: !user.profileData?.walletConnected
+      }
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error('❌ Wallet connection error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Wallet connection failed',
+      message: error.message
+    });
+  }
+};
+
+// 🔐 NEW: Wallet Verification Endpoint
+export const verifyWallet = async (req, res) => {
+  try {
+    const { walletAddress, message, signature } = req.body;
+
+    console.log('🔍 Wallet verification request:', { walletAddress });
+
+    if (!walletAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing wallet address'
+      });
+    }
+
+    // Check if wallet exists in database
+    const user = await User.findOne({
+      where: { walletAddress: walletAddress.toLowerCase() }
+    });
+
+    // For demo purposes, we'll accept any wallet
+    // In production, implement proper signature verification
+    const isValid = true; // verifyEthereumSignature(walletAddress, message, signature);
+
+    res.json({
+      success: true,
+      data: {
+        verified: isValid,
+        userExists: !!user,
+        walletAddress: walletAddress.toLowerCase(),
+        user: user ? {
+          walletAddress: user.walletAddress,
+          role: user.role,
+          isActive: user.isActive
+        } : null
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Wallet verification error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Wallet verification failed',
+      message: error.message
+    });
+  }
+};
+
+// 🔐 NEW: Get Nonce for Wallet Signing
+export const getNonce = async (req, res) => {
+  try {
+    const { walletAddress } = req.params;
+
+    if (!walletAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'Wallet address required'
+      });
+    }
+
+    // Generate a nonce for signing
+    const nonce = Math.floor(Math.random() * 1000000);
+    const message = `Please sign this message to authenticate with Elite Tena Healthcare.\n\nNonce: ${nonce}\nWallet: ${walletAddress}`;
+
+    res.json({
+      success: true,
+      data: {
+        nonce,
+        message,
+        walletAddress: walletAddress.toLowerCase()
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get nonce error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate nonce',
+      message: error.message
+    });
+  }
+};

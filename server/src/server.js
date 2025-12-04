@@ -3,144 +3,418 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import session from 'express-session';
 
-// Database imports
-import { testConnection, initializeDatabase } from './config/database.js';
-import { attachDatabase, databaseHealthCheck } from './middleware/database.js';
+// AdminJS imports
+import { admin, adminRouter } from './admin.js';
+
+// Route imports - ADDED NEW ROUTES
+import healthRouter from './routes/health.js';
+import authRoutes from './routes/auth.js';
+import consentRoutes from './routes/consent.js';
+import patientRoutes from './routes/patients.js';
+import doctorRoutes from './routes/doctors.js';
+import medicalRecordRoutes from './routes/medicalRecords.js';
+import labTechnicianRoutes from './routes/labTechnicians.js';
+import pharmacistRoutes from './routes/pharmacists.js';
+import adminRoutes from './routes/admin.js';
+import prescriptionRoutes from './routes/prescriptions.js';
+import labResultRoutes from './routes/labResults.js';
+import appointmentRoutes from './routes/appointment.js';
+import paymentRoutes from './routes/payment.js';
+import fileUploadRoutes from './routes/fileUpload.js';
+import notificationRoutes from './routes/notifications.js';
+
+// Services (using require for CommonJS modules)
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const ipfsService = require('../services/ipfs.cjs');
+const blockchainService = require('../services/blockchain.cjs');
+
+// Database and configuration
+import db from './models/index.js';
+import { testConnection } from './config/database.js';
 
 // Load environment variables
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 5000;
+// Constants
+const PORT = process.env.PORT || 3003;
+const isProduction = process.env.NODE_ENV === 'production';
+const CORS_ORIGINS = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',') 
+  : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
 
-// Security middleware
-app.use(helmet());
+// Create Express app
+const app = express();
+
+// ========== MIDDLEWARE CONFIGURATION ==========
+
+// Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false // Disable for development
+}));
+
+// CORS configuration - Allow all origins in development
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true
+  origin: true, // Allow all origins in development
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Wallet-Address'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 600 // Cache preflight for 10 minutes
 }));
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100
+  max: 1000,
+  message: {
+    error: 'Too many requests from this IP, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
+
 app.use(limiter);
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Database middleware
-app.use(attachDatabase);
-
-// Enhanced health check endpoint
-app.get('/health', databaseHealthCheck, async (req, res) => {
-  const dbStatus = await req.db.testConnection();
-  
-  res.status(200).json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    service: 'Elite-Tena Backend API',
-    version: '1.0.0',
-    database: dbStatus.healthy ? 'connected' : 'disconnected',
-    environment: process.env.NODE_ENV
-  });
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - ${req.ip}`);
+  next();
 });
 
-// Database admin endpoint
-app.get('/admin/database/status', databaseHealthCheck, async (req, res) => {
+// ========== ADMINJS CONFIGURATION ==========
+// AdminJS is configured in admin.js and imported above
+// IMPORTANT: AdminJS must be mounted BEFORE body-parser middleware
+app.use(admin.options.rootPath, adminRouter);
+
+// Body parsing - MUST come after AdminJS
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Session configuration
+app.use(session({
+  name: 'elitetena.sid',
+  secret: process.env.SESSION_SECRET || process.env.ADMIN_COOKIE_SECRET || 'dev-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // Set to true in production with HTTPS
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: 'lax'
+  },
+  rolling: true
+}));
+
+// ========== ROUTES ==========
+
+app.use('/health', healthRouter);
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/consent', consentRoutes);
+app.use('/api/patients', patientRoutes);
+app.use('/api/doctors', doctorRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/medical-records', medicalRecordRoutes);
+app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/lab-results', labResultRoutes);
+app.use('/api/lab-technicians', labTechnicianRoutes);
+app.use('/api/pharmacists', pharmacistRoutes);
+app.use('/api/pharmacy', pharmacistRoutes); // Alias for pharmacists
+app.use('/api/payments', paymentRoutes);
+app.use('/api/upload', fileUploadRoutes); // File upload routes (IPFS)
+app.use('/api/notifications', notificationRoutes); // Notification routes
+
+// Enhanced health check
+app.get('/api/health', async (req, res) => {
   try {
-    const client = await req.db.pool.connect();
+    const dbStatus = await testConnection();
     
-    // Get database statistics
-    const tables = await client.query(`
-      SELECT table_name, 
-             (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public') as table_count
-      FROM information_schema.tables 
-      WHERE table_schema = 'public'
-    `);
-    
-    const usersCount = await client.query('SELECT COUNT(*) FROM users');
-    const filesCount = await client.query('SELECT COUNT(*) FROM file_metadata');
-    const appointmentsCount = await client.query('SELECT COUNT(*) FROM appointments');
-    
-    client.release();
-    
-    res.json({
-      status: 'healthy',
-      tables: tables.rows.length,
+    const userCount = await db.User.count().catch(() => 0);
+    const appointmentCount = await db.Appointment.count().catch(() => 0);
+    const fileCount = await db.FileMetadata.count().catch(() => 0);
+
+    res.status(200).json({
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      service: 'Elite-Tena Backend API',
+      version: '1.0.0',
+      database: dbStatus ? 'connected' : 'disconnected',
+      environment: process.env.NODE_ENV || 'development',
+      port: PORT,
       statistics: {
-        users: parseInt(usersCount.rows[0].count),
-        files: parseInt(filesCount.rows[0].count),
-        appointments: parseInt(appointmentsCount.rows[0].count)
+        users: userCount,
+        appointments: appointmentCount,
+        files: fileCount
       },
+      endpoints: {
+        admin: `http://localhost:${PORT}/admin`,
+        api: `http://localhost:${PORT}/api`,
+        health: `http://localhost:${PORT}/health`
+      }
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'ERROR',
+      error: error.message,
       timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Database status endpoint
+app.get('/api/db-status', async (req, res) => {
+  try {
+    await db.sequelize.authenticate();
+    
+    const [userCount, appointmentCount, fileCount, sessionCount] = await Promise.all([
+      db.User.count().catch(() => 0),
+      db.Appointment.count().catch(() => 0),
+      db.FileMetadata.count().catch(() => 0),
+      db.Session?.count?.().catch(() => 0) || Promise.resolve(0)
+    ]);
+
+    res.json({
+      status: 'connected',
+      database: 'PostgreSQL',
+      timestamp: new Date().toISOString(),
+      statistics: {
+        users: userCount,
+        appointments: appointmentCount,
+        files: fileCount,
+        sessions: sessionCount
+      },
+      models: Object.keys(db).filter(key => !['sequelize', 'Sequelize'].includes(key)),
+      connection: {
+        host: db.sequelize.config.host,
+        port: db.sequelize.config.port,
+        database: db.sequelize.config.database,
+        dialect: db.sequelize.config.dialect
+      }
     });
   } catch (error) {
     res.status(500).json({
       status: 'error',
-      error: error.message
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      database: 'PostgreSQL'
     });
   }
 });
 
-// API routes will be added here
-app.use('/api/auth', (req, res) => {
-  res.json({ message: 'Auth endpoints coming soon' });
+// Test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'Backend is working!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    adminPanel: `http://localhost:${PORT}/admin`,
+    database: {
+      models: Object.keys(db).filter(key => !['sequelize', 'Sequelize'].includes(key))
+    }
+  });
 });
 
-app.use('/api/upload', (req, res) => {
-  res.json({ message: 'Upload endpoints coming soon' });
-});
-
-// 404 handler
+// 404 handler - UPDATED WITH NEW ENDPOINTS
 app.use('*', (req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Route not found',
-    path: req.originalUrl 
+    path: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    availableEndpoints: [
+      // Health & Status
+      'GET /api/health',
+      'GET /api/db-status',
+      'GET /api/test',
+      
+      // Authentication
+      'POST /api/auth/register',
+      'POST /api/auth/login',
+      'POST /api/auth/logout',
+      'GET /api/auth/profile',
+      
+      // Admin
+      'GET /api/admin/stats',
+      'GET /api/admin/analytics',
+      'GET /api/admin/audit-logs',
+      'GET /api/admin/users',
+      'GET /api/admin/users/:walletAddress',
+      'PATCH /api/admin/users/:walletAddress/status',
+      'DELETE /api/admin/users/:walletAddress',
+      
+      // Consent
+      'POST /api/consent/grant',
+      'POST /api/consent/revoke',
+      'GET /api/consent/:patientWallet',
+      
+      // Patients
+      'GET /api/patients',
+      'GET /api/patients/:walletAddress',
+      
+      // Doctors
+      'GET /api/doctors',
+      'GET /api/doctors/:walletAddress',
+      
+      // Appointments
+      'GET /api/appointments',
+      'GET /api/appointments/doctor/:doctorWallet',
+      'GET /api/appointments/patient/:patientWallet',
+      'GET /api/appointments/:id',
+      'POST /api/appointments',
+      'PUT /api/appointments/:id',
+      'PATCH /api/appointments/:id/cancel',
+      'DELETE /api/appointments/:id',
+      
+      // Medical Records
+      'GET /api/medical-records/:patientWallet',
+      'POST /api/medical-records',
+      'POST /api/medical-records/:patientWallet',
+      'PUT /api/medical-records/:id',
+      'DELETE /api/medical-records/:id',
+      
+      // Prescriptions
+      'GET /api/prescriptions',
+      'GET /api/prescriptions/patient/:patientWallet',
+      'GET /api/prescriptions/:id',
+      'POST /api/prescriptions',
+      'PUT /api/prescriptions/:id',
+      'DELETE /api/prescriptions/:id',
+      
+      // Lab Results
+      'GET /api/lab-results',
+      'GET /api/lab-results/:id',
+      'POST /api/lab-results',
+      'PUT /api/lab-results/:id',
+      'DELETE /api/lab-results/:id',
+      
+      // Lab Technicians
+      'GET /api/lab-technicians',
+      'POST /api/lab-technicians/upload-result',
+      
+      // Pharmacists
+      'GET /api/pharmacists',
+      'POST /api/pharmacists/dispense',
+      
+      // Payments
+      'POST /api/payments/initialize',
+      'GET /api/payments',
+      'GET /api/payments/:id',
+      'PATCH /api/payments/:id/status'
+    ]
   });
 });
 
-// Error handling middleware
+// Error handling
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('ðŸš¨ Server Error:', {
+    message: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+
+  if (err.name && err.name.includes('Sequelize')) {
+    return res.status(400).json({
+      error: 'Database error',
+      message: process.env.NODE_ENV === 'development' ? err.message : 'A database error occurred'
+    });
+  }
+
   res.status(err.status || 500).json({
-    error: err.message || 'Internal Server Error'
+    error: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 
-// Initialize database and start server
+// ========== SERVER STARTUP ==========
 const startServer = async () => {
   try {
-    // Test database connection
+    console.log('ðŸš€ Starting Elite-Tena Backend Server...\n');
+
+    console.log('1. Testing database connection...');
     const dbConnected = await testConnection();
     if (!dbConnected) {
-      console.error('âŒ Cannot start server without database connection');
-      process.exit(1);
+      throw new Error('âŒ Cannot start server without database connection');
+    }
+    console.log('âœ… Database connection established');
+
+    console.log('ðŸ”— Initializing database associations...');
+    if (typeof db.associate === 'function') {
+      db.associate();
+    }
+    console.log('âœ… Database associations initialized successfully');
+
+    console.log('2. Syncing database models...');
+    await db.sequelize.sync({
+      force: false,
+      alter: process.env.NODE_ENV === 'development'
+    });
+    console.log('âœ… Database models synchronized');
+
+    console.log('3. Checking admin user...');
+    const adminWallet = process.env.ADMIN_WALLET_ADDRESS;
+    if (adminWallet) {
+      const [adminUser, created] = await db.User.findOrCreate({
+        where: { walletAddress: adminWallet.toLowerCase() },
+        defaults: {
+          role: 'admin',
+          email: process.env.ADMIN_EMAIL || 'admin@elitetena.com',
+          isActive: true
+        }
+      });
+      console.log(`âœ… Admin user: ${adminUser.walletAddress} (${created ? 'created' : 'exists'})`);
     }
 
-    // Initialize database tables
-    await initializeDatabase();
+    console.log('4. Initializing services...');
+    // Initialize IPFS service
+    const ipfsReady = await ipfsService.initialize();
+    if (ipfsReady) {
+      console.log('âœ… IPFS service initialized');
+    } else {
+      console.log('âš ï¸  IPFS service not available (check .env for Pinata credentials)');
+    }
 
-    // Start server
-    app.listen(PORT, () => {
-      console.log(`
-      í¿¥ Elite-Tena Backend Server Started!
-      í³¡ Port: ${PORT}
-      í¼ Environment: ${process.env.NODE_ENV}
-      í·„ï¸  Database: Connected
-      íµ’ Time: ${new Date().toISOString()}
-      í´— CORS: ${process.env.CORS_ORIGIN || 'http://localhost:3000'}
-      `);
+    // Initialize blockchain service (optional)
+    if (process.env.CONTRACT_ADDRESS && process.env.BLOCKCHAIN_RPC_URL) {
+      const blockchainReady = await blockchainService.initialize();
+      if (blockchainReady) {
+        blockchainService.setupEventListeners(db);
+        console.log('âœ… Blockchain service initialized');
+      }
+    } else {
+      console.log('âš ï¸  Blockchain service not configured (optional)');
+    }
+
+    const server = app.listen(PORT, () => {
+      console.log('\nðŸŽ‰ Elite-Tena Backend Server Started Successfully!');
+      console.log('ðŸ“Š Server Information:');
+      console.log(`   ðŸ“ Port: ${PORT}`);
+      console.log(`   ðŸŒ Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`   ðŸ—„ï¸  Database: Connected`);
+      console.log(`   ðŸ‘‘ Admin Panel: http://localhost:${PORT}/admin`);
+      console.log(`   ðŸ©º Health Check: http://localhost:${PORT}/api/health`);
+      console.log(`   ðŸ§ª Test Endpoint: http://localhost:${PORT}/api/test`);
+      console.log(`   ðŸ“ˆ DB Status: http://localhost:${PORT}/api/db-status`);
+      console.log('\nâœ… Backend is ready for frontend integration!');
     });
+
+    return server;
+
   } catch (error) {
-    console.error('âŒ Failed to start server:', error);
+    console.error('\nâŒ Failed to start server:');
+    console.error('Error:', error.message);
     process.exit(1);
   }
 };
 
-startServer();
+startServer().catch(error => {
+  console.error('ðŸ’¥ Critical error during startup:', error);
+  process.exit(1);
+});
 
 export default app;

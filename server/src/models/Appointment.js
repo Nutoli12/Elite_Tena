@@ -1,72 +1,89 @@
-import pool from '../config/database.js';
+import { DataTypes } from 'sequelize';
 
-export class Appointment {
-  // Create appointment record
-  static async create(blockchainAppointmentId, patientWallet, doctorWallet, appointmentDate, feeEth, notes = null) {
-    const result = await pool.query(
-      `INSERT INTO appointments 
-       (blockchain_appointment_id, patient_wallet, doctor_wallet, appointment_date, fee_eth, notes) 
-       VALUES ($1, $2, $3, $4, $5, $6) 
-       RETURNING *`,
-      [blockchainAppointmentId, patientWallet, doctorWallet, appointmentDate, feeEth, notes]
-    );
-    return result.rows[0];
-  }
+const Appointment = (sequelize) => {
+  const AppointmentModel = sequelize.define('Appointment', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    patientWalletAddress: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      field: 'patientWallet',  // Map to actual database column
+      references: {
+        model: 'patients',
+        key: 'walletAddress'
+      }
+    },
+    doctorWalletAddress: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      field: 'doctorWallet',  // Map to actual database column
+      references: {
+        model: 'doctors',
+        key: 'walletAddress'
+      }
+    },
+    appointmentDate: {
+      type: DataTypes.DATE,
+      allowNull: false
+    },
+    status: {
+      type: DataTypes.ENUM('scheduled', 'completed', 'cancelled', 'no-show'),
+      defaultValue: 'scheduled'
+    },
+    reason: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    duration: {
+      type: DataTypes.INTEGER,  // Appointment duration in minutes
+      defaultValue: 30
+    },
+    notes: {
+      type: DataTypes.TEXT,     // Doctor's notes after appointment
+      allowNull: true
+    },
+    fee: {
+      type: DataTypes.DECIMAL(10, 2),  // Appointment fee
+      defaultValue: 0.00
+    },
+    paymentStatus: {
+      type: DataTypes.ENUM('pending', 'paid', 'refunded'),
+      defaultValue: 'pending'
+    },
+    blockchainTxHash: {      // Transaction hash if paid on blockchain
+      type: DataTypes.STRING,
+      allowNull: true
+    }
+  }, {
+    tableName: 'appointments',
+    timestamps: true
+  });
 
-  // Get appointments by patient
-  static async findByPatient(patientWallet) {
-    const result = await pool.query(
-      `SELECT a.*, u.specialization as doctor_specialization
-       FROM appointments a
-       JOIN users u ON a.doctor_wallet = u.wallet_address
-       WHERE a.patient_wallet = $1 
-       ORDER BY a.appointment_date DESC`,
-      [patientWallet]
-    );
-    return result.rows;
-  }
+  AppointmentModel.associate = function(models) {
+    AppointmentModel.belongsTo(models.Patient, {
+      foreignKey: 'patientWalletAddress',
+      as: 'patientDetails'
+    });
+    AppointmentModel.belongsTo(models.Doctor, {
+      foreignKey: 'doctorWalletAddress',
+      as: 'doctorDetails'
+    });
+    AppointmentModel.belongsTo(models.User, {
+      foreignKey: 'patientWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'patientUser'
+    });
+    AppointmentModel.belongsTo(models.User, {
+      foreignKey: 'doctorWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'doctorUser'
+    });
+  };
 
-  // Get appointments by doctor
-  static async findByDoctor(doctorWallet) {
-    const result = await pool.query(
-      `SELECT a.*, u.email as patient_email, u.phone as patient_phone
-       FROM appointments a
-       JOIN users u ON a.patient_wallet = u.wallet_address
-       WHERE a.doctor_wallet = $1 
-       ORDER BY a.appointment_date DESC`,
-      [doctorWallet]
-    );
-    return result.rows;
-  }
+  return AppointmentModel;
+};
 
-  // Update appointment status
-  static async updateStatus(appointmentId, status) {
-    const result = await pool.query(
-      `UPDATE appointments 
-       SET status = $1, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $2 
-       RETURNING *`,
-      [status, appointmentId]
-    );
-    return result.rows[0];
-  }
-
-  // Get upcoming appointments
-  static async getUpcoming(limit = 10) {
-    const result = await pool.query(
-      `SELECT a.*, 
-              p.wallet_address as patient_wallet,
-              d.wallet_address as doctor_wallet,
-              d.specialization as doctor_specialization
-       FROM appointments a
-       JOIN users p ON a.patient_wallet = p.wallet_address
-       JOIN users d ON a.doctor_wallet = d.wallet_address
-       WHERE a.appointment_date >= CURRENT_TIMESTAMP 
-       AND a.status = 'scheduled'
-       ORDER BY a.appointment_date ASC
-       LIMIT $1`,
-      [limit]
-    );
-    return result.rows;
-  }
-}
+export default Appointment;

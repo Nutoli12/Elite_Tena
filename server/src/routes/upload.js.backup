@@ -1,0 +1,288 @@
+import express from 'express';
+import multer from 'multer';
+import { ipfsService } from '../utils/ipfs.js';
+import { FileMetadata } from '../models/FileMetadata.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+
+
+const router = express.Router();
+
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow medical file types
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/dicom',
+      'application/dicom',
+      'text/plain'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, images, and medical files are allowed.'), false);
+    }
+  }
+});
+
+// Test IPFS connection
+router.get('/test', requireAuth, async (req, res) => {
+  try {
+    const result = await ipfsService.testConnection();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Upload medical file
+router.post('/medical', requireAuth, upload.single('medicalFile'), async (req, res) => {
+  try {
+    const { description } = req.body;
+    const { file } = req;
+    const { walletAddress } = req.user;
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded'
+      });
+    }
+
+    console.log(`Uploading medical file for ${walletAddress}: ${file.originalname}`);
+
+    // Upload to IPFS
+    const uploadResult = await ipfsService.uploadMedicalFile(
+      file.buffer,
+      file.originalname,
+      walletAddress
+    );
+
+    if (!uploadResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: uploadResult.error
+      });
+    }
+
+    // Store metadata in database
+    const fileMetadata = await FileMetadata.create(
+      uploadResult.cid,
+      walletAddress,
+      file.originalname,
+      file.size,
+      file.mimetype,
+      description || null,
+      {
+        encrypted: true,
+        uploadTimestamp: uploadResult.timestamp,
+        originalSize: file.size
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'File uploaded successfully',
+      file: {
+        id: fileMetadata.id,
+        cid: fileMetadata.cid,
+        originalFilename: fileMetadata.original_filename,
+        fileSize: fileMetadata.file_size,
+        fileType: fileMetadata.file_type,
+        description: fileMetadata.description,
+        uploadedAt: fileMetadata.uploaded_at
+      }
+    });
+
+  } catch (error) {
+    console.error('File upload error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get user's medical files
+router.get('/files', requireAuth, async (req, res) => {
+  try {
+    const { walletAddress } = req.user;
+    
+    const files = await FileMetadata.findByWallet(walletAddress);
+    
+    res.json({
+      success: true,
+      files: files.map(file => ({
+        id: file.id,
+        cid: file.cid,
+        originalFilename: file.original_filename,
+        fileSize: file.file_size,
+        fileType: file.file_type,
+        description: file.description,
+        uploadedAt: file.uploaded_at,
+        encryptedMetadata: file.encrypted_metadata
+      }))
+    });
+
+  } catch (error) {
+    console.error('Get files error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get specific file info
+router.get('/files/:cid', requireAuth, async (req, res) => {
+  try {
+    const { cid } = req.params;
+    const { walletAddress } = req.user;
+
+    const file = await FileMetadata.findByCid(cid);
+    
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    }
+
+    // Check ownership
+    if (file.wallet_address !== walletAddress && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    // Get IPFS availability info
+    const ipfsInfo = await ipfsService.retrieveMedicalFile(cid, walletAddress);
+
+    res.json({
+      success: true,
+      file: {
+        id: file.id,
+        cid: file.cid,
+        originalFilename: file.original_filename,
+        fileSize: file.file_size,
+        fileType: file.file_type,
+        description: file.description,
+        uploadedAt: file.uploaded_at,
+        ipfs: ipfsInfo
+      }
+    });
+
+  } catch (error) {
+    console.error('Get file error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Delete medical file
+router.delete('/files/:cid', requireAuth, async (req, res) => {
+  try {
+    const { cid } = req.params;
+    const { walletAddress } = req.user;
+
+    const file = await FileMetadata.findByCid(cid);
+    
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    }
+
+    // Check ownership
+    if (file.wallet_address !== walletAddress && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    // Unpin from IPFS
+    const unpinResult = await ipfsService.unpinFile(cid);
+    
+    if (!unpinResult.success) {
+      console.warn(`Failed to unpin file ${cid} from IPFS:`, unpinResult.error);
+    }
+
+    // Delete metadata from database
+    await FileMetadata.delete(cid, walletAddress);
+
+    res.json({
+      success: true,
+      message: 'File deleted successfully',
+      cid
+    });
+
+  } catch (error) {
+    console.error('Delete file error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get IPFS gateway URL for file
+router.get('/files/:cid/url', requireAuth, async (req, res) => {
+  try {
+    const { cid } = req.params;
+    const { walletAddress } = req.user;
+
+    const file = await FileMetadata.findByCid(cid);
+    
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    }
+
+    // Check ownership or access permissions
+    if (file.wallet_address !== walletAddress && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    // Return IPFS gateway URL
+    const gatewayUrl = `https://gateway.pinata.cloud/ipfs/${cid}`;
+    
+    res.json({
+      success: true,
+      url: gatewayUrl,
+      cid,
+      accessType: 'encrypted' // File is encrypted, requires decryption
+    });
+
+  } catch (error) {
+    console.error('Get file URL error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+export default router;

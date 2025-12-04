@@ -1,61 +1,72 @@
-﻿const { Session } = require('../models/Session.js');
-const Web3Service = require('../utils/web3.js');
+import db from '../models/index.js';
 
-// Middleware to require authentication
-const requireAuth = async (req, res, next) => {
+const { User, Session } = db;
+
+export const authenticateToken = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
       return res.status(401).json({
-        error: 'Authentication required',
+        error: 'Access token required',
         message: 'Please provide a valid authentication token'
       });
     }
 
-    const session = await Session.findByToken(token);
-
-    if (!session) {
+    const walletAddress = req.headers['x-wallet-address'];
+    
+    if (!walletAddress) {
       return res.status(401).json({
-        error: 'Invalid or expired token',
-        message: 'Please login again'
+        error: 'Wallet address required',
+        message: 'Please provide wallet address in x-wallet-address header'
       });
     }
 
-    // Get user details
-    const { User } = require('../models/User.js');
-    const user = await User.findByWalletAddress(session.wallet_address);
+    const user = await User.findOne({
+      where: { walletAddress: walletAddress.toLowerCase() }
+    });
 
-    // Attach user data to request
-    req.user = {
-      walletAddress: session.wallet_address,
-      role: user?.role || 'patient',
-      specialization: user?.specialization
-    };
+    if (!user) {
+      return res.status(401).json({
+        error: 'User not found',
+        message: 'No user registered with this wallet address'
+      });
+    }
 
+    if (!user.isActive) {
+      return res.status(403).json({
+        error: 'Account deactivated',
+        message: 'This account has been deactivated'
+      });
+    }
+
+    req.user = user;
     next();
+
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.status(401).json({
+    return res.status(500).json({
       error: 'Authentication failed',
-      message: error.message
+      message: 'Internal server error during authentication'
     });
   }
 };
 
-// Middleware to require specific role
-const requireRole = (allowedRoles) => {
+export const requireRole = (roles) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
-        error: 'Authentication required'
+        error: 'Authentication required',
+        message: 'Please authenticate first'
       });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         error: 'Insufficient permissions',
-        message: 'Required role: ' + allowedRoles.join(', ')
+        message: `Required roles: ${roles.join(', ')}`,
+        userRole: req.user.role
       });
     }
 
@@ -63,61 +74,4 @@ const requireRole = (allowedRoles) => {
   };
 };
 
-// Middleware to require doctor approval
-const requireDoctorApproval = async (req, res, next) => {
-  if (req.user.role !== 'doctor') {
-    return next();
-  }
-
-  try {
-    const isApproved = await Web3Service.isDoctorApproved(req.user.walletAddress);
-
-    if (!isApproved) {
-      return res.status(403).json({
-        error: 'Doctor not approved',
-        message: 'Your account is pending administrator approval'
-      });
-    }
-
-    next();
-  } catch (error) {
-    console.error('Doctor approval check failed:', error);
-    res.status(500).json({
-      error: 'Approval check failed',
-      message: 'Unable to verify doctor status'
-    });
-  }
-};
-
-// Optional auth middleware (attaches user if available)
-const optionalAuth = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-
-    if (token) {
-      const session = await Session.findByToken(token);
-      if (session) {
-        const { User } = require('../models/User.js');
-        const user = await User.findByWalletAddress(session.wallet_address);
-        
-        req.user = {
-          walletAddress: session.wallet_address,
-          role: user?.role || 'patient',
-          specialization: user?.specialization
-        };
-      }
-    }
-
-    next();
-  } catch (error) {
-    // Continue without authentication
-    next();
-  }
-};
-
-module.exports = {
-  requireAuth,
-  requireRole,
-  requireDoctorApproval,
-  optionalAuth
-};
+// duplicate requireRole removed — use the earlier requireRole implementation above
