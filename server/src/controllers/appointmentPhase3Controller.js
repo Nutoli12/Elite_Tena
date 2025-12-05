@@ -128,6 +128,15 @@ export const getPendingApprovals = async (req, res) => {
   try {
     const { doctorWallet } = req.query;
 
+    if (!doctorWallet) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing doctorWallet query parameter',
+        data: [],
+        count: 0
+      });
+    }
+
     console.log('🔍 Fetching pending approvals for:', doctorWallet);
 
     const appointments = await Appointment.findAll({

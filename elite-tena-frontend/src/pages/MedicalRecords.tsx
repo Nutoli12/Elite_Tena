@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Plus, Search, Download, Eye, Calendar, User } from 'lucide-react';
 import axios from '../lib/axios';
 import type { MedicalRecord } from '../types/healthcare';
+import { CreateRecordModal } from '../components/modals/CreateRecordModal';
+import { ipfsService } from '../services/ipfs';
 
 export const MedicalRecords: React.FC = () => {
   const { user } = useAuth();
@@ -12,7 +14,7 @@ export const MedicalRecords: React.FC = () => {
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  // const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     fetchRecords();
@@ -58,6 +60,73 @@ export const MedicalRecords: React.FC = () => {
     }
   };
 
+  const handleCreateRecord = async (data: any) => {
+    try {
+      console.log('📝 Creating medical record...', data);
+
+      let ipfsHash = '';
+      let fileUrl = '';
+
+      // Upload file to IPFS if provided
+      if (data.file) {
+        console.log('📤 Uploading file to IPFS...');
+        const uploadResult = await ipfsService.uploadFile(data.file, {
+          name: `medical-record-${Date.now()}-${data.file.name}`,
+          keyvalues: {
+            type: 'medical-record-attachment',
+            patientWallet: user?.walletAddress || '',
+            doctorWallet: user?.walletAddress || '',
+          }
+        });
+
+        if (uploadResult.success) {
+          ipfsHash = uploadResult.ipfsHash || '';
+          fileUrl = uploadResult.ipfsUrl || '';
+          console.log('✅ File uploaded to IPFS:', ipfsHash);
+        } else {
+          console.error('❌ IPFS upload failed:', uploadResult.error);
+          alert('Failed to upload file to IPFS. Creating record without attachment.');
+        }
+      }
+
+      // Create medical record via API
+      const recordData = {
+        patientWalletAddress: user?.walletAddress,
+        doctorWalletAddress: user?.walletAddress,
+        recordType: 'consultation',
+        title: data.title,
+        description: data.notes || '',
+        diagnosis: data.diagnosis,
+        treatment: data.treatment,
+        symptoms: data.symptoms ? data.symptoms.split(',').map((s: string) => s.trim()) : [],
+        visitDate: new Date().toISOString(),
+        ipfsHash: ipfsHash || null,
+        fileUrl: fileUrl || null,
+        isEncrypted: true
+      };
+
+      console.log('📤 Sending record to backend...', recordData);
+
+      const response = await axios.post('/medical-records', recordData, {
+        headers: {
+          'x-wallet-address': user?.walletAddress
+        }
+      });
+
+      if (response.data.success) {
+        console.log('✅ Medical record created successfully');
+        alert('Medical record created successfully!');
+        fetchRecords(); // Refresh the list
+      } else {
+        console.error('❌ Failed to create record:', response.data);
+        alert('Failed to create medical record. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('❌ Error creating medical record:', error);
+      alert(error.response?.data?.message || 'Failed to create medical record. Please try again.');
+    }
+  };
+
   const filteredRecords = records.filter(record =>
     record.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     record.diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
@@ -92,7 +161,7 @@ export const MedicalRecords: React.FC = () => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => alert('Create Record modal - Coming soon!')}
+            onClick={() => setShowCreateModal(true)}
             className="healthcare-button flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
@@ -220,6 +289,13 @@ export const MedicalRecords: React.FC = () => {
           </p>
         </motion.div>
       )}
+
+      {/* Create Record Modal */}
+      <CreateRecordModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateRecord}
+      />
     </motion.div>
   );
 };

@@ -29,9 +29,19 @@ export const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
   const fetchPaymentDetails = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`/appointments/${appointmentId}/payment-details`);
-      if (response.data.success) {
-        setPaymentDetails(response.data.data);
+      // First get appointment to get doctor wallet
+      const appointmentResponse = await axios.get(`/appointments/${appointmentId}`);
+      const appointment = appointmentResponse.data.data;
+      
+      // Then get doctor's payment settings
+      const paymentResponse = await axios.get(`/premium-service/payment-settings/${appointment.doctorWalletAddress}`);
+      
+      if (paymentResponse.data.success) {
+        setPaymentDetails({
+          ...paymentResponse.data.data,
+          doctorName: appointment.doctorDetails?.user?.profileData?.fullName || 'Doctor',
+          appointmentId: appointmentId
+        });
       }
     } catch (error) {
       console.error('Failed to fetch payment details:', error);
@@ -88,54 +98,118 @@ export const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
               </div>
             ) : paymentDetails ? (
               <>
-                {/* Amount */}
+                {/* Doctor Info & Amount */}
                 <div className="bg-gradient-to-br from-medical-500 to-medical-600 rounded-xl p-6 text-white">
+                  <p className="text-sm opacity-90 mb-1">Pay to</p>
+                  <p className="text-2xl font-bold mb-4">{paymentDetails.doctorName}</p>
                   <div className="flex items-center gap-2 mb-2">
                     <DollarSign className="w-6 h-6" />
-                    <p className="text-sm opacity-90">Total Amount</p>
+                    <p className="text-sm opacity-90">Premium Service Fee</p>
                   </div>
-                  <p className="text-4xl font-bold">{paymentDetails.amount} ETB</p>
-                  <p className="text-sm opacity-90 mt-1 capitalize">
-                    {paymentDetails.serviceType?.replace(/([A-Z])/g, ' $1').trim()}
-                  </p>
+                  <p className="text-4xl font-bold">{paymentDetails.premiumServiceFee || 500} Birr</p>
                 </div>
 
                 {/* Payment Methods */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-900">Choose Payment Method</h3>
 
-                  {paymentDetails.paymentMethods?.map((method: any, index: number) => (
+                  {/* Telebirr */}
+                  {paymentDetails.telebirrEnabled && (
                     <motion.div
-                      key={method.method}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
                       className="border-2 border-gray-200 rounded-xl p-4 hover:border-medical-500 transition-colors"
                     >
                       <div className="flex items-start gap-3">
                         <div className="w-12 h-12 bg-medical-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          {method.method === 'telebirr' ? (
-                            <Phone className="w-6 h-6 text-medical-600" />
-                          ) : (
-                            <CreditCard className="w-6 h-6 text-medical-600" />
-                          )}
+                          <Phone className="w-6 h-6 text-medical-600" />
                         </div>
-
                         <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900 capitalize mb-1">
-                            {method.method.replace('_', ' ')}
-                          </h4>
+                          <h4 className="font-semibold text-gray-900 mb-1">Telebirr</h4>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Phone Number:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-semibold">{paymentDetails.telebirrPhone}</span>
+                              <button
+                                onClick={() => copyToClipboard(paymentDetails.telebirrPhone, 'telebirr')}
+                                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                {copied === 'telebirr' ? (
+                                  <CheckCircle className="w-4 h-4 text-green-600" />
+                                ) : (
+                                  <Copy className="w-4 h-4 text-gray-400" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
 
+                  {/* CBE Birr */}
+                  {paymentDetails.cbeBirrEnabled && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="border-2 border-gray-200 rounded-xl p-4 hover:border-medical-500 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 bg-medical-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <CreditCard className="w-6 h-6 text-medical-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1">CBE Birr</h4>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Account Number:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-semibold">{paymentDetails.cbeBirrAccount}</span>
+                              <button
+                                onClick={() => copyToClipboard(paymentDetails.cbeBirrAccount, 'cbe')}
+                                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                {copied === 'cbe' ? (
+                                  <CheckCircle className="w-4 h-4 text-green-600" />
+                                ) : (
+                                  <Copy className="w-4 h-4 text-gray-400" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Bank Transfer */}
+                  {paymentDetails.bankTransferEnabled && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="border-2 border-gray-200 rounded-xl p-4 hover:border-medical-500 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 bg-medical-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <CreditCard className="w-6 h-6 text-medical-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1">Bank Transfer</h4>
                           <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Bank:</span>
+                              <span className="font-semibold">{paymentDetails.bankName}</span>
+                            </div>
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-gray-600">Account Number:</span>
                               <div className="flex items-center gap-2">
-                                <span className="font-mono font-semibold">{method.accountNumber}</span>
+                                <span className="font-mono font-semibold">{paymentDetails.bankAccountNumber}</span>
                                 <button
-                                  onClick={() => copyToClipboard(method.accountNumber, method.method)}
+                                  onClick={() => copyToClipboard(paymentDetails.bankAccountNumber, 'bank')}
                                   className="p-1 hover:bg-gray-100 rounded transition-colors"
                                 >
-                                  {copied === method.method ? (
+                                  {copied === 'bank' ? (
                                     <CheckCircle className="w-4 h-4 text-green-600" />
                                   ) : (
                                     <Copy className="w-4 h-4 text-gray-400" />
@@ -143,20 +217,22 @@ export const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
                                 </button>
                               </div>
                             </div>
-
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Account Name:</span>
-                              <span className="font-semibold">{method.accountName}</span>
+                              <span className="text-sm text-gray-600">Account Holder:</span>
+                              <span className="font-semibold">{paymentDetails.bankAccountHolder}</span>
                             </div>
                           </div>
-
-                          <p className="text-sm text-gray-600 mt-2 bg-gray-50 p-2 rounded">
-                            {method.instructions}
-                          </p>
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                  )}
+
+                  {!paymentDetails.telebirrEnabled && !paymentDetails.cbeBirrEnabled && !paymentDetails.bankTransferEnabled && (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>Doctor hasn't configured payment methods yet.</p>
+                      <p className="text-sm mt-2">Please contact the doctor directly.</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Instructions */}

@@ -305,3 +305,219 @@ export const getConsultationDetails = async (req, res) => {
     });
   }
 };
+
+/**
+ * Update comprehensive consultation data (auto-save)
+ */
+export const updateComprehensiveConsultation = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const consultationData = req.body;
+
+    console.log('📝 Updating comprehensive consultation for:', appointmentId);
+
+    const appointment = await Appointment.findByPk(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Appointment not found'
+      });
+    }
+
+    // Update all comprehensive fields
+    await appointment.update({
+      // History
+      chiefComplaint: consultationData.chiefComplaint,
+      historyPresentIllness: consultationData.historyPresentIllness,
+      past_medical_history: consultationData.pastMedicalHistory,
+      surgeries: consultationData.surgeries,
+      hospitalizations: consultationData.hospitalizations,
+      immunizations: consultationData.immunizations,
+      family_history: consultationData.familyHistory,
+      allergies: consultationData.allergies,
+      current_medications: consultationData.currentMedications,
+      review_of_systems: consultationData.reviewOfSystems,
+      
+      // Physical Exam
+      vitalSigns: consultationData.vitalSigns,
+      physical_exam_detailed: consultationData.physicalExamDetailed,
+      
+      // Tests
+      test_results: consultationData.testResults,
+      imaging_results: consultationData.imagingResults,
+      lab_interpretation: consultationData.labInterpretation,
+      
+      // Diagnosis
+      primary_diagnosis: consultationData.primaryDiagnosis,
+      secondary_diagnoses: consultationData.secondaryDiagnoses,
+      differential_diagnoses: consultationData.differentialDiagnoses,
+      clinical_impression: consultationData.clinicalImpression,
+      icd10_codes: consultationData.icd10Codes,
+      
+      // Treatment
+      immediate_management: consultationData.immediateManagement,
+      procedures_planned: consultationData.proceduresPlanned,
+      prescriptions_issued: consultationData.prescriptionsIssued,
+      treatmentPlan: consultationData.treatmentPlan,
+      
+      // Admission
+      admission_required: consultationData.admissionRequired,
+      admission_details: consultationData.admissionDetails,
+      consultations_requested: consultationData.consultationsRequested,
+      dietary_orders: consultationData.dietaryOrders,
+      activity_orders: consultationData.activityOrders,
+      
+      // Follow-up
+      follow_up_schedule: consultationData.followUpSchedule,
+      patient_education: consultationData.patientEducation,
+      education_materials_provided: consultationData.educationMaterialsProvided,
+      
+      // Final
+      assessment_summary: consultationData.assessmentSummary,
+      disposition: consultationData.disposition,
+      prognosis: consultationData.prognosis,
+      additional_notes: consultationData.additionalNotes,
+      
+      // Metadata
+      consultation_phase: consultationData.consultationPhase,
+      last_auto_save: new Date()
+    });
+
+    console.log('✅ Comprehensive consultation updated');
+
+    res.json({
+      success: true,
+      message: 'Consultation data saved',
+      data: appointment
+    });
+
+  } catch (error) {
+    console.error('❌ Update comprehensive consultation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update consultation',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Finalize and sign comprehensive consultation
+ */
+export const finalizeComprehensiveConsultation = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const consultationData = req.body;
+
+    console.log('✅ Finalizing comprehensive consultation for:', appointmentId);
+
+    const appointment = await Appointment.findByPk(appointmentId, {
+      include: [
+        {
+          model: Patient,
+          as: 'patientDetails',
+          include: [{ model: User, as: 'user' }]
+        },
+        {
+          model: Doctor,
+          as: 'doctorDetails',
+          include: [{ model: User, as: 'user' }]
+        }
+      ]
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Appointment not found'
+      });
+    }
+
+    // Calculate duration
+    const startTime = new Date(appointment.consultationStartedAt);
+    const endTime = new Date();
+    const duration = Math.round((endTime - startTime) / 1000); // seconds
+
+    // Update appointment with final data
+    await appointment.update({
+      ...consultationData,
+      status: 'completed',
+      checkInStatus: 'completed',
+      consultationEndedAt: endTime,
+      consultation_duration: duration,
+      consultation_phase: 'completed',
+      record_locked: true,
+      signed_at: new Date(),
+      digital_signature: `DR_${appointment.doctorWalletAddress}_${Date.now()}`
+    });
+
+    // Create comprehensive medical record
+    const medicalRecord = await MedicalRecord.create({
+      patientWalletAddress: appointment.patientWalletAddress,
+      doctorWalletAddress: appointment.doctorWalletAddress,
+      recordType: 'comprehensive_consultation',
+      title: `Consultation - ${new Date().toLocaleDateString()}`,
+      diagnosis: consultationData.primaryDiagnosis?.description || 'See full record',
+      treatment: consultationData.treatmentPlan || 'See full record',
+      symptoms: consultationData.chiefComplaint ? [consultationData.chiefComplaint] : [],
+      notes: consultationData.assessmentSummary,
+      visitDate: new Date(),
+      recordDate: new Date(),
+      metadata: {
+        consultationDuration: duration,
+        icd10Codes: consultationData.icd10Codes,
+        vitalSigns: consultationData.vitalSigns,
+        testResults: consultationData.testResults,
+        prescriptions: consultationData.prescriptionsIssued,
+        admissionRequired: consultationData.admissionRequired,
+        disposition: consultationData.disposition
+      }
+    });
+
+    // Create prescriptions in database
+    if (consultationData.prescriptionsIssued && consultationData.prescriptionsIssued.length > 0) {
+      await Promise.all(consultationData.prescriptionsIssued.map(rx => 
+        Prescription.create({
+          patientWalletAddress: appointment.patientWalletAddress,
+          doctorWalletAddress: appointment.doctorWalletAddress,
+          medication: rx.name,
+          dosage: rx.dose,
+          frequency: rx.frequency,
+          duration: rx.duration,
+          instructions: `${rx.name} ${rx.dose} ${rx.frequency}`,
+          status: 'active',
+          prescribedDate: new Date()
+        })
+      ));
+    }
+
+    // Create follow-up appointment if scheduled
+    if (consultationData.followUpSchedule?.postDischarge) {
+      // Parse follow-up schedule and create appointment
+      // This is a simplified version - you can enhance it
+      console.log('📅 Follow-up scheduled:', consultationData.followUpSchedule.postDischarge);
+    }
+
+    console.log('✅ Consultation finalized and medical record created');
+
+    res.json({
+      success: true,
+      message: 'Consultation completed and signed',
+      data: {
+        appointment,
+        medicalRecord,
+        duration,
+        prescriptionsCreated: consultationData.prescriptionsIssued?.length || 0
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Finalize consultation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to finalize consultation',
+      message: error.message
+    });
+  }
+};

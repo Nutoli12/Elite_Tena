@@ -26,6 +26,7 @@ import fileUploadRoutes from './routes/fileUpload.js';
 import notificationRoutes from './routes/notifications.js';
 import premiumServiceRoutes from './routes/premiumService.js';
 import consultationRoutes from './routes/consultation.js';
+import { initializeSocket } from './services/socketService.js';
 
 // Services (using require for CommonJS modules)
 import { createRequire } from 'module';
@@ -406,6 +407,10 @@ const startServer = async () => {
       console.log(`   📈 DB Status: http://localhost:${PORT}/api/db-status`);
       console.log('\n✅ Backend is ready for frontend integration!');
     });
+
+    // Initialize Socket.IO
+    const io = initializeSocket(server);
+    console.log('🔌 Socket.IO initialized');
 
     return server;
 

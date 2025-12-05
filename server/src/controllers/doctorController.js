@@ -6,12 +6,12 @@ const { Doctor, User, Appointment } = db;
  */
 export const getDoctors = async (req, res) => {
   try {
-    const { 
-      department, 
-      available, 
-      acceptingPatients, 
+    const {
+      department,
+      available,
+      acceptingPatients,
       search,
-      serviceType 
+      serviceType
     } = req.query;
 
     console.log('🔍 Fetching doctors with filters:', { department, available, acceptingPatients, search });
@@ -90,16 +90,16 @@ export const getDoctorById = async (req, res) => {
   try {
     const { id } = req.params;
     let doctor;
-    
+
     // Clean the wallet address - remove newlines and trim
     const cleanId = id.trim().replace(/\n/g, '');
-    
+
     console.log('🔍 Fetching doctor:', cleanId);
 
     // Check if it's a wallet address (starts with 0x)
     if (cleanId.startsWith('0x')) {
       // Use case-insensitive search for wallet addresses
-      doctor = await Doctor.findOne({ 
+      doctor = await Doctor.findOne({
         where: db.sequelize.where(
           db.sequelize.fn('LOWER', db.sequelize.col('walletAddress')),
           db.sequelize.fn('LOWER', cleanId)
@@ -119,7 +119,7 @@ export const getDoctorById = async (req, res) => {
         }]
       });
     }
-    
+
     if (!doctor) {
       return res.status(404).json({
         success: false,
@@ -134,7 +134,7 @@ export const getDoctorById = async (req, res) => {
     });
 
     console.log('✅ Doctor found');
-    
+
     res.json({
       success: true,
       data: {
@@ -142,7 +142,7 @@ export const getDoctorById = async (req, res) => {
         appointmentCount: appointmentStats
       }
     });
-    
+
   } catch (error) {
     console.error('❌ Get doctor error:', error);
     res.status(500).json({
@@ -162,11 +162,13 @@ export const getDoctorsByDepartment = async (req, res) => {
 
     console.log('🔍 Fetching doctors in department:', department);
 
+    // Match by department OR specialization (for backward compatibility)
     const doctors = await Doctor.findAll({
       where: {
-        department,
-        isAvailable: true,
-        isAcceptingPatients: true
+        [db.Sequelize.Op.or]: [
+          { department },
+          { specialization: department }
+        ]
       },
       include: [{
         model: User,

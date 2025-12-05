@@ -8,7 +8,8 @@ import {
   getAuditLogs,
   registerDoctor,
   registerLabTechnician,
-  registerPharmacist
+  registerPharmacist,
+  updateAllDoctorServices
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -24,6 +25,9 @@ router.get('/audit-logs', getAuditLogs);
 router.post('/register-doctor', registerDoctor);
 router.post('/register-lab-technician', registerLabTechnician);
 router.post('/register-pharmacist', registerPharmacist);
+
+// Migration / Bulk update
+router.post('/update-all-doctor-services', updateAllDoctorServices);
 
 // User management
 router.get('/users', getAllUsers);

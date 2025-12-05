@@ -32,7 +32,7 @@ const StaffList: React.FC = () => {
       const response = await axios.get('/admin/users');
       if (response.data.success) {
         const allUsers = response.data.data || [];
-        const staffMembers = allUsers.filter((user: StaffMember) => 
+        const staffMembers = allUsers.filter((user: StaffMember) =>
           ['doctor', 'lab_technician', 'pharmacist'].includes(user.role)
         );
         console.log(`✅ Found ${staffMembers.length} staff members`);
@@ -66,7 +66,7 @@ const StaffList: React.FC = () => {
 
   const handleDeleteStaff = async (walletAddress: string) => {
     if (!confirm('Are you sure you want to delete this staff member?')) return;
-    
+
     try {
       console.log('🗑️ Deleting staff member:', walletAddress);
       const response = await axios.delete(`/admin/users/${walletAddress}`);
@@ -87,8 +87,8 @@ const StaffList: React.FC = () => {
         isActive: !currentStatus
       });
       if (response.data.success) {
-        setStaff(prev => prev.map(s => 
-          s.walletAddress === walletAddress 
+        setStaff(prev => prev.map(s =>
+          s.walletAddress === walletAddress
             ? { ...s, isActive: !currentStatus }
             : s
         ));
@@ -100,8 +100,8 @@ const StaffList: React.FC = () => {
     }
   };
 
-  const filteredStaff = filter === 'all' 
-    ? staff 
+  const filteredStaff = filter === 'all'
+    ? staff
     : staff.filter(s => s.role === filter);
 
   const getRoleIcon = (role: string) => {
@@ -140,22 +140,21 @@ const StaffList: React.FC = () => {
     <div className="bg-white rounded-2xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-bold text-gray-900">Staff Members ({filteredStaff.length})</h3>
-        
+
         {/* Filter Buttons */}
         <div className="flex gap-2">
           {['all', 'doctor', 'lab_technician', 'pharmacist'].map((filterOption) => (
             <button
               key={filterOption}
               onClick={() => setFilter(filterOption as any)}
-              className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                filter === filterOption
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${filter === filterOption
                   ? 'bg-medical-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+                }`}
             >
-              {filterOption === 'all' ? 'All' : 
-               filterOption === 'lab_technician' ? 'Lab Tech' :
-               filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
+              {filterOption === 'all' ? 'All' :
+                filterOption === 'lab_technician' ? 'Lab Tech' :
+                  filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
             </button>
           ))}
         </div>
@@ -166,7 +165,7 @@ const StaffList: React.FC = () => {
           {filteredStaff.map((member, index) => {
             const RoleIcon = getRoleIcon(member.role);
             const roleColor = getRoleColor(member.role);
-            
+
             return (
               <motion.div
                 key={member.walletAddress}
@@ -179,7 +178,7 @@ const StaffList: React.FC = () => {
                   <div className={`w-12 h-12 bg-${roleColor}-100 rounded-lg flex items-center justify-center`}>
                     <RoleIcon className={`w-6 h-6 text-${roleColor}-600`} />
                   </div>
-                  
+
                   <div>
                     <h4 className="font-semibold text-gray-900">
                       {member.profileData?.fullName || 'No Name'}
@@ -188,11 +187,10 @@ const StaffList: React.FC = () => {
                     <div className="flex items-center gap-4 text-xs text-gray-500 mt-1">
                       <span>{member.walletAddress.substring(0, 10)}...</span>
                       <span>Joined {new Date(member.createdAt).toLocaleDateString()}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        member.isActive 
-                          ? 'bg-green-100 text-green-800' 
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.isActive
+                          ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
-                      }`}>
+                        }`}>
                         {member.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </div>
@@ -204,16 +202,15 @@ const StaffList: React.FC = () => {
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => handleToggleStatus(member.walletAddress, member.isActive)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      member.isActive 
-                        ? 'text-red-600 hover:bg-red-50' 
+                    className={`p-2 rounded-lg transition-colors ${member.isActive
+                        ? 'text-red-600 hover:bg-red-50'
                         : 'text-green-600 hover:bg-green-50'
-                    }`}
+                      }`}
                     title={member.isActive ? 'Deactivate' : 'Activate'}
                   >
                     <Eye className="w-4 h-4" />
                   </motion.button>
-                  
+
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
@@ -261,7 +258,7 @@ export const StaffManagement: React.FC = () => {
     setMessage(null);
 
     try {
-      const endpoint = `/api/admin/register-${selectedRole.replace('_', '-')}`;
+      const endpoint = `/admin/register-${selectedRole.replace('_', '-')}`;
       const payload = {
         email: formData.email,
         password: formData.password,
@@ -281,12 +278,12 @@ export const StaffManagement: React.FC = () => {
       };
 
       await axios.post(endpoint, payload);
-      
+
       setMessage({
         type: 'success',
         text: `${selectedRole.replace('_', ' ')} registered successfully! Credentials sent to ${formData.email}`
       });
-      
+
       // Reset form
       setFormData({
         email: '',
@@ -351,22 +348,20 @@ export const StaffManagement: React.FC = () => {
       <div className="flex gap-2 bg-gray-100 p-1 rounded-xl w-fit">
         <button
           onClick={() => setActiveTab('register')}
-          className={`px-6 py-2 rounded-lg font-medium transition-all ${
-            activeTab === 'register'
+          className={`px-6 py-2 rounded-lg font-medium transition-all ${activeTab === 'register'
               ? 'bg-white text-medical-600 shadow-sm'
               : 'text-gray-600'
-          }`}
+            }`}
         >
           <UserPlus className="w-4 h-4 inline mr-2" />
           Register Staff
         </button>
         <button
           onClick={() => setActiveTab('list')}
-          className={`px-6 py-2 rounded-lg font-medium transition-all ${
-            activeTab === 'list'
+          className={`px-6 py-2 rounded-lg font-medium transition-all ${activeTab === 'list'
               ? 'bg-white text-medical-600 shadow-sm'
               : 'text-gray-600'
-          }`}
+            }`}
         >
           <Users className="w-4 h-4 inline mr-2" />
           Staff List
@@ -387,11 +382,10 @@ export const StaffManagement: React.FC = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setSelectedRole(role)}
-                  className={`w-full p-4 rounded-xl border-2 transition-all ${
-                    selectedRole === role
+                  className={`w-full p-4 rounded-xl border-2 transition-all ${selectedRole === role
                       ? `border-${config.color}-500 bg-${config.color}-50`
                       : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-12 h-12 bg-${config.color}-100 rounded-lg flex items-center justify-center`}>
@@ -427,11 +421,10 @@ export const StaffManagement: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`mb-4 p-3 rounded-lg ${
-                    message.type === 'success'
+                  className={`mb-4 p-3 rounded-lg ${message.type === 'success'
                       ? 'bg-green-50 border border-green-200 text-green-700'
                       : 'bg-red-50 border border-red-200 text-red-700'
-                  }`}
+                    }`}
                 >
                   {message.text}
                 </motion.div>

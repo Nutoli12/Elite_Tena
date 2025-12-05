@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, User, Video, MapPin, MessageSquare, MoreVertical, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, Clock, User, Video, MapPin, MessageSquare, MoreVertical, CheckCircle, XCircle, Eye } from 'lucide-react';
 import axios from '../../lib/axios';
 
 export const DoctorAppointments: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'today' | 'upcoming' | 'completed'>('all');
@@ -271,45 +273,62 @@ export const DoctorAppointments: React.FC = () => {
 
                     {/* Action Buttons */}
                     <div className="flex flex-wrap gap-2 mt-4">
-                      {appointment.checkInStatus === 'checked_in' && (
+                      {/* Comprehensive Consultation - Available for ALL appointments */}
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => navigate(`/comprehensive-consultation/${appointment.id}`)}
+                        className="bg-medical-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        {appointment.status === 'completed' ? 'View Consultation' : 'Start Consultation'}
+                      </motion.button>
+
+                      {/* Quick Consultation */}
+                      {appointment.status !== 'completed' && (
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={() => window.location.href = `/consultation/${appointment.id}`}
-                          className="bg-medical-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                          onClick={() => navigate(`/consultation/${appointment.id}`)}
+                          className="border border-medical-500 text-medical-600 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
                         >
                           <CheckCircle className="w-4 h-4" />
-                          Start Consultation
+                          Quick Consultation
                         </motion.button>
                       )}
 
-                      {appointment.status === 'scheduled' && (
-                        <>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium"
-                          >
-                            View Patient History
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
-                          >
-                            <XCircle className="w-4 h-4" />
-                            Cancel
-                          </motion.button>
-                        </>
-                      )}
+                      {/* View Details */}
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => alert(`Appointment Details:\n\nPatient: ${appointment.patientDetails?.user?.profileData?.fullName || 'N/A'}\nDate: ${new Date(appointment.appointmentDate).toLocaleString()}\nReason: ${appointment.reason || 'N/A'}\nStatus: ${appointment.status}`)}
+                        className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View
+                      </motion.button>
 
-                      {appointment.status === 'completed' && (
+                      {/* Delete */}
+                      {appointment.status !== 'completed' && (
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium"
+                          onClick={async () => {
+                            if (window.confirm('Are you sure you want to delete this appointment?')) {
+                              try {
+                                await axios.delete(`/appointments/${appointment.id}`);
+                                alert('Appointment deleted successfully!');
+                                fetchDoctorSchedule(); // Refresh list
+                              } catch (error) {
+                                console.error('Delete error:', error);
+                                alert('Failed to delete appointment');
+                              }
+                            }
+                          }}
+                          className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
                         >
-                          View Consultation Notes
+                          <XCircle className="w-4 h-4" />
+                          Delete
                         </motion.button>
                       )}
                     </div>

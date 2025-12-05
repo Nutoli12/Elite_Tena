@@ -21,6 +21,8 @@ import { SystemSettings } from './pages/admin/SystemSettings';
 import { DoctorDashboard } from './pages/doctor/DoctorDashboard';
 import { ConsultationRoom } from './pages/doctor/ConsultationRoom';
 import { ConsultationInterface } from './pages/doctor/ConsultationInterface';
+import { ComprehensiveConsultation } from './pages/doctor/ComprehensiveConsultation';
+import { DoctorSettings } from './pages/doctor/DoctorSettings';
 import { LabDashboard } from './pages/lab/LabDashboard';
 import { PharmacyDashboard } from './pages/pharmacy/PharmacyDashboard';
 import { ReceptionCheckIn } from './pages/reception/ReceptionCheckIn';
@@ -199,6 +201,24 @@ const AppRoutes: React.FC = () => {
           <ProtectedRoute requiredRole="doctor">
             <HealthcareLayout>
               <ConsultationRoom />
+            </HealthcareLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/comprehensive-consultation/:appointmentId"
+        element={
+          <ProtectedRoute requiredRole="doctor">
+            <ComprehensiveConsultation />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doctor/settings"
+        element={
+          <ProtectedRoute requiredRole="doctor">
+            <HealthcareLayout>
+              <DoctorSettings />
             </HealthcareLayout>
           </ProtectedRoute>
         }

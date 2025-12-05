@@ -10,7 +10,7 @@ interface CreateRecordModalProps {
 }
 
 export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, onClose, onSubmit }) => {
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, formState: { errors }, reset } = useForm();
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
 
@@ -18,11 +18,21 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
     setLoading(true);
     try {
       await onSubmit({ ...data, file });
+      reset();
+      setFile(null);
       onClose();
     } catch (error) {
       console.error('Failed to create record:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!loading) {
+      reset();
+      setFile(null);
+      onClose();
     }
   };
 
@@ -45,7 +55,7 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
           >
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">Create Medical Record</h2>
-              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <button onClick={handleClose} disabled={loading} className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -122,8 +132,9 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                  onClick={handleClose}
+                  disabled={loading}
+                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -135,7 +146,7 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
                   {loading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Creating...
+                      {file ? 'Uploading...' : 'Creating...'}
                     </>
                   ) : (
                     'Create Record'

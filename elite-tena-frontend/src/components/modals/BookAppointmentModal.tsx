@@ -14,17 +14,17 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
   const { register, handleSubmit, formState: { errors }, watch } = useForm();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
-  
+
   // Data states
   const [departments, setDepartments] = useState<string[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
-  
+
   // Form values
   const selectedDepartment = watch('department');
   const selectedDoctorId = watch('doctorId');
   const selectedServiceType = watch('serviceType');
-  
+
   // Find selected doctor
   const selectedDoctor = doctors.find(d => d.walletAddress === selectedDoctorId);
 
@@ -56,13 +56,19 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
 
   const fetchDoctors = async (department: string) => {
     setLoadingDoctors(true);
+    console.log('🔍 Fetching doctors for department:', department);
     try {
       const response = await axios.get(`/doctors/department/${department}`);
+      console.log('📋 Doctors response:', response.data);
       if (response.data.success) {
+        console.log('✅ Setting doctors:', response.data.data.length, 'doctors found');
         setDoctors(response.data.data);
+      } else {
+        console.log('❌ Response not successful');
+        setDoctors([]);
       }
     } catch (error) {
-      console.error('Failed to fetch doctors:', error);
+      console.error('❌ Failed to fetch doctors:', error);
       setDoctors([]);
     } finally {
       setLoadingDoctors(false);
@@ -80,7 +86,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
         requiresApproval: selectedServiceType !== 'inPerson',
         paymentRequired: selectedServiceType !== 'inPerson'
       };
-      
+
       await onSubmit(appointmentData);
       onClose();
       setStep(1); // Reset for next time
@@ -131,9 +137,8 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
               <div className="flex items-center justify-between">
                 {[1, 2, 3, 4].map((s) => (
                   <div key={s} className="flex items-center">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                      step >= s ? 'bg-medical-500 text-white' : 'bg-gray-200 text-gray-600'
-                    }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step >= s ? 'bg-medical-500 text-white' : 'bg-gray-200 text-gray-600'
+                      }`}>
                       {s}
                     </div>
                     {s < 4 && (
@@ -164,11 +169,10 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
                     {departments.map((dept) => (
                       <label
                         key={dept}
-                        className={`relative flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                          selectedDepartment === dept
-                            ? 'border-medical-500 bg-medical-50'
-                            : 'border-gray-300 hover:border-medical-300'
-                        }`}
+                        className={`relative flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedDepartment === dept
+                          ? 'border-medical-500 bg-medical-50'
+                          : 'border-gray-300 hover:border-medical-300'
+                          }`}
                       >
                         <input
                           type="radio"
@@ -195,7 +199,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
                   className="space-y-4"
                 >
                   <h3 className="text-lg font-semibold text-gray-900">Select Doctor in {selectedDepartment}</h3>
-                  
+
                   {loadingDoctors ? (
                     <div className="text-center py-8">
                       <Loader2 className="w-8 h-8 animate-spin mx-auto text-medical-500" />
@@ -210,11 +214,10 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
                       {doctors.map((doctor) => (
                         <label
                           key={doctor.walletAddress}
-                          className={`relative flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                            selectedDoctorId === doctor.walletAddress
-                              ? 'border-medical-500 bg-medical-50'
-                              : 'border-gray-300 hover:border-medical-300'
-                          }`}
+                          className={`relative flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedDoctorId === doctor.walletAddress
+                            ? 'border-medical-500 bg-medical-50'
+                            : 'border-gray-300 hover:border-medical-300'
+                            }`}
                         >
                           <input
                             type="radio"
@@ -268,83 +271,74 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
                   <h3 className="text-lg font-semibold text-gray-900">Select Service Type</h3>
                   <div className="space-y-3">
                     {/* Free In-Person */}
-                    {selectedDoctor.availableServices?.inPerson?.available && (
-                      <label className={`relative flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                        selectedServiceType === 'inPerson'
-                          ? 'border-medical-500 bg-medical-50'
-                          : 'border-gray-300 hover:border-medical-300'
+                    <label className={`relative flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedServiceType === 'inPerson'
+                      ? 'border-medical-500 bg-medical-50'
+                      : 'border-gray-300 hover:border-medical-300'
                       }`}>
-                        <input
-                          type="radio"
-                          {...register('serviceType', { required: 'Please select service type' })}
-                          value="inPerson"
-                          className="sr-only"
-                        />
-                        <MapPin className="w-6 h-6 text-medical-600 mr-3 flex-shrink-0" />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="font-semibold text-gray-900">Free In-Person Consultation</p>
-                            <span className="text-green-600 font-bold">FREE</span>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1">Visit the clinic for consultation</p>
-                          <p className="text-xs text-green-600 mt-1">✓ Immediate confirmation</p>
+                      <input
+                        type="radio"
+                        {...register('serviceType', { required: 'Please select service type' })}
+                        value="inPerson"
+                        className="sr-only"
+                      />
+                      <MapPin className="w-6 h-6 text-medical-600 mr-3 flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-gray-900">Free In-Person Consultation</p>
+                          <span className="text-green-600 font-bold">FREE</span>
                         </div>
-                      </label>
-                    )}
+                        <p className="text-sm text-gray-600 mt-1">Visit the clinic for consultation</p>
+                        <p className="text-xs text-green-600 mt-1">✓ Immediate confirmation</p>
+                      </div>
+                    </label>
 
                     {/* Paid Video Call */}
-                    {selectedDoctor.availableServices?.videoCall?.available && (
-                      <label className={`relative flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                        selectedServiceType === 'videoCall'
-                          ? 'border-medical-500 bg-medical-50'
-                          : 'border-gray-300 hover:border-medical-300'
+                    <label className={`relative flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedServiceType === 'videoCall'
+                      ? 'border-medical-500 bg-medical-50'
+                      : 'border-gray-300 hover:border-medical-300'
                       }`}>
-                        <input
-                          type="radio"
-                          {...register('serviceType', { required: 'Please select service type' })}
-                          value="videoCall"
-                          className="sr-only"
-                        />
-                        <Video className="w-6 h-6 text-medical-600 mr-3 flex-shrink-0" />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="font-semibold text-gray-900">Video Call Consultation</p>
-                            <span className="text-medical-600 font-bold">
-                              {selectedDoctor.availableServices.videoCall.fee} Birr
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1">Online video consultation</p>
-                          <p className="text-xs text-yellow-600 mt-1">⏳ Requires doctor approval & payment</p>
+                      <input
+                        type="radio"
+                        {...register('serviceType', { required: 'Please select service type' })}
+                        value="videoCall"
+                        className="sr-only"
+                      />
+                      <Video className="w-6 h-6 text-blue-600 mr-3 flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-gray-900">Video Call Consultation</p>
+                          <span className="text-blue-600 font-bold">
+                            {selectedDoctor.availableServices?.videoCall?.fee || 500} Birr
+                          </span>
                         </div>
-                      </label>
-                    )}
+                        <p className="text-sm text-gray-600 mt-1">Online video consultation from anywhere</p>
+                        <p className="text-xs text-yellow-600 mt-1">⏳ Requires doctor approval & payment</p>
+                      </div>
+                    </label>
 
                     {/* Paid Chat */}
-                    {selectedDoctor.availableServices?.chat?.available && (
-                      <label className={`relative flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                        selectedServiceType === 'chat'
-                          ? 'border-medical-500 bg-medical-50'
-                          : 'border-gray-300 hover:border-medical-300'
+                    <label className={`relative flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${selectedServiceType === 'chat'
+                      ? 'border-medical-500 bg-medical-50'
+                      : 'border-gray-300 hover:border-medical-300'
                       }`}>
-                        <input
-                          type="radio"
-                          {...register('serviceType', { required: 'Please select service type' })}
-                          value="chat"
-                          className="sr-only"
-                        />
-                        <MessageSquare className="w-6 h-6 text-medical-600 mr-3 flex-shrink-0" />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="font-semibold text-gray-900">Chat Consultation</p>
-                            <span className="text-medical-600 font-bold">
-                              {selectedDoctor.availableServices.chat.fee} Birr
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1">Text-based consultation</p>
-                          <p className="text-xs text-yellow-600 mt-1">⏳ Requires doctor approval & payment</p>
+                      <input
+                        type="radio"
+                        {...register('serviceType', { required: 'Please select service type' })}
+                        value="chat"
+                        className="sr-only"
+                      />
+                      <MessageSquare className="w-6 h-6 text-purple-600 mr-3 flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-gray-900">Chat Consultation</p>
+                          <span className="text-purple-600 font-bold">
+                            {selectedDoctor.availableServices?.chat?.fee || 300} Birr
+                          </span>
                         </div>
-                      </label>
-                    )}
+                        <p className="text-sm text-gray-600 mt-1">Text-based consultation at your convenience</p>
+                        <p className="text-xs text-yellow-600 mt-1">⏳ Requires doctor approval & payment</p>
+                      </div>
+                    </label>
                   </div>
                   {errors.serviceType && <p className="text-red-500 text-sm">{errors.serviceType.message as string}</p>}
                 </motion.div>
@@ -454,7 +448,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
                     Back
                   </button>
                 )}
-                
+
                 <button
                   type="button"
                   onClick={onClose}

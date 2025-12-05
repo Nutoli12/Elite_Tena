@@ -7,7 +7,7 @@ const { User, Patient, Doctor, Pharmacist } = db;
 export const getAllUsers = async (req, res) => {
   try {
     console.log('🔍 Admin: Fetching all users...');
-    
+
     const users = await User.findAll({
       attributes: ['walletAddress', 'email', 'role', 'isActive', 'createdAt', 'updatedAt'],
       order: [['createdAt', 'DESC']]
@@ -136,7 +136,7 @@ export const updateUserStatus = async (req, res) => {
  */
 export const deleteUser = async (req, res) => {
   const transaction = await db.sequelize.transaction();
-  
+
   try {
     const { walletAddress } = req.params;
     const normalizedWallet = walletAddress.toLowerCase().trim();
@@ -302,7 +302,7 @@ export const getAuditLogs = async (req, res) => {
  */
 export const registerDoctor = async (req, res) => {
   const transaction = await db.sequelize.transaction();
-  
+
   try {
     const { email, password, fullName, phoneNumber, walletAddress, specialization, licenseNumber } = req.body;
 
@@ -353,7 +353,15 @@ export const registerDoctor = async (req, res) => {
     const doctor = await Doctor.create({
       walletAddress: finalWallet.toLowerCase(),
       specialization,
-      licenseNumber
+      licenseNumber,
+      department: specialization, // Use specialization as department
+      isAvailable: true,
+      isAcceptingPatients: true,
+      availableServices: {
+        inPerson: { available: true, fee: 0 },
+        videoCall: { available: true, fee: 500 },
+        chat: { available: true, fee: 300 }
+      }
     }, { transaction });
 
     await transaction.commit();
@@ -397,7 +405,7 @@ export const registerDoctor = async (req, res) => {
  */
 export const registerLabTechnician = async (req, res) => {
   const transaction = await db.sequelize.transaction();
-  
+
   try {
     const { email, password, fullName, phoneNumber, walletAddress, department } = req.body;
 
@@ -483,7 +491,7 @@ export const registerLabTechnician = async (req, res) => {
  */
 export const registerPharmacist = async (req, res) => {
   const transaction = await db.sequelize.transaction();
-  
+
   try {
     const { email, password, fullName, phoneNumber, walletAddress, licenseNumber } = req.body;
 
@@ -566,6 +574,55 @@ export const registerPharmacist = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to register pharmacist',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Update all doctors with available services (migration helper)
+ */
+export const updateAllDoctorServices = async (req, res) => {
+  try {
+    console.log('🔧 Updating all doctors with available services...');
+
+    const doctors = await Doctor.findAll();
+    let updatedCount = 0;
+
+    for (const doctor of doctors) {
+      await doctor.update({
+        department: doctor.department || doctor.specialization || 'General Practice',
+        isAvailable: true,
+        isAcceptingPatients: true,
+        availableServices: {
+          inPerson: { available: true, fee: 0 },
+          videoCall: { available: true, fee: 500 },
+          chat: { available: true, fee: 300 }
+        }
+      });
+      updatedCount++;
+    }
+
+    console.log(`✅ Updated ${updatedCount} doctors`);
+
+    res.json({
+      success: true,
+      message: `Updated ${updatedCount} doctors with available services`,
+      data: {
+        updatedCount,
+        services: {
+          inPerson: { available: true, fee: 0 },
+          videoCall: { available: true, fee: 500 },
+          chat: { available: true, fee: 300 }
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Update doctor services error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update doctor services',
       message: error.message
     });
   }
