@@ -4,21 +4,21 @@ import { useAuth } from '../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock, ArrowLeft, ArrowRight, Save, CheckCircle, AlertCircle,
-  User, Heart, Activity, Thermometer, Wind, FileText, TestTube,
+  User, Heart, Activity, TestTube,
   Pill, Calendar, BookOpen, Award, Shield
 } from 'lucide-react';
 import axios from '../../lib/axios';
 
 // Import phase components
-import { PatientInfoPhase } from '../../components/consultation/PatientInfoPhase';
-import { HistoryTakingPhase } from '../../components/consultation/HistoryTakingPhase';
-import { PhysicalExamPhase } from '../../components/consultation/PhysicalExamPhase';
-import { DiagnosticTestsPhase } from '../../components/consultation/DiagnosticTestsPhase';
-import { DiagnosisPhase } from '../../components/consultation/DiagnosisPhase';
-import { TreatmentPlanPhase } from '../../components/consultation/TreatmentPlanPhase';
-import { AdmissionReferralPhase } from '../../components/consultation/AdmissionReferralPhase';
-import { FollowUpEducationPhase } from '../../components/consultation/FollowUpEducationPhase';
-import { FinalDocumentationPhase } from '../../components/consultation/FinalDocumentationPhase';
+import { PatientInfoPhase } from '../../components/consultation/PatientInfoPhase.tsx';
+import { HistoryTakingPhase } from '../../components/consultation/HistoryTakingPhase.tsx';
+import { PhysicalExamPhase } from '../../components/consultation/PhysicalExamPhase.tsx';
+import { DiagnosticTestsPhase } from '../../components/consultation/DiagnosticTestsPhase.tsx';
+import { DiagnosisPhase } from '../../components/consultation/DiagnosisPhase.tsx';
+import { TreatmentPlanPhase } from '../../components/consultation/TreatmentPlanPhase.tsx';
+import { AdmissionReferralPhase } from '../../components/consultation/AdmissionReferralPhase.tsx';
+import { FollowUpEducationPhase } from '../../components/consultation/FollowUpEducationPhase.tsx';
+import { FinalDocumentationPhase } from '../../components/consultation/FinalDocumentationPhase.tsx';
 
 const PHASES = [
   { id: 'patient_info', name: 'Patient Info', icon: User },

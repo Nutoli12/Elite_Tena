@@ -163,33 +163,22 @@ export const DoctorDashboard: React.FC = () => {
         <div className="absolute top-0 right-0 w-64 h-64 bg-white bg-opacity-10 rounded-full -translate-y-32 translate-x-32" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white bg-opacity-10 rounded-full translate-y-24 -translate-x-24" />
 
-        <div className="relative z-10 flex items-center justify-between">
-          <div>
-            <motion.h1
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              className="text-3xl font-bold mb-2"
-            >
-              Welcome, Dr. {user?.fullName || 'Doctor'}!
-            </motion.h1>
-            <motion.p
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="text-blue-100 text-lg"
-            >
-              Manage your patients, appointments, and consultations from your dashboard.
-            </motion.p>
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/doctor/settings')}
-            className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 backdrop-blur-sm"
+        <div className="relative z-10">
+          <motion.h1
+            initial={{ x: -20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            className="text-3xl font-bold mb-2"
           >
-            <Settings className="w-5 h-5" />
-            Payment Settings
-          </motion.button>
+            Welcome, Dr. {user?.fullName || 'Doctor'}!
+          </motion.h1>
+          <motion.p
+            initial={{ x: -20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="text-blue-100 text-lg"
+          >
+            Manage your patients, appointments, and consultations from your dashboard.
+          </motion.p>
         </div>
       </motion.div>
 

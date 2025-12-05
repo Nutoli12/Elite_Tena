@@ -32,6 +32,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
       { name: t('my_patients'), href: '/patients', icon: '👥' },
       { name: t('medical_records'), href: '/medical-records', icon: '📁' },
       { name: t('appointments'), href: '/appointments', icon: '📅' },
+      { name: 'Payment Settings', href: '/doctor/settings', icon: '⚙️' },
     ],
     pharmacist: [
       { name: t('dashboard'), href: '/dashboard', icon: '🏠' },
