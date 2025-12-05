@@ -40,6 +40,8 @@ import Pharmacist from './Pharmacist.js';
 import FollowUp from './FollowUp.js';
 import Notification from './Notification.js';
 import DoctorPaymentSettings from './DoctorPaymentSettings.js';
+import Message from './Message.js';
+import VideoCall from './VideoCall.js';
 
 // Initialize models with sequelize instance
 const db = {
@@ -60,7 +62,9 @@ const db = {
   Pharmacist: Pharmacist(sequelize, Sequelize.DataTypes),
   FollowUp: FollowUp(sequelize, Sequelize.DataTypes),
   Notification: Notification(sequelize, Sequelize.DataTypes),
-  DoctorPaymentSettings: DoctorPaymentSettings(sequelize, Sequelize.DataTypes)
+  DoctorPaymentSettings: DoctorPaymentSettings(sequelize, Sequelize.DataTypes),
+  Message: Message(sequelize, Sequelize.DataTypes),
+  VideoCall: VideoCall(sequelize, Sequelize.DataTypes)
 };
 
 // ... REST OF YOUR ASSOCIATIONS CODE REMAINS EXACTLY THE SAME ...
@@ -73,53 +77,53 @@ const initializeAssociations = () => {
     console.log('��� Initializing database associations...');
 
     // User -> Session (One-to-Many)
-    db.User.hasMany(db.Session, { 
-      foreignKey: 'walletAddress', 
+    db.User.hasMany(db.Session, {
+      foreignKey: 'walletAddress',
       sourceKey: 'walletAddress',
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
     });
-    db.Session.belongsTo(db.User, { 
-      foreignKey: 'walletAddress', 
+    db.Session.belongsTo(db.User, {
+      foreignKey: 'walletAddress',
       targetKey: 'walletAddress'
     });
 
     // User -> FileMetadata (One-to-Many)
-    db.User.hasMany(db.FileMetadata, { 
-      foreignKey: 'walletAddress', 
+    db.User.hasMany(db.FileMetadata, {
+      foreignKey: 'walletAddress',
       sourceKey: 'walletAddress',
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
     });
-    db.FileMetadata.belongsTo(db.User, { 
-      foreignKey: 'walletAddress', 
+    db.FileMetadata.belongsTo(db.User, {
+      foreignKey: 'walletAddress',
       targetKey: 'walletAddress'
     });
 
     // User -> Appointment relationships
-    db.User.hasMany(db.Appointment, { 
-      foreignKey: 'patientWallet', 
-      sourceKey: 'walletAddress', 
+    db.User.hasMany(db.Appointment, {
+      foreignKey: 'patientWalletAddress',
+      sourceKey: 'walletAddress',
       as: 'patientAppointments',
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
     });
-    db.Appointment.belongsTo(db.User, { 
-      foreignKey: 'patientWallet', 
-      targetKey: 'walletAddress', 
+    db.Appointment.belongsTo(db.User, {
+      foreignKey: 'patientWalletAddress',
+      targetKey: 'walletAddress',
       as: 'patient'
     });
 
-    db.User.hasMany(db.Appointment, { 
-      foreignKey: 'doctorWallet', 
-      sourceKey: 'walletAddress', 
+    db.User.hasMany(db.Appointment, {
+      foreignKey: 'doctorWalletAddress',
+      sourceKey: 'walletAddress',
       as: 'doctorAppointments',
       onDelete: 'SET NULL',
       onUpdate: 'CASCADE'
     });
-    db.Appointment.belongsTo(db.User, { 
-      foreignKey: 'doctorWallet', 
-      targetKey: 'walletAddress', 
+    db.Appointment.belongsTo(db.User, {
+      foreignKey: 'doctorWalletAddress',
+      targetKey: 'walletAddress',
       as: 'doctor'
     });
 

@@ -26,7 +26,13 @@ import fileUploadRoutes from './routes/fileUpload.js';
 import notificationRoutes from './routes/notifications.js';
 import premiumServiceRoutes from './routes/premiumService.js';
 import consultationRoutes from './routes/consultation.js';
+import chatRoutes from './routes/chat.js';
+import videoCallRoutes from './routes/videoCall.js';
 import { initializeSocket } from './services/socketService.js';
+
+// ... (imports)
+
+
 
 // Services (using require for CommonJS modules)
 import { createRequire } from 'module';
@@ -132,6 +138,8 @@ app.use('/api/upload', fileUploadRoutes); // File upload routes (IPFS)
 app.use('/api/notifications', notificationRoutes); // Notification routes
 app.use('/api/premium-services', premiumServiceRoutes); // Premium service routes (peer-to-peer)
 app.use('/api/consultations', consultationRoutes); // Consultation routes
+app.use('/api/chat', chatRoutes); // Chat routes
+app.use('/api/video-calls', videoCallRoutes); // Video call routes
 
 // Enhanced health check
 app.get('/api/health', async (req, res) => {
@@ -357,9 +365,43 @@ const startServer = async () => {
     console.log('2. Syncing database models...');
     await db.sequelize.sync({
       force: false,
-      alter: false  // Disabled to prevent PostgreSQL syntax errors with column type changes
+      alter: false  // Disabled to prevent PostgreSQL syntax errors
     });
     console.log('✅ Database models synchronized');
+
+    // 🛠️ Manual Migrations for Phase 3 & 4 (Safe Column Additions)
+    try {
+      console.log('🛠️ Running manual migrations...');
+      const q = db.sequelize.query.bind(db.sequelize);
+
+      // Phase 3: Approval & Payment
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "approvalStatus" VARCHAR(255) DEFAULT 'pending';`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "approvedBy" VARCHAR(255);`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "approvedAt" TIMESTAMP WITH TIME ZONE;`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "rejectionReason" TEXT;`);
+
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "paymentReceiptUrl" TEXT;`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "paymentMethod" VARCHAR(255);`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "paymentConfirmedAt" TIMESTAMP WITH TIME ZONE;`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "paymentConfirmedBy" VARCHAR(255);`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "paymentStatus" VARCHAR(255) DEFAULT 'pending';`); // Ensure column exists
+
+      // Phase 4: Check-in & Queue
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "checkInStatus" VARCHAR(255) DEFAULT 'not_checked_in';`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "checkedInAt" TIMESTAMP WITH TIME ZONE;`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "queueNumber" INTEGER;`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "qrCodeData" TEXT;`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "consultationStartedAt" TIMESTAMP WITH TIME ZONE;`);
+      await q(`ALTER TABLE "appointments" ADD COLUMN IF NOT EXISTS "consultationEndedAt" TIMESTAMP WITH TIME ZONE;`);
+
+      // Try to update ENUMs (might fail if exists, so we catch)
+      try { await q(`ALTER TYPE "enum_appointments_paymentStatus" ADD VALUE 'confirmed';`); } catch (e) { }
+      try { await q(`ALTER TYPE "enum_appointments_paymentStatus" ADD VALUE 'paid';`); } catch (e) { }
+
+      console.log('✅ Manual migrations completed');
+    } catch (err) {
+      console.error('⚠️ Manual migration warning:', err.message);
+    }
 
     console.log('3. Checking admin user...');
     const adminWallet = process.env.ADMIN_WALLET_ADDRESS;

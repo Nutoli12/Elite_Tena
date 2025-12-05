@@ -2,6 +2,68 @@ import db from '../models/index.js';
 const { Appointment, Patient, Doctor, User } = db;
 
 /**
+ * Helper: Ensure patient record exists, auto-create if missing
+ * This handles legacy users who were created before Patient table existed
+ */
+const ensurePatientExists = async (walletAddress) => {
+  const normalizedWallet = walletAddress.toLowerCase();
+
+  // Check if patient record exists
+  let patient = await Patient.findOne({
+    where: { walletAddress: normalizedWallet }
+  });
+
+  if (!patient) {
+    // Check if user exists with patient role
+    const user = await User.findOne({
+      where: { walletAddress: normalizedWallet }
+    });
+
+    if (user && user.role === 'patient') {
+      // Auto-create missing patient record
+      patient = await Patient.create({
+        walletAddress: normalizedWallet
+      });
+      console.log(`🔧 Auto-created missing patient record for: ${normalizedWallet}`);
+    }
+  }
+
+  return patient;
+};
+
+/**
+ * Helper: Ensure doctor record exists, auto-create if missing
+ * This handles legacy users who were created before Doctor table existed
+ */
+const ensureDoctorExists = async (walletAddress) => {
+  const normalizedWallet = walletAddress.toLowerCase();
+
+  // Check if doctor record exists
+  let doctor = await Doctor.findOne({
+    where: { walletAddress: normalizedWallet }
+  });
+
+  if (!doctor) {
+    // Check if user exists with doctor role
+    const user = await User.findOne({
+      where: { walletAddress: normalizedWallet }
+    });
+
+    if (user && user.role === 'doctor') {
+      // Auto-create missing doctor record
+      doctor = await Doctor.create({
+        walletAddress: normalizedWallet,
+        specialization: user.profileData?.specialization || 'General Practice',
+        department: user.profileData?.department || 'General Practice'
+      });
+      console.log(`🔧 Auto-created missing doctor record for: ${normalizedWallet}`);
+    }
+  }
+
+  return doctor;
+};
+
+/**
  * Get all appointments (with optional filtering)
  */
 export const getAppointments = async (req, res) => {
@@ -47,11 +109,13 @@ export const getAppointments = async (req, res) => {
         {
           model: Patient,
           as: 'patientDetails',
+          required: false, // LEFT JOIN - don't fail if patient record missing
           attributes: ['walletAddress'],
           include: [
             {
               model: db.User,
               as: 'user',
+              required: false,
               attributes: ['email', 'profileData']
             }
           ]
@@ -59,11 +123,13 @@ export const getAppointments = async (req, res) => {
         {
           model: Doctor,
           as: 'doctorDetails',
+          required: false, // LEFT JOIN - don't fail if doctor record missing
           attributes: ['walletAddress', 'specialization'],
           include: [
             {
               model: db.User,
               as: 'user',
+              required: false,
               attributes: ['email', 'profileData']
             }
           ]
@@ -164,29 +230,25 @@ export const createAppointment = async (req, res) => {
       });
     }
 
-    // Verify patient exists
-    const patient = await Patient.findOne({
-      where: { walletAddress: patientWalletAddress.toLowerCase() }
-    });
+    // Verify patient exists (auto-create if user exists but patient record missing)
+    const patient = await ensurePatientExists(patientWalletAddress);
 
     if (!patient) {
       return res.status(404).json({
         success: false,
         error: 'Patient not found',
-        message: `No patient found with wallet: ${patientWalletAddress}`
+        message: `No patient user found with wallet: ${patientWalletAddress}. User must register first.`
       });
     }
 
-    // Verify doctor exists
-    const doctor = await Doctor.findOne({
-      where: { walletAddress: doctorWalletAddress.toLowerCase() }
-    });
+    // Verify doctor exists (auto-create if user exists but doctor record missing)
+    const doctor = await ensureDoctorExists(doctorWalletAddress);
 
     if (!doctor) {
       return res.status(404).json({
         success: false,
         error: 'Doctor not found',
-        message: `No doctor found with wallet: ${doctorWalletAddress}`
+        message: `No doctor user found with wallet: ${doctorWalletAddress}. Doctor must be registered first.`
       });
     }
 
@@ -224,10 +286,19 @@ export const createAppointment = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Create appointment error:', error);
+    console.error('❌ Error name:', error.name);
+    console.error('❌ Error message:', error.message);
+    if (error.parent) {
+      console.error('❌ Database error:', error.parent.message);
+    }
+    if (error.errors) {
+      console.error('❌ Validation errors:', error.errors.map(e => e.message));
+    }
     res.status(500).json({
       success: false,
       error: 'Failed to create appointment',
-      message: error.message
+      message: error.message,
+      details: error.parent?.message || error.errors?.map(e => e.message) || null
     });
   }
 };
@@ -378,11 +449,13 @@ export const getDoctorSchedule = async (req, res) => {
         {
           model: Patient,
           as: 'patientDetails',
+          required: false,
           attributes: ['walletAddress'],
           include: [
             {
               model: db.User,
               as: 'user',
+              required: false,
               attributes: ['email', 'profileData']
             }
           ]
@@ -502,11 +575,13 @@ export const getAvailableSlots = async (req, res) => {
         {
           model: Doctor,
           as: 'doctorDetails',
+          required: false,
           attributes: ['walletAddress', 'specialization'],
           include: [
             {
               model: db.User,
               as: 'user',
+              required: false,
               attributes: ['email', 'profileData']
             }
           ]

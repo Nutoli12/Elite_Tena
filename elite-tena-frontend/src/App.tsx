@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Web3Provider } from './contexts/Web3Context';
+import { SocketProvider } from './contexts/SocketContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { HealthcareLayout } from './components/layout/HealthcareLayout';
 import { MedicalRecords } from './pages/MedicalRecords';
@@ -29,6 +30,7 @@ import { ReceptionCheckIn } from './pages/reception/ReceptionCheckIn';
 import { WaitingRoom } from './pages/WaitingRoom';
 import { DashboardRouter } from './components/DashboardRouter';
 import { AppointmentsRouter } from './components/AppointmentsRouter';
+import { Messages } from './pages/Messages';
 import './i18n';
 
 const AppRoutes: React.FC = () => {
@@ -103,6 +105,16 @@ const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <HealthcareLayout>
               <Payments />
+            </HealthcareLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <HealthcareLayout>
+              <Messages />
             </HealthcareLayout>
           </ProtectedRoute>
         }
@@ -206,6 +218,16 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
+        path="/patient/consultation/:appointmentId"
+        element={
+          <ProtectedRoute requiredRole="patient">
+            <HealthcareLayout>
+              <ConsultationRoom />
+            </HealthcareLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/comprehensive-consultation/:appointmentId"
         element={
           <ProtectedRoute requiredRole="doctor">
@@ -246,9 +268,11 @@ function App() {
   return (
     <Web3Provider>
       <AuthProvider>
-        <Router>
-          <AppRoutes />
-        </Router>
+        <SocketProvider>
+          <Router>
+            <AppRoutes />
+          </Router>
+        </SocketProvider>
       </AuthProvider>
     </Web3Provider>
   );

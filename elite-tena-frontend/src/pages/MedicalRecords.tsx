@@ -64,6 +64,12 @@ export const MedicalRecords: React.FC = () => {
     try {
       console.log('📝 Creating medical record...', data);
 
+      // Validate patient wallet is provided
+      if (!data.patientWallet) {
+        alert('Please select a patient for this medical record');
+        return;
+      }
+
       let ipfsHash = '';
       let fileUrl = '';
 
@@ -74,7 +80,7 @@ export const MedicalRecords: React.FC = () => {
           name: `medical-record-${Date.now()}-${data.file.name}`,
           keyvalues: {
             type: 'medical-record-attachment',
-            patientWallet: user?.walletAddress || '',
+            patientWallet: data.patientWallet,
             doctorWallet: user?.walletAddress || '',
           }
         });
@@ -89,10 +95,10 @@ export const MedicalRecords: React.FC = () => {
         }
       }
 
-      // Create medical record via API
+      // Create medical record via API - use selected patient wallet
       const recordData = {
-        patientWalletAddress: user?.walletAddress,
-        doctorWalletAddress: user?.walletAddress,
+        patientWalletAddress: data.patientWallet, // Use selected patient
+        doctorWalletAddress: user?.walletAddress, // Doctor creating the record
         recordType: 'consultation',
         title: data.title,
         description: data.notes || '',

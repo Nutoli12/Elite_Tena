@@ -189,3 +189,74 @@ All TODO items from the checklist have been implemented:
 - ✅ Error handling
 
 The payment settings system is now fully functional and ready for use!
+
+
+---
+
+## 🐛 Bug Fix: Field Name Mismatch (December 5, 2024)
+
+### Issue Discovered
+When testing the payment settings page, encountered:
+- ❌ 404 errors: `Failed to load resource: the server responded with a status of 404`
+- ❌ NaN warnings: `Received NaN for the value attribute`
+- ❌ Parse errors: `The specified value "NaN" cannot be parsed`
+
+**Root Cause**: Frontend field names didn't match database model field names
+
+### Field Mismatches
+| Frontend (Wrong) | Database Model (Correct) |
+|-----------------|-------------------------|
+| `telebirrPhone` | `telebirrNumber` |
+| `bankAccountHolder` | `bankAccountName` |
+| `premiumServiceFee` | `videoCallFee` + `chatFee` |
+
+### Fix Applied
+**File**: `elite-tena-frontend/src/pages/doctor/DoctorSettings.tsx`
+
+1. **Updated State Object**:
+   ```typescript
+   // Before
+   telebirrPhone: '',
+   bankAccountHolder: '',
+   premiumServiceFee: 500
+   
+   // After
+   telebirrNumber: '',
+   bankAccountName: '',
+   videoCallFee: 50,
+   chatFee: 30
+   ```
+
+2. **Added Null Safety**:
+   - Added `|| ''` fallbacks for string fields
+   - Added `|| 0` fallbacks for number fields
+   - Prevents NaN values in inputs
+
+3. **Split Premium Fee**:
+   - Replaced single fee input with two separate inputs
+   - Video Call Fee (default: 50 Birr)
+   - Chat Consultation Fee (default: 30 Birr)
+   - Grid layout for better UX
+
+4. **Improved Number Parsing**:
+   ```typescript
+   parseFloat(e.target.value) || 0
+   ```
+
+### Result
+✅ No more 404 errors - API calls succeed
+✅ No more NaN warnings - all values properly initialized
+✅ Settings load correctly from database
+✅ Settings save correctly to database
+✅ Form displays proper default values
+✅ All payment methods work as expected
+
+### Testing Checklist
+- [x] Page loads without errors
+- [x] Settings fetch successfully
+- [x] No console errors or warnings
+- [x] All fields display correctly
+- [x] Toggle switches work
+- [x] Number inputs accept valid values
+- [x] Settings save successfully
+- [x] Saved settings persist after reload

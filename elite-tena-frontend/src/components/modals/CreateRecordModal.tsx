@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Loader2 } from 'lucide-react';
+import { X, Upload, Loader2, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '../../contexts/AuthContext';
+import axios from '../../lib/axios';
 
 interface CreateRecordModalProps {
   isOpen: boolean;
@@ -9,17 +11,79 @@ interface CreateRecordModalProps {
   onSubmit: (data: any) => Promise<void>;
 }
 
+interface Patient {
+  walletAddress: string;
+  fullName: string;
+}
+
 export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, onClose, onSubmit }) => {
+  const { user } = useAuth();
   const { register, handleSubmit, formState: { errors }, reset } = useForm();
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<string>('');
+  const [loadingPatients, setLoadingPatients] = useState(false);
+
+  // Fetch doctor's patients when modal opens
+  useEffect(() => {
+    if (isOpen && user?.walletAddress) {
+      fetchPatients();
+    }
+  }, [isOpen, user?.walletAddress]);
+
+  const fetchPatients = async () => {
+    setLoadingPatients(true);
+    try {
+      console.log('🔍 Fetching doctor\'s patients...');
+      
+      // Fetch appointments for this doctor to get unique patients
+      const response = await axios.get('/appointments', {
+        params: {
+          userRole: 'doctor',
+          userId: user?.walletAddress
+        }
+      });
+
+      if (response.data.success) {
+        // Extract unique patients from appointments
+        const uniquePatients = new Map<string, Patient>();
+        
+        response.data.data.forEach((appointment: any) => {
+          const patientWallet = appointment.patientWalletAddress;
+          if (patientWallet && !uniquePatients.has(patientWallet)) {
+            uniquePatients.set(patientWallet, {
+              walletAddress: patientWallet,
+              fullName: appointment.patient?.user?.profileData?.fullName || 
+                       `Patient ${patientWallet.substring(0, 8)}...`
+            });
+          }
+        });
+
+        const patientList = Array.from(uniquePatients.values());
+        setPatients(patientList);
+        console.log('✅ Found', patientList.length, 'unique patients');
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch patients:', error);
+      setPatients([]);
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
 
   const handleFormSubmit = async (data: any) => {
+    if (!selectedPatient) {
+      alert('Please select a patient');
+      return;
+    }
+
     setLoading(true);
     try {
-      await onSubmit({ ...data, file });
+      await onSubmit({ ...data, file, patientWallet: selectedPatient });
       reset();
       setFile(null);
+      setSelectedPatient('');
       onClose();
     } catch (error) {
       console.error('Failed to create record:', error);
@@ -32,6 +96,7 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
     if (!loading) {
       reset();
       setFile(null);
+      setSelectedPatient('');
       onClose();
     }
   };
@@ -61,6 +126,41 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
             </div>
 
             <form onSubmit={handleSubmit(handleFormSubmit)} className="p-6 space-y-4">
+              {/* Patient Selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <User className="w-4 h-4 inline mr-1" />
+                  Select Patient *
+                </label>
+                {loadingPatients ? (
+                  <div className="flex items-center justify-center py-3 text-gray-500">
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Loading patients...
+                  </div>
+                ) : patients.length === 0 ? (
+                  <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-500 text-center">
+                    No patients found. Patients appear here after they book appointments with you.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedPatient}
+                    onChange={(e) => setSelectedPatient(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">-- Select a patient --</option>
+                    {patients.map((patient) => (
+                      <option key={patient.walletAddress} value={patient.walletAddress}>
+                        {patient.fullName} ({patient.walletAddress.substring(0, 10)}...)
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {!selectedPatient && patients.length > 0 && (
+                  <p className="text-amber-600 text-sm mt-1">Please select which patient this record is for</p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
                 <input

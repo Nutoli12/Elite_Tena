@@ -32,10 +32,10 @@ export const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
       // First get appointment to get doctor wallet
       const appointmentResponse = await axios.get(`/appointments/${appointmentId}`);
       const appointment = appointmentResponse.data.data;
-      
+
       // Then get doctor's payment settings
-      const paymentResponse = await axios.get(`/premium-service/payment-settings/${appointment.doctorWalletAddress}`);
-      
+      const paymentResponse = await axios.get(`/premium-services/payment-settings/${appointment.doctorWalletAddress}`);
+
       if (paymentResponse.data.success) {
         setPaymentDetails({
           ...paymentResponse.data.data,
@@ -129,9 +129,9 @@ export const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-gray-600">Phone Number:</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-mono font-semibold">{paymentDetails.telebirrPhone}</span>
+                              <span className="font-mono font-semibold">{paymentDetails.telebirrNumber}</span>
                               <button
-                                onClick={() => copyToClipboard(paymentDetails.telebirrPhone, 'telebirr')}
+                                onClick={() => copyToClipboard(paymentDetails.telebirrNumber, 'telebirr')}
                                 className="p-1 hover:bg-gray-100 rounded transition-colors"
                               >
                                 {copied === 'telebirr' ? (
@@ -219,7 +219,7 @@ export const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
                             </div>
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-gray-600">Account Holder:</span>
-                              <span className="font-semibold">{paymentDetails.bankAccountHolder}</span>
+                              <span className="font-semibold">{paymentDetails.bankAccountName}</span>
                             </div>
                           </div>
                         </div>

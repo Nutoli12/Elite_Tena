@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Plus, MapPin, Clock, Video, MoreVertical, DollarSign, Upload, QrCode } from 'lucide-react';
+import { Calendar, Plus, MapPin, Clock, Video, MoreVertical, DollarSign, Upload, QrCode, X, Loader2, Trash2 } from 'lucide-react';
 import axios from '../lib/axios';
 import type { Appointment } from '../types/healthcare';
 import { BookAppointmentModal } from '../components/modals/BookAppointmentModal';
@@ -20,6 +20,9 @@ export const Appointments: React.FC = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleData, setRescheduleData] = useState({ date: '', time: '' });
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -28,7 +31,7 @@ export const Appointments: React.FC = () => {
   const handleBookAppointment = async (appointmentData: any) => {
     try {
       console.log('📅 Booking appointment:', appointmentData);
-      
+
       const response = await axios.post('/appointments', {
         patientWalletAddress: user?.walletAddress,
         doctorWalletAddress: appointmentData.doctorId,
@@ -54,6 +57,73 @@ export const Appointments: React.FC = () => {
     }
   };
 
+  // Cancel appointment handler
+  const handleCancelAppointment = async (appointmentId: string) => {
+    if (!confirm('Are you sure you want to cancel this appointment?')) return;
+
+    setActionLoading(appointmentId);
+    try {
+      const response = await axios.patch(`/appointments/${appointmentId}/cancel`);
+      if (response.data.success) {
+        alert('Appointment cancelled successfully');
+        fetchAppointments();
+      }
+    } catch (error) {
+      console.error('❌ Failed to cancel appointment:', error);
+      alert('Failed to cancel appointment. Please try again.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Delete appointment handler
+  const handleDeleteAppointment = async (appointmentId: string) => {
+    if (!confirm('Are you sure you want to delete this appointment? This action cannot be undone.')) return;
+
+    setActionLoading(appointmentId);
+    try {
+      const response = await axios.delete(`/appointments/${appointmentId}`);
+      if (response.data.success) {
+        alert('Appointment deleted successfully');
+        fetchAppointments();
+      }
+    } catch (error) {
+      console.error('❌ Failed to delete appointment:', error);
+      alert('Failed to delete appointment. Please try again.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Reschedule appointment handler
+  const handleRescheduleAppointment = async () => {
+    if (!selectedAppointment || !rescheduleData.date || !rescheduleData.time) {
+      alert('Please select a new date and time');
+      return;
+    }
+
+    setActionLoading(selectedAppointment.id);
+    try {
+      const newDateTime = `${rescheduleData.date}T${rescheduleData.time}:00`;
+      const response = await axios.put(`/appointments/${selectedAppointment.id}`, {
+        appointmentDate: newDateTime
+      });
+
+      if (response.data.success) {
+        alert('Appointment rescheduled successfully');
+        setShowRescheduleModal(false);
+        setSelectedAppointment(null);
+        setRescheduleData({ date: '', time: '' });
+        fetchAppointments();
+      }
+    } catch (error) {
+      console.error('❌ Failed to reschedule appointment:', error);
+      alert('Failed to reschedule appointment. Please try again.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const fetchAppointments = async () => {
     if (!user?.walletAddress) {
       setLoading(false);
@@ -62,7 +132,7 @@ export const Appointments: React.FC = () => {
 
     try {
       console.log('🔍 Fetching patient appointments for:', user.walletAddress);
-      
+
       // Fetch ONLY this patient's appointments (not doctor appointments!)
       const response = await axios.get('/appointments', {
         params: {
@@ -331,20 +401,54 @@ export const Appointments: React.FC = () => {
                       )}
 
                       {/* Standard Actions */}
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium"
-                      >
-                        Reschedule
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm font-medium"
-                      >
-                        Cancel
-                      </motion.button>
+                      {appointment.status !== 'cancelled' && appointment.status !== 'completed' && (
+                        <>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => {
+                              setSelectedAppointment(appointment);
+                              setRescheduleData({ date: appointment.date, time: '' });
+                              setShowRescheduleModal(true);
+                            }}
+                            disabled={actionLoading === appointment.id}
+                            className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            Reschedule
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleCancelAppointment(appointment.id)}
+                            disabled={actionLoading === appointment.id}
+                            className="border border-yellow-300 text-yellow-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-50 disabled:opacity-50 flex items-center gap-2"
+                          >
+                            {actionLoading === appointment.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <X className="w-4 h-4" />
+                            )}
+                            Cancel
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleDeleteAppointment(appointment.id)}
+                            disabled={actionLoading === appointment.id}
+                            className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50 flex items-center gap-2"
+                          >
+                            {actionLoading === appointment.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                            Delete
+                          </motion.button>
+                        </>
+                      )}
+                      {appointment.status === 'cancelled' && (
+                        <span className="text-gray-400 text-sm italic">Cancelled</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -434,6 +538,107 @@ export const Appointments: React.FC = () => {
             >
               Close
             </motion.button>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && selectedAppointment && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            setShowRescheduleModal(false);
+            setSelectedAppointment(null);
+          }}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Reschedule Appointment</h3>
+              <button
+                onClick={() => {
+                  setShowRescheduleModal(false);
+                  setSelectedAppointment(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600">Current appointment:</p>
+                <p className="font-medium text-gray-900">
+                  {selectedAppointment.date} at {selectedAppointment.time}
+                </p>
+                <p className="text-sm text-gray-600">{selectedAppointment.doctorId}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Date *</label>
+                <input
+                  type="date"
+                  value={rescheduleData.date}
+                  onChange={(e) => setRescheduleData(prev => ({ ...prev, date: e.target.value }))}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Time *</label>
+                <select
+                  value={rescheduleData.time}
+                  onChange={(e) => setRescheduleData(prev => ({ ...prev, time: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500 focus:border-transparent"
+                >
+                  <option value="">Select time</option>
+                  <option value="09:00">09:00 AM</option>
+                  <option value="10:00">10:00 AM</option>
+                  <option value="11:00">11:00 AM</option>
+                  <option value="14:00">02:00 PM</option>
+                  <option value="15:00">03:00 PM</option>
+                  <option value="16:00">04:00 PM</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowRescheduleModal(false);
+                  setSelectedAppointment(null);
+                }}
+                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleRescheduleAppointment}
+                disabled={!rescheduleData.date || !rescheduleData.time || actionLoading === selectedAppointment.id}
+                className="flex-1 px-4 py-3 bg-medical-500 text-white rounded-xl font-medium hover:bg-medical-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {actionLoading === selectedAppointment.id ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Confirm Reschedule'
+                )}
+              </motion.button>
+            </div>
           </motion.div>
         </motion.div>
       )}

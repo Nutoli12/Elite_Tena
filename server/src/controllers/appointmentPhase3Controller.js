@@ -1,5 +1,6 @@
 import db from '../models/index.js';
 const { Appointment, Patient, Doctor, User, Notification } = db;
+import { sendNotification } from '../services/socketService.js';
 
 /**
  * 🆕 PHASE 3: Doctor approves paid appointment
@@ -35,14 +36,17 @@ export const approveAppointment = async (req, res) => {
       status: 'approved'
     });
 
-    // Create notification for patient
-    await Notification.create({
-      userId: appointment.patientWalletAddress,
-      title: 'Appointment Approved',
-      message: `Your appointment has been approved. Please proceed with payment.`,
-      type: 'appointment_approved',
-      relatedId: appointment.id
-    });
+    // Send notification to patient
+    await sendNotification(
+      appointment.patientWalletAddress,
+      'appointment', // Valid DB type
+      {
+        title: 'Appointment Approved',
+        message: 'Your appointment has been approved. Please proceed with payment.',
+        relatedId: appointment.id,
+        subType: 'approved' // Extra data for frontend if needed
+      }
+    );
 
     console.log('✅ Appointment approved successfully');
 
@@ -60,10 +64,12 @@ export const approveAppointment = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Approve appointment error:', error);
+    console.error('Stack:', error.stack); // Log stack trace
     res.status(500).json({
       success: false,
       error: 'Failed to approve appointment',
-      message: error.message
+      message: error.message,
+      details: error.toString() // Send more details to client for debugging
     });
   }
 };
@@ -94,14 +100,17 @@ export const rejectAppointment = async (req, res) => {
       notes: reason || 'Rejected by doctor'
     });
 
-    // Create notification for patient
-    await Notification.create({
-      userId: appointment.patientWalletAddress,
-      title: 'Appointment Rejected',
-      message: `Your appointment request has been declined. Reason: ${reason || 'Doctor not available'}`,
-      type: 'appointment_rejected',
-      relatedId: appointment.id
-    });
+    // Send notification to patient
+    await sendNotification(
+      appointment.patientWalletAddress,
+      'appointment',
+      {
+        title: 'Appointment Rejected',
+        message: `Your appointment request has been declined. Reason: ${reason || 'Doctor not available'}`,
+        relatedId: appointment.id,
+        subType: 'rejected'
+      }
+    );
 
     console.log('✅ Appointment rejected');
 
@@ -124,6 +133,9 @@ export const rejectAppointment = async (req, res) => {
 /**
  * 🆕 PHASE 3: Get pending approval appointments for doctor
  */
+/**
+ * 🆕 PHASE 3: Get pending approval appointments for doctor
+ */
 export const getPendingApprovals = async (req, res) => {
   try {
     const { doctorWallet } = req.query;
@@ -139,40 +151,69 @@ export const getPendingApprovals = async (req, res) => {
 
     console.log('🔍 Fetching pending approvals for:', doctorWallet);
 
-    const appointments = await Appointment.findAll({
-      where: {
-        doctorWalletAddress: doctorWallet.toLowerCase(),
-        requiresApproval: true,
-        approvalStatus: 'pending'
-      },
-      include: [
-        {
-          model: Patient,
-          as: 'patientDetails',
-          include: [{
-            model: User,
-            as: 'user',
-            attributes: ['email', 'profileData']
-          }]
+    // Debug: Check if doctor exists
+    try {
+      const doctorExists = await Doctor.findByPk(doctorWallet.toLowerCase());
+      console.log('🔍 Doctor exists check:', !!doctorExists);
+    } catch (err) {
+      console.error('❌ Error checking doctor existence:', err);
+    }
+
+    try {
+      const appointments = await Appointment.findAll({
+        where: {
+          doctorWalletAddress: doctorWallet.toLowerCase(),
+          requiresApproval: true,
+          approvalStatus: 'pending'
+        },
+        include: [
+          {
+            model: Patient,
+            as: 'patientDetails',
+            include: [{
+              model: User,
+              as: 'user',
+              attributes: ['email', 'profileData']
+            }]
+          }
+        ],
+        order: [['createdAt', 'ASC']]
+      });
+
+      console.log(`✅ Found ${appointments.length} pending approvals`);
+
+      res.json({
+        success: true,
+        data: appointments,
+        count: appointments.length
+      });
+    } catch (queryError) {
+      console.error('❌ Database query error in getPendingApprovals:', queryError);
+      // Fallback: Try without include if association fails
+      console.log('⚠️ Retrying without associations...');
+      const simpleAppointments = await Appointment.findAll({
+        where: {
+          doctorWalletAddress: doctorWallet.toLowerCase(),
+          requiresApproval: true,
+          approvalStatus: 'pending'
         }
-      ],
-      order: [['createdAt', 'ASC']]
-    });
+      });
 
-    console.log(`✅ Found ${appointments.length} pending approvals`);
-
-    res.json({
-      success: true,
-      data: appointments,
-      count: appointments.length
-    });
+      res.json({
+        success: true,
+        data: simpleAppointments,
+        count: simpleAppointments.length,
+        warning: 'Associations failed to load'
+      });
+    }
 
   } catch (error) {
-    console.error('❌ Get pending approvals error:', error);
+    console.error('❌ Get pending approvals fatal error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch pending approvals',
-      message: error.message
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -210,14 +251,17 @@ export const uploadPaymentReceipt = async (req, res) => {
       paymentStatus: 'paid'
     });
 
-    // Notify doctor to confirm payment
-    await Notification.create({
-      userId: appointment.doctorWalletAddress,
-      title: 'Payment Receipt Uploaded',
-      message: 'Patient has uploaded payment receipt. Please verify and confirm.',
-      type: 'payment_receipt_uploaded',
-      relatedId: appointment.id
-    });
+    // Notify doctor
+    await sendNotification(
+      appointment.doctorWalletAddress,
+      'payment',
+      {
+        title: 'Payment Receipt Uploaded',
+        message: 'Patient has uploaded payment receipt. Please verify and confirm.',
+        relatedId: appointment.id,
+        subType: 'receipt_uploaded'
+      }
+    );
 
     console.log('✅ Payment receipt uploaded');
 
@@ -272,13 +316,16 @@ export const confirmPayment = async (req, res) => {
     });
 
     // Notify patient
-    await Notification.create({
-      userId: appointment.patientWalletAddress,
-      title: 'Payment Confirmed',
-      message: 'Your payment has been confirmed. Appointment is now scheduled!',
-      type: 'payment_confirmed',
-      relatedId: appointment.id
-    });
+    await sendNotification(
+      appointment.patientWalletAddress,
+      'payment',
+      {
+        title: 'Payment Confirmed',
+        message: 'Your payment has been confirmed. Appointment is now scheduled!',
+        relatedId: appointment.id,
+        subType: 'payment_confirmed'
+      }
+    );
 
     console.log('✅ Payment confirmed');
 
@@ -298,6 +345,9 @@ export const confirmPayment = async (req, res) => {
   }
 };
 
+/**
+ * 🆕 PHASE 3: Get payment details for appointment
+ */
 /**
  * 🆕 PHASE 3: Get payment details for appointment
  */
@@ -326,6 +376,63 @@ export const getPaymentDetails = async (req, res) => {
       });
     }
 
+    // Fetch doctor's payment settings
+    const { DoctorPaymentSettings } = db;
+    let paymentSettings = await DoctorPaymentSettings.findOne({
+      where: { doctorWalletAddress: appointment.doctorWalletAddress.toLowerCase() }
+    });
+
+    // If no settings found, use defaults (or return empty)
+    if (!paymentSettings) {
+      paymentSettings = {
+        telebirrEnabled: false,
+        cbeBirrEnabled: false,
+        bankTransferEnabled: false,
+        cashEnabled: true
+      };
+    }
+
+    const paymentMethods = [];
+
+    // Telebirr
+    if (paymentSettings.telebirrEnabled) {
+      paymentMethods.push({
+        method: 'telebirr',
+        accountNumber: paymentSettings.telebirrNumber || 'Not provided',
+        accountName: paymentSettings.telebirrName || appointment.doctorDetails?.user?.profileData?.fullName || 'Doctor',
+        instructions: 'Send payment via Telebirr and upload receipt'
+      });
+    }
+
+    // CBE Birr
+    if (paymentSettings.cbeBirrEnabled) {
+      paymentMethods.push({
+        method: 'cbe_birr',
+        accountNumber: paymentSettings.cbeBirrAccount || 'Not provided',
+        accountName: paymentSettings.cbeBirrName || appointment.doctorDetails?.user?.profileData?.fullName || 'Doctor',
+        instructions: 'Send payment via CBE Birr and upload receipt'
+      });
+    }
+
+    // Bank Transfer
+    if (paymentSettings.bankTransferEnabled) {
+      paymentMethods.push({
+        method: 'bank_transfer',
+        accountNumber: paymentSettings.bankAccountNumber || 'Not provided',
+        accountName: paymentSettings.bankAccountName || appointment.doctorDetails?.user?.profileData?.fullName || 'Doctor',
+        bankName: paymentSettings.bankName || 'Bank',
+        instructions: `Transfer to ${paymentSettings.bankName} and upload receipt`
+      });
+    }
+
+    // Cash (always fallback if nothing else, or explicit)
+    if (paymentSettings.cashEnabled || paymentMethods.length === 0) {
+      paymentMethods.push({
+        method: 'cash',
+        instructions: 'Pay in person at the clinic'
+      });
+    }
+
     // Return payment details
     const paymentDetails = {
       appointmentId: appointment.id,
@@ -334,20 +441,7 @@ export const getPaymentDetails = async (req, res) => {
       serviceType: appointment.serviceType,
       approvalStatus: appointment.approvalStatus,
       paymentStatus: appointment.paymentStatus,
-      paymentMethods: [
-        {
-          method: 'telebirr',
-          accountNumber: '0912345678',
-          accountName: appointment.doctorDetails?.user?.profileData?.fullName || 'Doctor',
-          instructions: 'Send payment via Telebirr and upload receipt'
-        },
-        {
-          method: 'cbe_birr',
-          accountNumber: '1000123456789',
-          accountName: appointment.doctorDetails?.user?.profileData?.fullName || 'Doctor',
-          instructions: 'Send payment via CBE Birr and upload receipt'
-        }
-      ]
+      paymentMethods: paymentMethods
     };
 
     res.json({

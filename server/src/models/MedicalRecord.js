@@ -24,7 +24,7 @@ const MedicalRecord = (sequelize) => {
       }
     },
     recordType: {
-      type: DataTypes.ENUM('consultation', 'lab_result', 'prescription', 'imaging', 'surgery', 'vaccination'),
+      type: DataTypes.ENUM('consultation', 'lab_result', 'prescription', 'imaging', 'surgery', 'vaccination', 'comprehensive_consultation'),
       allowNull: false
     },
     title: {
@@ -58,13 +58,18 @@ const MedicalRecord = (sequelize) => {
     isEncrypted: {
       type: DataTypes.BOOLEAN,
       defaultValue: true
+    },
+    metadata: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      defaultValue: {}
     }
   }, {
     tableName: 'medical_records',
     timestamps: true
   });
 
-  MedicalRecordModel.associate = function(models) {
+  MedicalRecordModel.associate = function (models) {
     MedicalRecordModel.belongsTo(models.Patient, {
       foreignKey: 'patientWalletAddress',
       as: 'patient'

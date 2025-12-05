@@ -22,7 +22,25 @@ export default (sequelize, DataTypes) => {
       allowNull: false
     },
     type: {
-      type: DataTypes.ENUM('success', 'info', 'warning', 'error', 'appointment', 'prescription', 'lab_result', 'payment'),
+      type: DataTypes.ENUM(
+        // General
+        'success', 'info', 'warning', 'error',
+        // Patient notifications
+        'appointment_reminder', 'appointment_confirmed', 'appointment_cancelled',
+        'payment_required', 'payment_confirmed',
+        'lab_results_ready', 'prescription_ready',
+        'video_call_ready', 'chat_message',
+        // Doctor notifications
+        'new_appointment_request', 'patient_checked_in',
+        'lab_results_to_review', 'prescription_request',
+        'payment_received', 'video_call_request',
+        // Pharmacist notifications
+        'new_prescription', 'prescription_picked_up', 'stock_alert',
+        // Lab technician notifications
+        'new_lab_order', 'urgent_test', 'results_uploaded',
+        // System notifications
+        'system_update', 'maintenance_scheduled'
+      ),
       allowNull: false,
       defaultValue: 'info'
     },
@@ -45,6 +63,11 @@ export default (sequelize, DataTypes) => {
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: true
+    },
+    data: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      comment: 'Additional data for the notification (JSON format)'
     }
   }, {
     tableName: 'notifications',

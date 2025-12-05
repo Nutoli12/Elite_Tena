@@ -3,8 +3,9 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, LogOut, Bell } from 'lucide-react';
+import { Menu, LogOut } from 'lucide-react';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
+import { NotificationBell } from '../NotificationBell';
 
 interface HealthcareLayoutProps {
   children: React.ReactNode;
@@ -26,6 +27,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
       { name: t('lab_results'), href: '/lab-results', icon: '🧪' },
       { name: t('consent_management'), href: '/consent', icon: '🔐' },
       { name: t('payments'), href: '/payments', icon: '💰' },
+      { name: 'Messages', href: '/messages', icon: '💬' },
     ],
     doctor: [
       { name: t('dashboard'), href: '/dashboard', icon: '🏠' },
@@ -33,6 +35,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
       { name: t('medical_records'), href: '/medical-records', icon: '📁' },
       { name: t('appointments'), href: '/appointments', icon: '📅' },
       { name: 'Payment Settings', href: '/doctor/settings', icon: '⚙️' },
+      { name: 'Messages', href: '/messages', icon: '💬' },
     ],
     pharmacist: [
       { name: t('dashboard'), href: '/dashboard', icon: '🏠' },
@@ -194,10 +197,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
             {/* Right Section */}
             <div className="flex items-center space-x-4">
               <LanguageSwitcher />
-              <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <NotificationBell />
             </div>
           </div>
         </motion.header>

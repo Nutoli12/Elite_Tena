@@ -9,15 +9,16 @@ export const DoctorSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
-    telebirrPhone: '',
+    telebirrNumber: '',
     telebirrEnabled: false,
     cbeBirrAccount: '',
     cbeBirrEnabled: false,
     bankName: '',
     bankAccountNumber: '',
-    bankAccountHolder: '',
+    bankAccountName: '',
     bankTransferEnabled: false,
-    premiumServiceFee: 500
+    videoCallFee: 50,
+    chatFee: 30
   });
 
   useEffect(() => {
@@ -26,7 +27,7 @@ export const DoctorSettings: React.FC = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await axios.get(`/premium-service/payment-settings/${user?.walletAddress}`);
+      const response = await axios.get(`/premium-services/payment-settings/${user?.walletAddress}`);
       if (response.data.success) {
         setSettings(response.data.data);
       }
@@ -40,7 +41,7 @@ export const DoctorSettings: React.FC = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const response = await axios.put(`/premium-service/payment-settings/${user?.walletAddress}`, settings);
+      const response = await axios.put(`/premium-services/payment-settings/${user?.walletAddress}`, settings);
       
       if (response.data.success) {
         alert('Payment settings saved successfully!');
@@ -88,27 +89,45 @@ export const DoctorSettings: React.FC = () => {
         </motion.button>
       </div>
 
-      {/* Premium Service Fee */}
+      {/* Premium Service Fees */}
       <div className="medical-card p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
           <DollarSign className="w-5 h-5 text-medical-600" />
-          Premium Service Fee
+          Premium Service Fees
         </h2>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Fee Amount (Birr)
-          </label>
-          <input
-            type="number"
-            value={settings.premiumServiceFee}
-            onChange={(e) => setSettings({ ...settings, premiumServiceFee: parseInt(e.target.value) })}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500"
-            placeholder="500"
-          />
-          <p className="text-sm text-gray-600 mt-2">
-            This is the fee patients will pay for premium consultation services
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Video Call Fee (Birr)
+            </label>
+            <input
+              type="number"
+              value={settings.videoCallFee || ''}
+              onChange={(e) => setSettings({ ...settings, videoCallFee: parseFloat(e.target.value) || 0 })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500"
+              placeholder="50"
+              min="0"
+              step="0.01"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Chat Consultation Fee (Birr)
+            </label>
+            <input
+              type="number"
+              value={settings.chatFee || ''}
+              onChange={(e) => setSettings({ ...settings, chatFee: parseFloat(e.target.value) || 0 })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500"
+              placeholder="30"
+              min="0"
+              step="0.01"
+            />
+          </div>
         </div>
+        <p className="text-sm text-gray-600 mt-2">
+          These are the fees patients will pay for premium consultation services
+        </p>
       </div>
 
       {/* Telebirr */}
@@ -134,8 +153,8 @@ export const DoctorSettings: React.FC = () => {
           </label>
           <input
             type="tel"
-            value={settings.telebirrPhone}
-            onChange={(e) => setSettings({ ...settings, telebirrPhone: e.target.value })}
+            value={settings.telebirrNumber || ''}
+            onChange={(e) => setSettings({ ...settings, telebirrNumber: e.target.value })}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500"
             placeholder="+251912345678"
             disabled={!settings.telebirrEnabled}
@@ -166,7 +185,7 @@ export const DoctorSettings: React.FC = () => {
           </label>
           <input
             type="text"
-            value={settings.cbeBirrAccount}
+            value={settings.cbeBirrAccount || ''}
             onChange={(e) => setSettings({ ...settings, cbeBirrAccount: e.target.value })}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500"
             placeholder="1000123456789"
@@ -198,7 +217,7 @@ export const DoctorSettings: React.FC = () => {
               Bank Name
             </label>
             <select
-              value={settings.bankName}
+              value={settings.bankName || ''}
               onChange={(e) => setSettings({ ...settings, bankName: e.target.value })}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500"
               disabled={!settings.bankTransferEnabled}
@@ -219,7 +238,7 @@ export const DoctorSettings: React.FC = () => {
             </label>
             <input
               type="text"
-              value={settings.bankAccountNumber}
+              value={settings.bankAccountNumber || ''}
               onChange={(e) => setSettings({ ...settings, bankAccountNumber: e.target.value })}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500"
               placeholder="1000123456789"
@@ -232,8 +251,8 @@ export const DoctorSettings: React.FC = () => {
             </label>
             <input
               type="text"
-              value={settings.bankAccountHolder}
-              onChange={(e) => setSettings({ ...settings, bankAccountHolder: e.target.value })}
+              value={settings.bankAccountName || ''}
+              onChange={(e) => setSettings({ ...settings, bankAccountName: e.target.value })}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500"
               placeholder="Dr. John Doe"
               disabled={!settings.bankTransferEnabled}

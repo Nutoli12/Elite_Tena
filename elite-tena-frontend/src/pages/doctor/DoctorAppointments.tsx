@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, User, Video, MapPin, MessageSquare, MoreVertical, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { Calendar, Clock, User, Video, MapPin, MessageSquare, MoreVertical, CheckCircle, XCircle, Eye, Phone } from 'lucide-react';
 import axios from '../../lib/axios';
 
 export const DoctorAppointments: React.FC = () => {
@@ -294,6 +294,33 @@ export const DoctorAppointments: React.FC = () => {
                         >
                           <CheckCircle className="w-4 h-4" />
                           Quick Consultation
+                        </motion.button>
+                      )}
+
+                      {/* Chat Button */}
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => navigate(`/messages?userId=${appointment.patientWalletAddress}`)}
+                        className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        Chat
+                      </motion.button>
+
+                      {/* Video Call Button */}
+                      {appointment.serviceType === 'videoCall' && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            // Navigate to messages with video call intent
+                            navigate(`/messages?userId=${appointment.patientWalletAddress}&startCall=true`);
+                          }}
+                          className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                        >
+                          <Phone className="w-4 h-4" />
+                          Start Video Call
                         </motion.button>
                       )}
 

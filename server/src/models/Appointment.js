@@ -57,7 +57,7 @@ const Appointment = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: true
     },
-    
+
     // 🆕 PHASE 3: Payment & Approval (PEER-TO-PEER)
     serviceType: {
       type: DataTypes.ENUM('inPerson', 'videoCall', 'chat'),
@@ -89,7 +89,7 @@ const Appointment = (sequelize) => {
       allowNull: true,
       comment: 'Reason for rejection if denied'
     },
-    
+
     // PEER-TO-PEER PAYMENT (Direct doctor-patient)
     paymentMethod: {
       type: DataTypes.ENUM('telebirr', 'cbe_birr', 'bank_transfer', 'cash', 'free'),
@@ -131,7 +131,7 @@ const Appointment = (sequelize) => {
       allowNull: true,
       comment: 'Reason if payment proof rejected'
     },
-    
+
     // 🆕 PHASE 4: Check-in & Queue
     checkInStatus: {
       type: DataTypes.ENUM('not_checked_in', 'checked_in', 'waiting', 'in_progress', 'completed'),
@@ -222,13 +222,18 @@ const Appointment = (sequelize) => {
       type: DataTypes.TEXT,
       allowNull: true,
       comment: 'Treatment plan and instructions'
+    },
+    consultationDetails: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Comprehensive consultation data (draft)'
     }
   }, {
     tableName: 'appointments',
     timestamps: true
   });
 
-  AppointmentModel.associate = function(models) {
+  AppointmentModel.associate = function (models) {
     AppointmentModel.belongsTo(models.Patient, {
       foreignKey: 'patientWalletAddress',
       as: 'patientDetails'

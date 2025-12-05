@@ -50,11 +50,13 @@ export const getAllMedicalRecords = async (req, res) => {
         {
           model: Patient,
           as: 'patient',
+          required: false,
           attributes: ['walletAddress']
         },
         {
           model: Doctor,
           as: 'doctor',
+          required: false,
           attributes: ['walletAddress', 'specialization']
         }
       ],
@@ -87,7 +89,7 @@ export const getMedicalRecords = async (req, res) => {
   try {
     const { patientWallet } = req.params;
     const normalizedWallet = patientWallet.toLowerCase().trim();
-    
+
     // Get requesting user from header (in production, this would come from JWT token)
     const requestingWallet = req.headers['x-wallet-address'];
 
@@ -97,10 +99,10 @@ export const getMedicalRecords = async (req, res) => {
     // Check if requesting user has permission
     let userRole = null;
     let recordTypeFilter = null;
-    
+
     if (requestingWallet) {
       const normalizedRequestingWallet = requestingWallet.toLowerCase().trim();
-      
+
       // Get requesting user's role
       const { User, Consent } = db;
       const requestingUser = await User.findOne({
@@ -111,7 +113,7 @@ export const getMedicalRecords = async (req, res) => {
         userRole = requestingUser.role;
         console.log('🔍 Requesting user role:', userRole);
       }
-      
+
       // Allow if requesting their own records
       if (normalizedRequestingWallet === normalizedWallet) {
         console.log('✅ User accessing their own records');
@@ -137,7 +139,7 @@ export const getMedicalRecords = async (req, res) => {
             message: 'You do not have consent to access these medical records'
           });
         }
-        
+
         console.log('✅ Doctor has consent to access records');
       } else {
         // Other roles don't have access
@@ -177,11 +179,13 @@ export const getMedicalRecords = async (req, res) => {
         {
           model: Patient,
           as: 'patient',
+          required: false,
           attributes: ['walletAddress']
         },
         {
           model: Doctor,
           as: 'doctor',
+          required: false,
           attributes: ['walletAddress', 'specialization']
         }
       ],
