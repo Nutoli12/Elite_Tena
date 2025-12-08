@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Plus, Search, Download, Eye, Calendar, User } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { FileText, Plus, Search, Download, Eye, Calendar, User, Users } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from '../lib/axios';
 import type { MedicalRecord } from '../types/healthcare';
 import { CreateRecordModal } from '../components/modals/CreateRecordModal';
@@ -12,14 +12,22 @@ import { useConsentCheck } from '../hooks/useConsentCheck';
 import { NoAccessView } from '../components/consent/NoAccessView';
 import { AccessGrantedBanner } from '../components/doctor/AccessGrantedBanner';
 
+interface Patient {
+  walletAddress: string;
+  fullName: string;
+}
+
 export const MedicalRecords: React.FC = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loadingPatients, setLoadingPatients] = useState(false);
   
   // Get patient wallet from URL params (for doctors viewing patient records)
   const viewingPatientWallet = searchParams.get('patient');
@@ -32,18 +40,89 @@ export const MedicalRecords: React.FC = () => {
   );
 
   useEffect(() => {
+    if (user?.role === 'doctor') {
+      fetchPatientsWithConsent();
+    }
+  }, [user?.role]);
+
+  useEffect(() => {
     fetchRecords();
-  }, []);
+  }, [targetWallet]);
+
+  const fetchPatientsWithConsent = async () => {
+    if (!user?.walletAddress) return;
+    
+    setLoadingPatients(true);
+    try {
+      const uniquePatients = new Map<string, Patient>();
+      
+      // Fetch patients with active consent
+      const consentsResponse = await axios.get(`/consent/doctor/${user.walletAddress}`, {
+        params: { status: 'active' }
+      });
+
+      if (consentsResponse.data.success) {
+        consentsResponse.data.data.forEach((consent: any) => {
+          const patientWallet = consent.patientWalletAddress;
+          if (patientWallet) {
+            uniquePatients.set(patientWallet, {
+              walletAddress: patientWallet,
+              fullName: consent.patient?.user?.name || 
+                       consent.patient?.name ||
+                       consent.patient?.user?.email?.split('@')[0] ||
+                       `Patient ${patientWallet.substring(0, 8)}...`
+            });
+          }
+        });
+      }
+
+      // Also fetch from appointments
+      const appointmentsResponse = await axios.get('/appointments', {
+        params: {
+          userRole: 'doctor',
+          userId: user.walletAddress
+        }
+      });
+
+      if (appointmentsResponse.data.success) {
+        appointmentsResponse.data.data.forEach((appointment: any) => {
+          const patientWallet = appointment.patientWalletAddress;
+          if (patientWallet && !uniquePatients.has(patientWallet)) {
+            uniquePatients.set(patientWallet, {
+              walletAddress: patientWallet,
+              fullName: appointment.patient?.user?.profileData?.fullName || 
+                       appointment.patient?.user?.name ||
+                       `Patient ${patientWallet.substring(0, 8)}...`
+            });
+          }
+        });
+      }
+
+      setPatients(Array.from(uniquePatients.values()));
+    } catch (error) {
+      console.error('Failed to fetch patients:', error);
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
+
+  const handlePatientSelect = (patientWallet: string) => {
+    if (patientWallet === 'own') {
+      navigate('/medical-records');
+    } else {
+      navigate(`/medical-records?patient=${patientWallet}`);
+    }
+  };
 
   const fetchRecords = async () => {
-    if (!user?.walletAddress) {
+    if (!targetWallet) {
       setLoading(false);
       return;
     }
 
     try {
-      console.log('🔍 Fetching medical records for:', user.walletAddress);
-      const response = await axios.get(`/medical-records/${user.walletAddress}`);
+      console.log('🔍 Fetching medical records for:', targetWallet);
+      const response = await axios.get(`/medical-records/${targetWallet}`);
       
       if (response.data.success) {
         const backendRecords = response.data.data.map((record: any) => ({
@@ -200,24 +279,56 @@ export const MedicalRecords: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('medical_records')}</h1>
-          <p className="text-gray-600 mt-1">
-            {viewingPatientWallet ? 'Viewing patient medical records' : 'View and manage your medical records'}
-          </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{t('medical_records')}</h1>
+            <p className="text-gray-600 mt-1">
+              {viewingPatientWallet ? 'Viewing patient medical records' : 'View and manage your medical records'}
+            </p>
+          </div>
+
+          {user?.role === 'doctor' && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowCreateModal(true)}
+              className="healthcare-button flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Create Record
+            </motion.button>
+          )}
         </div>
 
+        {/* Patient Selector for Doctors */}
         {user?.role === 'doctor' && (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowCreateModal(true)}
-            className="healthcare-button flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Create Record
-          </motion.button>
+          <div className="medical-card p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Users className="w-4 h-4 inline mr-2" />
+              Select Patient to View Records
+            </label>
+            <select
+              value={viewingPatientWallet || 'own'}
+              onChange={(e) => handlePatientSelect(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500 focus:border-transparent"
+              disabled={loadingPatients}
+            >
+              <option value="own">My Own Records</option>
+              {patients.length > 0 && <option disabled>─────────────────</option>}
+              {patients.map((patient) => (
+                <option key={patient.walletAddress} value={patient.walletAddress}>
+                  {patient.fullName} ({patient.walletAddress.substring(0, 8)}...)
+                </option>
+              ))}
+              {patients.length === 0 && !loadingPatients && (
+                <option disabled>No patients with active consent</option>
+              )}
+            </select>
+            {loadingPatients && (
+              <p className="text-sm text-gray-500 mt-2">Loading patients...</p>
+            )}
+          </div>
         )}
       </div>
 

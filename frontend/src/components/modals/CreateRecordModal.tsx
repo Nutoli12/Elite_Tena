@@ -37,33 +37,63 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
     try {
       console.log('🔍 Fetching doctor\'s patients...');
       
-      // Fetch appointments for this doctor to get unique patients
-      const response = await axios.get('/appointments', {
-        params: {
-          userRole: 'doctor',
-          userId: user?.walletAddress
-        }
-      });
-
-      if (response.data.success) {
-        // Extract unique patients from appointments
-        const uniquePatients = new Map<string, Patient>();
-        
-        response.data.data.forEach((appointment: any) => {
-          const patientWallet = appointment.patientWalletAddress;
-          if (patientWallet && !uniquePatients.has(patientWallet)) {
-            uniquePatients.set(patientWallet, {
-              walletAddress: patientWallet,
-              fullName: appointment.patient?.user?.profileData?.fullName || 
-                       `Patient ${patientWallet.substring(0, 8)}...`
-            });
+      const uniquePatients = new Map<string, Patient>();
+      
+      // 1. Fetch patients from appointments
+      try {
+        const appointmentsResponse = await axios.get('/appointments', {
+          params: {
+            userRole: 'doctor',
+            userId: user?.walletAddress
           }
         });
 
-        const patientList = Array.from(uniquePatients.values());
-        setPatients(patientList);
-        console.log('✅ Found', patientList.length, 'unique patients');
+        if (appointmentsResponse.data.success) {
+          appointmentsResponse.data.data.forEach((appointment: any) => {
+            const patientWallet = appointment.patientWalletAddress;
+            if (patientWallet && !uniquePatients.has(patientWallet)) {
+              uniquePatients.set(patientWallet, {
+                walletAddress: patientWallet,
+                fullName: appointment.patient?.user?.profileData?.fullName || 
+                         appointment.patient?.user?.name ||
+                         appointment.patient?.name ||
+                         `Patient ${patientWallet.substring(0, 8)}...`
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to fetch appointments:', error);
       }
+
+      // 2. Fetch patients with active consent (who granted access)
+      try {
+        const consentsResponse = await axios.get(`/consent/doctor/${user?.walletAddress}`, {
+          params: { status: 'active' }
+        });
+
+        if (consentsResponse.data.success) {
+          consentsResponse.data.data.forEach((consent: any) => {
+            const patientWallet = consent.patientWalletAddress;
+            if (patientWallet && !uniquePatients.has(patientWallet)) {
+              uniquePatients.set(patientWallet, {
+                walletAddress: patientWallet,
+                fullName: consent.patient?.user?.name || 
+                         consent.patient?.name ||
+                         consent.patient?.user?.email?.split('@')[0] ||
+                         `Patient ${patientWallet.substring(0, 8)}...`
+              });
+            }
+          });
+          console.log('✅ Added', consentsResponse.data.data.length, 'patients with active consent');
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to fetch consents:', error);
+      }
+
+      const patientList = Array.from(uniquePatients.values());
+      setPatients(patientList);
+      console.log('✅ Total unique patients:', patientList.length);
     } catch (error) {
       console.error('❌ Failed to fetch patients:', error);
       setPatients([]);

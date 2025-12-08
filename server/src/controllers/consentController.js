@@ -1,5 +1,6 @@
 import db from '../models/index.js';
 import { Op } from 'sequelize';
+import { getIO } from '../services/socketService.js';
 
 const { Consent, Patient, Doctor, User, Appointment } = db;
 
@@ -93,7 +94,7 @@ export const requestAccess = async (req, res) => {
       const doctorName = doctor.user?.name || doctor.name || doctor.user?.email?.split('@')[0] || 'A doctor';
       const doctorSpecialty = doctor.specialty || doctor.specialization || 'Specialist';
       
-      await Notification.create({
+      const notification = await Notification.create({
         userId: patientWalletAddress,
         type: 'consent_request',
         title: 'New Access Request',
@@ -111,6 +112,15 @@ export const requestAccess = async (req, res) => {
         }
       });
       console.log('✅ Notification created for patient:', patientWalletAddress);
+      
+      // Emit via socket.io for real-time delivery
+      try {
+        const io = getIO();
+        io.to(patientWalletAddress.toLowerCase()).emit('notification', notification);
+        console.log('🔔 Real-time notification sent to patient');
+      } catch (socketError) {
+        console.error('⚠️ Socket emission failed (patient may not be online):', socketError.message);
+      }
     } catch (notifError) {
       console.error('❌ Failed to send notification:', notifError);
       console.error('Notification error details:', notifError.message);
@@ -231,7 +241,7 @@ export const grantConsent = async (req, res) => {
 
       const patientName = patient?.user?.name || patient?.name || patient?.user?.email?.split('@')[0] || 'A patient';
 
-      await Notification.create({
+      const notification = await Notification.create({
         userId: consent.doctorWalletAddress,
         type: 'consent_granted',
         title: '✅ Access Granted',
@@ -249,6 +259,15 @@ export const grantConsent = async (req, res) => {
         }
       });
       console.log('✅ Grant notification sent to doctor:', consent.doctorWalletAddress);
+      
+      // Emit via socket.io for real-time delivery
+      try {
+        const io = getIO();
+        io.to(consent.doctorWalletAddress.toLowerCase()).emit('notification', notification);
+        console.log('🔔 Real-time notification sent to doctor');
+      } catch (socketError) {
+        console.error('⚠️ Socket emission failed (doctor may not be online):', socketError.message);
+      }
     } catch (notifError) {
       console.error('❌ Failed to send grant notification:', notifError);
     }
@@ -305,7 +324,7 @@ export const denyConsent = async (req, res) => {
 
       const patientName = patient?.user?.name || patient?.name || patient?.user?.email?.split('@')[0] || 'A patient';
 
-      await Notification.create({
+      const notification = await Notification.create({
         userId: doctorWalletAddress,
         type: 'consent_revoked',
         title: '❌ Access Denied',
@@ -322,6 +341,15 @@ export const denyConsent = async (req, res) => {
         }
       });
       console.log('✅ Denial notification sent to doctor:', doctorWalletAddress);
+      
+      // Emit via socket.io for real-time delivery
+      try {
+        const io = getIO();
+        io.to(doctorWalletAddress.toLowerCase()).emit('notification', notification);
+        console.log('🔔 Real-time notification sent to doctor');
+      } catch (socketError) {
+        console.error('⚠️ Socket emission failed (doctor may not be online):', socketError.message);
+      }
     } catch (notifError) {
       console.error('❌ Failed to send denial notification:', notifError);
     }
@@ -436,7 +464,7 @@ export const revokeConsent = async (req, res) => {
 
       const patientName = patient?.user?.name || patient?.name || patient?.user?.email?.split('@')[0] || 'A patient';
 
-      await Notification.create({
+      const notification = await Notification.create({
         userId: consent.doctorWalletAddress,
         type: 'consent_revoked',
         title: '🚫 Access Revoked',
@@ -453,6 +481,16 @@ export const revokeConsent = async (req, res) => {
           actionUrl: '/doctor/consent'
         }
       });
+      console.log('✅ Revoke notification sent to doctor:', consent.doctorWalletAddress);
+      
+      // Emit via socket.io for real-time delivery
+      try {
+        const io = getIO();
+        io.to(consent.doctorWalletAddress.toLowerCase()).emit('notification', notification);
+        console.log('🔔 Real-time notification sent to doctor');
+      } catch (socketError) {
+        console.error('⚠️ Socket emission failed (doctor may not be online):', socketError.message);
+      }
     } catch (notifError) {
       console.error('Failed to send notification:', notifError);
     }

@@ -144,11 +144,11 @@ export const ActiveConsentsList: React.FC = () => {
                       whileHover={{ scale: 1.1, rotate: 5 }}
                       className="w-14 h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center text-white text-xl font-bold"
                     >
-                      {consent.doctor.user.name.charAt(0)}
+                      {(consent.doctor?.user?.name || consent.doctor?.name || 'D').charAt(0)}
                     </motion.div>
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        👨‍⚕️ {consent.doctor.user.name}
+                        👨‍⚕️ {consent.doctor?.user?.name || consent.doctor?.name || consent.doctor?.user?.email?.split('@')[0] || 'Doctor'}
                         <motion.span
                           animate={{ scale: [1, 1.1, 1] }}
                           transition={{ duration: 2, repeat: Infinity }}
@@ -156,7 +156,7 @@ export const ActiveConsentsList: React.FC = () => {
                           <CheckCircle className="w-5 h-5 text-green-600" />
                         </motion.span>
                       </h3>
-                      <p className="text-gray-600">{consent.doctor.specialty}</p>
+                      <p className="text-gray-600">{consent.doctor?.specialty || consent.doctor?.specialization || 'Specialist'}</p>
                     </div>
                   </div>
 
@@ -213,7 +213,7 @@ export const ActiveConsentsList: React.FC = () => {
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
                   >
                     <XCircle className="w-4 h-4" />
-                    Revoke Now
+                    Revoke Access
                   </motion.button>
                   
                   <motion.button

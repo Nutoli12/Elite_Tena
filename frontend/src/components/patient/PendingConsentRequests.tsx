@@ -264,7 +264,7 @@ export const PendingConsentRequests: React.FC = () => {
                   className="flex-1 min-w-[200px] px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <CheckCircle className="w-5 h-5" />
-                  Permit for {getDurationText(request.durationType, request.durationValue)}
+                  Grant Access for {getDurationText(request.durationType, request.durationValue)}
                 </motion.button>
 
                 {request.appointment && (
@@ -276,7 +276,7 @@ export const PendingConsentRequests: React.FC = () => {
                     className="flex-1 min-w-[200px] px-6 py-3 bg-yellow-600 text-white rounded-xl font-semibold hover:bg-yellow-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Calendar className="w-5 h-5" />
-                    Permit for Appointment Only
+                    Grant for Appointment Only
                   </motion.button>
                 )}
 
