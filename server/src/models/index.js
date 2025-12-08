@@ -306,6 +306,18 @@ const initializeAssociations = () => {
       as: 'appointment'
     });
 
+    // Appointment -> Consent (One-to-Many)
+    db.Appointment.hasMany(db.Consent, {
+      foreignKey: 'appointmentId',
+      as: 'consents',
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    });
+    db.Consent.belongsTo(db.Appointment, {
+      foreignKey: 'appointmentId',
+      as: 'appointment'
+    });
+
     // 🔔 NEW: User -> Notifications (One-to-Many)
     db.User.hasMany(db.Notification, {
       foreignKey: 'userId',
@@ -332,6 +344,71 @@ const initializeAssociations = () => {
       foreignKey: 'doctorWalletAddress',
       targetKey: 'walletAddress',
       as: 'doctor'
+    });
+
+    // 💬 NEW: Message associations
+    db.User.hasMany(db.Message, {
+      foreignKey: 'senderWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'sentMessages',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.Message.belongsTo(db.User, {
+      foreignKey: 'senderWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'sender'
+    });
+
+    db.User.hasMany(db.Message, {
+      foreignKey: 'receiverWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'receivedMessages',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.Message.belongsTo(db.User, {
+      foreignKey: 'receiverWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'receiver'
+    });
+
+    // 📹 NEW: VideoCall associations
+    db.User.hasMany(db.VideoCall, {
+      foreignKey: 'initiatorWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'initiatedCalls',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.VideoCall.belongsTo(db.User, {
+      foreignKey: 'initiatorWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'initiator'
+    });
+
+    db.User.hasMany(db.VideoCall, {
+      foreignKey: 'receiverWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'receivedCalls',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.VideoCall.belongsTo(db.User, {
+      foreignKey: 'receiverWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'receiver'
+    });
+
+    db.Appointment.hasMany(db.VideoCall, {
+      foreignKey: 'appointmentId',
+      as: 'videoCalls',
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    });
+    db.VideoCall.belongsTo(db.Appointment, {
+      foreignKey: 'appointmentId',
+      as: 'appointment'
     });
 
     console.log('✅ Database associations initialized successfully');

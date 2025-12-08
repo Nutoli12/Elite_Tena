@@ -14,6 +14,10 @@ export default (sequelize, DataTypes) => {
       allowNull: false,
       unique: true
     },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     role: {
       type: DataTypes.STRING,
       allowNull: false,

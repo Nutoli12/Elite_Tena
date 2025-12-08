@@ -3,18 +3,33 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Plus, Search, Download, Eye, Calendar, User } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import axios from '../lib/axios';
 import type { MedicalRecord } from '../types/healthcare';
 import { CreateRecordModal } from '../components/modals/CreateRecordModal';
 import { ipfsService } from '../services/ipfs';
+import { useConsentCheck } from '../hooks/useConsentCheck';
+import { NoAccessView } from '../components/consent/NoAccessView';
+import { AccessGrantedBanner } from '../components/doctor/AccessGrantedBanner';
 
 export const MedicalRecords: React.FC = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  // Get patient wallet from URL params (for doctors viewing patient records)
+  const viewingPatientWallet = searchParams.get('patient');
+  const targetWallet = viewingPatientWallet || user?.walletAddress;
+  
+  // Check consent if doctor is viewing patient records
+  const { hasAccess, loading: consentLoading, consent } = useConsentCheck(
+    viewingPatientWallet || undefined,
+    'viewMedicalHistory'
+  );
 
   useEffect(() => {
     fetchRecords();
@@ -138,7 +153,8 @@ export const MedicalRecords: React.FC = () => {
     record.diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) {
+  // Show loading while checking consent
+  if (loading || consentLoading) {
     return (
       <div className="flex items-center justify-center min-h-96">
         <motion.div
@@ -150,17 +166,46 @@ export const MedicalRecords: React.FC = () => {
     );
   }
 
+  // If doctor is viewing patient records without consent, show no access view
+  if (user?.role === 'doctor' && viewingPatientWallet && !hasAccess) {
+    return (
+      <NoAccessView
+        patientWalletAddress={viewingPatientWallet}
+        message="You need patient consent to view these medical records."
+        onAccessGranted={() => window.location.reload()}
+      />
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
+      {/* Access Granted Banner for Doctors */}
+      {user?.role === 'doctor' && consent && hasAccess && (
+        <AccessGrantedBanner
+          patientName={viewingPatientWallet || 'Patient'}
+          expiresAt={consent.expiresAt}
+          permissions={consent.permissions}
+          recordsAvailable={{
+            consultations: records.filter(r => r.title.includes('Consultation')).length,
+            labResults: records.filter(r => r.title.includes('Lab')).length,
+            imagingReports: records.filter(r => r.title.includes('Imaging')).length,
+            medications: records.filter(r => r.title.includes('Prescription')).length
+          }}
+          onViewRecords={() => {}}
+        />
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t('medical_records')}</h1>
-          <p className="text-gray-600 mt-1">View and manage your medical records</p>
+          <p className="text-gray-600 mt-1">
+            {viewingPatientWallet ? 'Viewing patient medical records' : 'View and manage your medical records'}
+          </p>
         </div>
 
         {user?.role === 'doctor' && (

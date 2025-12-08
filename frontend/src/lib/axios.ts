@@ -15,7 +15,16 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
-    const walletAddress = localStorage.getItem('user_wallet');
+    
+    // Try to get wallet address from localStorage first, but validate it
+    let walletAddress = localStorage.getItem('user_wallet');
+    
+    // Validate wallet address format (should start with 0x and be 42 characters)
+    if (walletAddress && (!walletAddress.startsWith('0x') || walletAddress.length < 20)) {
+      console.warn('Invalid wallet address in localStorage, clearing:', walletAddress);
+      localStorage.removeItem('user_wallet');
+      walletAddress = null;
+    }
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

@@ -282,8 +282,8 @@ export const DoctorDashboard: React.FC = () => {
           {[
             { name: 'View Appointments', icon: '📅', href: '/appointments' },
             { name: 'Medical Records', icon: '📁', href: '/medical-records' },
+            { name: 'Patient Access', icon: '🛡️', href: '/doctor/consent' },
             { name: 'Issue Prescription', icon: '💊', href: '/prescriptions' },
-            { name: 'Patient List', icon: '👥', href: '/patients' },
           ].map((action, index) => (
             <motion.a
               key={action.name}

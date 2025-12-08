@@ -38,6 +38,8 @@ export default (sequelize, DataTypes) => {
         'new_prescription', 'prescription_picked_up', 'stock_alert',
         // Lab technician notifications
         'new_lab_order', 'urgent_test', 'results_uploaded',
+        // Consent notifications
+        'consent_request', 'consent_granted', 'consent_revoked', 'consent_expired',
         // System notifications
         'system_update', 'maintenance_scheduled'
       ),

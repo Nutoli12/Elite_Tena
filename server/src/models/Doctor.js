@@ -9,6 +9,16 @@ export default (sequelize, DataTypes) => {
         this.setDataValue('walletAddress', value ? value.toLowerCase() : value);
       }
     },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Doctor display name'
+    },
+    specialty: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Medical specialty (alias for specialization)'
+    },
     specialization: DataTypes.STRING,
     licenseNumber: DataTypes.STRING,
     hospital: DataTypes.STRING,

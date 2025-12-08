@@ -117,6 +117,10 @@ export const getMedicalRecords = async (req, res) => {
       // Allow if requesting their own records
       if (normalizedRequestingWallet === normalizedWallet) {
         console.log('✅ User accessing their own records');
+        // Allow access - continue to fetch records
+      } else if (userRole === 'admin') {
+        // Admins can access any records
+        console.log('👑 Admin access granted');
       } else if (userRole === 'pharmacist') {
         // Pharmacists can only see prescription-related records
         console.log('💊 Pharmacist access - filtering to prescription records only');
@@ -127,26 +131,37 @@ export const getMedicalRecords = async (req, res) => {
           where: {
             patientWalletAddress: normalizedWallet,
             doctorWalletAddress: normalizedRequestingWallet,
-            status: 'granted'
+            status: 'active'
           }
         });
 
         if (!consent) {
-          console.log('❌ No consent found for doctor to access patient records');
+          console.log('❌ No active consent found for doctor to access patient records');
           return res.status(403).json({
             success: false,
             error: 'Insufficient permissions',
-            message: 'You do not have consent to access these medical records'
+            message: 'You do not have consent to access these medical records. Please request access from the patient.'
           });
         }
 
-        console.log('✅ Doctor has consent to access records');
+        // Check if consent is expired
+        if (consent.isExpired && consent.isExpired()) {
+          console.log('❌ Consent has expired');
+          return res.status(403).json({
+            success: false,
+            error: 'Consent expired',
+            message: 'Your access consent has expired. Please request new access from the patient.'
+          });
+        }
+
+        console.log('✅ Doctor has active consent to access records');
       } else {
-        // Other roles don't have access
+        // Other roles trying to access someone else's records
+        console.log('❌ Unauthorized access attempt by role:', userRole);
         return res.status(403).json({
           success: false,
           error: 'Insufficient permissions',
-          message: 'Your role does not have permission to access medical records'
+          message: 'You do not have permission to access these medical records'
         });
       }
     } else {

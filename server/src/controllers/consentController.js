@@ -29,14 +29,36 @@ export const requestAccess = async (req, res) => {
       });
     }
 
-    // Check if patient and doctor exist
-    const patient = await Patient.findOne({ where: { walletAddress: patientWalletAddress } });
-    const doctor = await Doctor.findOne({ where: { walletAddress: doctorWalletAddress } });
+    // Validate wallet addresses format
+    if (doctorWalletAddress === 'undefined' || doctorWalletAddress === 'null' || 
+        patientWalletAddress === 'undefined' || patientWalletAddress === 'null') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid wallet address format'
+      });
+    }
 
-    if (!patient || !doctor) {
+    // Check if patient and doctor exist (with user associations for notification)
+    const patient = await Patient.findOne({ 
+      where: { walletAddress: patientWalletAddress },
+      include: [{ model: User, as: 'user', attributes: ['name', 'email'] }]
+    });
+    const doctor = await Doctor.findOne({ 
+      where: { walletAddress: doctorWalletAddress },
+      include: [{ model: User, as: 'user', attributes: ['name', 'email'] }]
+    });
+
+    if (!patient) {
       return res.status(404).json({
         success: false,
-        message: 'Patient or doctor not found'
+        message: 'Patient not found'
+      });
+    }
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor not found. Please ensure you are logged in as a doctor.'
       });
     }
 
@@ -65,8 +87,34 @@ export const requestAccess = async (req, res) => {
       requestedAt: new Date()
     });
 
-    // TODO: Send notification to patient
-    // await notificationService.sendConsentRequest(patient, doctor, consent);
+    // Send notification to patient
+    try {
+      const { Notification } = db;
+      const doctorName = doctor.user?.name || doctor.name || doctor.user?.email?.split('@')[0] || 'A doctor';
+      const doctorSpecialty = doctor.specialty || doctor.specialization || 'Specialist';
+      
+      await Notification.create({
+        userId: patientWalletAddress,
+        type: 'consent_request',
+        title: 'New Access Request',
+        message: `Dr. ${doctorName} (${doctorSpecialty}) requests access to your medical records`,
+        priority: 'high',
+        relatedId: consent.id,
+        relatedType: 'consent',
+        data: {
+          consentId: consent.id,
+          doctorName: doctorName,
+          doctorSpecialty: doctorSpecialty,
+          purpose: purpose,
+          appointmentId: appointmentId,
+          actionUrl: '/consent'
+        }
+      });
+      console.log('✅ Notification created for patient:', patientWalletAddress);
+    } catch (notifError) {
+      console.error('❌ Failed to send notification:', notifError);
+      console.error('Notification error details:', notifError.message);
+    }
 
     res.status(201).json({
       success: true,
@@ -173,8 +221,37 @@ export const grantConsent = async (req, res) => {
     // Grant the consent
     await consent.grant(patientWalletAddress);
 
-    // TODO: Send notification to doctor
-    // await notificationService.sendConsentGranted(doctor, patient, consent);
+    // Send notification to doctor
+    try {
+      const { Notification } = db;
+      const patient = await Patient.findOne({ 
+        where: { walletAddress: consent.patientWalletAddress },
+        include: [{ model: User, as: 'user' }]
+      });
+
+      const patientName = patient?.user?.name || patient?.name || patient?.user?.email?.split('@')[0] || 'A patient';
+
+      await Notification.create({
+        userId: consent.doctorWalletAddress,
+        type: 'consent_granted',
+        title: '✅ Access Granted',
+        message: `${patientName} granted you access to their medical records`,
+        priority: 'high',
+        relatedId: consent.id,
+        relatedType: 'consent',
+        data: {
+          consentId: consent.id,
+          patientName: patientName,
+          patientWalletAddress: consent.patientWalletAddress,
+          expiresAt: consent.expiresAt,
+          permissions: consent.permissions,
+          actionUrl: '/doctor/consent'
+        }
+      });
+      console.log('✅ Grant notification sent to doctor:', consent.doctorWalletAddress);
+    } catch (notifError) {
+      console.error('❌ Failed to send grant notification:', notifError);
+    }
 
     res.json({
       success: true,
@@ -215,7 +292,39 @@ export const denyConsent = async (req, res) => {
       });
     }
 
+    const doctorWalletAddress = consent.doctorWalletAddress;
     await consent.revoke(reason || 'Patient denied access', patientWalletAddress);
+
+    // Send notification to doctor about denial
+    try {
+      const { Notification } = db;
+      const patient = await Patient.findOne({ 
+        where: { walletAddress: patientWalletAddress },
+        include: [{ model: User, as: 'user' }]
+      });
+
+      const patientName = patient?.user?.name || patient?.name || patient?.user?.email?.split('@')[0] || 'A patient';
+
+      await Notification.create({
+        userId: doctorWalletAddress,
+        type: 'consent_revoked',
+        title: '❌ Access Denied',
+        message: `${patientName} denied your access request to their medical records`,
+        priority: 'high',
+        relatedId: consent.id,
+        relatedType: 'consent',
+        data: {
+          consentId: consent.id,
+          patientName: patientName,
+          reason: reason || 'Patient denied access',
+          deniedAt: new Date().toISOString(),
+          actionUrl: '/doctor/consent'
+        }
+      });
+      console.log('✅ Denial notification sent to doctor:', doctorWalletAddress);
+    } catch (notifError) {
+      console.error('❌ Failed to send denial notification:', notifError);
+    }
 
     res.json({
       success: true,
@@ -317,8 +426,36 @@ export const revokeConsent = async (req, res) => {
 
     await consent.revoke(reason || 'Patient revoked access', patientWalletAddress);
 
-    // TODO: Send notification to doctor
-    // await notificationService.sendConsentRevoked(doctor, patient, consent);
+    // Send notification to doctor
+    try {
+      const { Notification } = db;
+      const patient = await Patient.findOne({ 
+        where: { walletAddress: consent.patientWalletAddress },
+        include: [{ model: User, as: 'user' }]
+      });
+
+      const patientName = patient?.user?.name || patient?.name || patient?.user?.email?.split('@')[0] || 'A patient';
+
+      await Notification.create({
+        userId: consent.doctorWalletAddress,
+        type: 'consent_revoked',
+        title: '🚫 Access Revoked',
+        message: `${patientName} revoked your access to their medical records`,
+        priority: 'high',
+        relatedId: consent.id,
+        relatedType: 'consent',
+        data: {
+          consentId: consent.id,
+          patientName: patientName,
+          patientWalletAddress: consent.patientWalletAddress,
+          reason: reason || 'Patient revoked access',
+          revokedAt: consent.revokedAt,
+          actionUrl: '/doctor/consent'
+        }
+      });
+    } catch (notifError) {
+      console.error('Failed to send notification:', notifError);
+    }
 
     res.json({
       success: true,
@@ -393,6 +530,23 @@ export const getDoctorConsents = async (req, res) => {
     const { doctorWalletAddress } = req.params;
     const { status } = req.query;
 
+    // Validate wallet address
+    if (!doctorWalletAddress || doctorWalletAddress === 'undefined' || doctorWalletAddress === 'null') {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid doctor wallet address is required'
+      });
+    }
+
+    // Check if doctor exists
+    const doctor = await Doctor.findOne({ where: { walletAddress: doctorWalletAddress } });
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor not found'
+      });
+    }
+
     const whereClause = { doctorWalletAddress };
     if (status) {
       whereClause.status = status;
@@ -420,10 +574,11 @@ export const getDoctorConsents = async (req, res) => {
     });
   } catch (error) {
     console.error('Get doctor consents error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch doctor consents',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };
