@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, Image, File, X, Check, CheckCheck, Loader2 } from 'lucide-react';
+import { Send, Paperclip, Image, File, X, Check, CheckCheck, Loader2, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import axios from '../lib/axios';
 import { io, Socket } from 'socket.io-client';
@@ -118,16 +118,23 @@ export const Chat: React.FC<ChatProps> = ({ appointmentId, otherUserWallet, othe
         ? `/chat/appointment/${appointmentId}`
         : `/chat/direct/${user?.walletAddress}/${otherUserWallet}`;
 
+      console.log('💬 Loading messages from:', endpoint);
+      console.log('💬 User wallet:', user?.walletAddress);
+      console.log('💬 Other wallet:', otherUserWallet);
+
       const response = await axios.get(endpoint);
+
+      console.log('💬 Messages response:', response.data);
 
       if (response.data.success) {
         setMessages(response.data.data);
+        console.log('✅ Loaded', response.data.data.length, 'messages');
         
         // Mark messages as read
         markMessagesAsRead();
       }
     } catch (error) {
-      console.error('Failed to load messages:', error);
+      console.error('❌ Failed to load messages:', error);
     } finally {
       setLoading(false);
     }
@@ -149,6 +156,12 @@ export const Chat: React.FC<ChatProps> = ({ appointmentId, otherUserWallet, othe
 
     setSending(true);
     try {
+      console.log('📤 Sending message:', {
+        senderWallet: user?.walletAddress,
+        receiverWallet: otherUserWallet,
+        content: input
+      });
+
       const response = await axios.post('/chat/send', {
         senderWallet: user?.walletAddress,
         receiverWallet: otherUserWallet,
@@ -157,12 +170,15 @@ export const Chat: React.FC<ChatProps> = ({ appointmentId, otherUserWallet, othe
         type: 'text'
       });
 
+      console.log('📤 Send response:', response.data);
+
       if (response.data.success) {
         setInput('');
         stopTyping();
+        console.log('✅ Message sent successfully');
       }
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error('❌ Failed to send message:', error);
       alert('Failed to send message. Please try again.');
     } finally {
       setSending(false);
@@ -357,8 +373,13 @@ export const Chat: React.FC<ChatProps> = ({ appointmentId, otherUserWallet, othe
             <Loader2 className="w-8 h-8 animate-spin text-medical-500" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <p>No messages yet. Start the conversation!</p>
+          <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8">
+            <MessageSquare className="w-16 h-16 mb-4 opacity-30" />
+            <p className="text-lg font-medium mb-2">No messages yet</p>
+            <p className="text-sm text-center">
+              Start the conversation with {otherUserName}!<br />
+              Type your message below and press Enter to send.
+            </p>
           </div>
         ) : (
           <>

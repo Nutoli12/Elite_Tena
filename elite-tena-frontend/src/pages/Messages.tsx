@@ -32,8 +32,11 @@ export const Messages: React.FC = () => {
 
   // If userId is in URL, create conversation immediately
   useEffect(() => {
+    console.log('🔍 Messages page effect - preselectedUserId:', preselectedUserId);
+    console.log('🔍 Current selectedConversation:', selectedConversation?.other_user);
+    
     if (preselectedUserId && !selectedConversation) {
-      console.log('🔍 URL has userId:', preselectedUserId);
+      console.log('📝 Creating new conversation for:', preselectedUserId);
       const newConversation: Conversation = {
         other_user: preselectedUserId,
         last_message_content: '',
@@ -44,9 +47,9 @@ export const Messages: React.FC = () => {
         role: ''
       };
       setSelectedConversation(newConversation);
-      console.log('✅ Conversation auto-selected from URL');
+      console.log('✅ Conversation auto-selected from URL:', newConversation);
     }
-  }, [preselectedUserId]);
+  }, [preselectedUserId, selectedConversation]);
 
   useEffect(() => {
     loadConversations();
@@ -170,17 +173,39 @@ export const Messages: React.FC = () => {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 hidden md:flex flex-col">
+      <div className="flex-1 flex flex-col">
         {selectedConversation ? (
-          <Chat
-            otherUserWallet={selectedConversation.other_user}
-            otherUserName={selectedConversation.profileData?.fullName || selectedConversation.email}
-          />
+          <div className="h-full">
+            <div className="bg-medical-50 p-4 border-b">
+              <h3 className="font-semibold">
+                Chat with {selectedConversation.profileData?.fullName || selectedConversation.other_user}
+              </h3>
+              <p className="text-sm text-gray-600">
+                Wallet: {selectedConversation.other_user}
+              </p>
+            </div>
+            <Chat
+              otherUserWallet={selectedConversation.other_user}
+              otherUserName={selectedConversation.profileData?.fullName || selectedConversation.email || 'User'}
+            />
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <MessageSquare className="w-24 h-24 mb-4 opacity-20" />
-            <p className="text-xl font-semibold">Select a conversation</p>
-            <p className="text-sm mt-2">Choose a conversation from the list to start chatting</p>
+            <p className="text-xl font-semibold">
+              {preselectedUserId ? 'Loading conversation...' : 'Select a conversation'}
+            </p>
+            <p className="text-sm mt-2">
+              {preselectedUserId 
+                ? `Setting up chat with ${preselectedUserId}` 
+                : 'Choose a conversation from the list to start chatting'
+              }
+            </p>
+            {preselectedUserId && (
+              <div className="mt-4 text-xs text-gray-400">
+                Debug: userId = {preselectedUserId}
+              </div>
+            )}
           </div>
         )}
       </div>
