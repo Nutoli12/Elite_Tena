@@ -1,39 +1,37 @@
 import express from 'express';
-import { grantConsent, revokeConsent, getConsents } from '../controllers/consentController.js';
+import {
+  requestAccess,
+  getPendingRequests,
+  grantConsent,
+  denyConsent,
+  getActiveConsents,
+  revokeConsent,
+  getConsentHistory,
+  getDoctorConsents,
+  checkAccess,
+  getConsentStats,
+  autoExpireConsents
+} from '../controllers/consentController.js';
 
 const router = express.Router();
 
-// Grant consent
-router.post('/grant', grantConsent);
+// 👨‍⚕️ DOCTOR ROUTES
+router.post('/request', requestAccess);                                    // Doctor requests access
+router.get('/doctor/:doctorWalletAddress', getDoctorConsents);            // Doctor views their consents
+router.get('/check/:doctorWalletAddress/:patientWalletAddress', checkAccess); // Check if doctor has access
 
-// Revoke consent
-router.post('/revoke', revokeConsent);
+// 👤 PATIENT ROUTES
+router.get('/pending/:patientWalletAddress', getPendingRequests);         // Patient views pending requests
+router.post('/:consentId/grant', grantConsent);                           // Patient grants consent
+router.post('/:consentId/deny', denyConsent);                             // Patient denies request
+router.get('/active/:patientWalletAddress', getActiveConsents);           // Patient views active consents
+router.post('/:consentId/revoke', revokeConsent);                         // Patient revokes consent
+router.get('/history/:patientWalletAddress', getConsentHistory);          // Patient views full history
 
-// Get consents for a patient
-router.get('/:patientWallet', getConsents);
+// 📊 STATISTICS
+router.get('/stats/:role/:walletAddress', getConsentStats);               // Get consent statistics
+
+// 🔄 SYSTEM ROUTES
+router.post('/auto-expire', autoExpireConsents);                          // Cron job to expire old consents
 
 export default router;
-
-// Root consent endpoint
-router.get('/', (req, res) => {
-  res.json({
-    message: 'Consent API is working',
-    endpoints: {
-      grant: 'POST /api/consent/grant',
-      revoke: 'POST /api/consent/revoke', 
-      getConsents: 'GET /api/consent/:patientWallet'
-    }
-  });
-});
-
-// Root consent endpoint
-router.get('/', (req, res) => {
-  res.json({
-    message: 'Consent API is working',
-    endpoints: {
-      grant: 'POST /api/consent/grant',
-      revoke: 'POST /api/consent/revoke', 
-      getConsents: 'GET /api/consent/:patientWallet'
-    }
-  });
-});

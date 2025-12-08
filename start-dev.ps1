@@ -22,7 +22,7 @@ Start-Sleep -Seconds 3
 
 # Start frontend
 Write-Host "Starting Frontend Application..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd elitetena-cloned; npm run dev" -WindowStyle Normal
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd frontend; npm run dev" -WindowStyle Normal
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan

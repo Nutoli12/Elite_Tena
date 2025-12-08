@@ -19,7 +19,7 @@ timeout /t 3 /nobreak >nul
 
 REM Start frontend in a new window
 echo Starting Frontend Application...
-start "Elite-Tena Frontend" cmd /k "cd elitetena-cloned && npm run dev"
+start "Elite-Tena Frontend" cmd /k "cd frontend && npm run dev"
 
 echo.
 echo ========================================
