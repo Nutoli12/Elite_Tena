@@ -33,20 +33,26 @@ export const approveAppointment = async (req, res) => {
       approvalStatus: 'approved',
       approvedAt: new Date(),
       approvedBy: doctorWallet,
-      status: 'approved'
+      status: 'scheduled' // Keep as 'scheduled' - valid ENUM value
     });
 
     // Send notification to patient
-    await sendNotification(
-      appointment.patientWalletAddress,
-      'appointment', // Valid DB type
-      {
-        title: 'Appointment Approved',
-        message: 'Your appointment has been approved. Please proceed with payment.',
-        relatedId: appointment.id,
-        subType: 'approved' // Extra data for frontend if needed
-      }
-    );
+    try {
+      await sendNotification(
+        appointment.patientWalletAddress,
+        'appointment_confirmed', // Valid DB type from Notification model
+        {
+          title: 'Appointment Approved',
+          message: 'Your appointment has been approved. Please proceed with payment.',
+          relatedId: appointment.id,
+          priority: 'high'
+        }
+      );
+      console.log('🔔 Sent approval notification to patient');
+    } catch (notifError) {
+      console.error('⚠️ Failed to send notification:', notifError.message);
+      // Don't fail the approval if notification fails
+    }
 
     console.log('✅ Appointment approved successfully');
 
@@ -69,7 +75,7 @@ export const approveAppointment = async (req, res) => {
       success: false,
       error: 'Failed to approve appointment',
       message: error.message,
-      details: error.toString() // Send more details to client for debugging
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -315,17 +321,32 @@ export const confirmPayment = async (req, res) => {
       status: 'scheduled' // Now fully confirmed and scheduled
     });
 
-    // Notify patient
-    await sendNotification(
-      appointment.patientWalletAddress,
-      'payment',
-      {
-        title: 'Payment Confirmed',
-        message: 'Your payment has been confirmed. Appointment is now scheduled!',
-        relatedId: appointment.id,
-        subType: 'payment_confirmed'
-      }
-    );
+    // Notify patient with enhanced message
+    try {
+      const serviceTypeText = appointment.serviceType === 'videoCall' ? 'video call' : 
+                             appointment.serviceType === 'chat' ? 'chat' : 'in-person';
+      
+      await sendNotification(
+        appointment.patientWalletAddress,
+        'payment_confirmed',
+        {
+          title: 'Payment Confirmed - Ready to Chat!',
+          message: `Your payment has been confirmed. You can now ${serviceTypeText} with your doctor. Click to start chatting!`,
+          relatedId: appointment.id,
+          priority: 'high',
+          data: {
+            appointmentId: appointment.id,
+            doctorWallet: appointment.doctorWalletAddress,
+            serviceType: appointment.serviceType,
+            actionUrl: `/messages?userId=${appointment.doctorWalletAddress}`,
+            actionText: 'Start Chat'
+          }
+        }
+      );
+      console.log('🔔 Sent payment confirmation notification with chat link');
+    } catch (notifError) {
+      console.error('⚠️ Failed to send notification:', notifError.message);
+    }
 
     console.log('✅ Payment confirmed');
 

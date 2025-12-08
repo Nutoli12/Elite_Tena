@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import axios from '../../lib/axios';
 import { PendingApprovals } from '../../components/doctor/PendingApprovals';
+import { PaymentReceiptsReview } from '../../components/doctor/PaymentReceiptsReview';
 import { PatientQueue } from '../../components/doctor/PatientQueue';
 import { UpcomingAppointments } from '../../components/doctor/UpcomingAppointments';
 
@@ -226,7 +227,7 @@ export const DoctorDashboard: React.FC = () => {
         ))}
       </div>
 
-      {/* Main Content Grid - Pending Approvals & Patient Queue */}
+      {/* Main Content Grid - Pending Approvals, Payment Receipts & Patient Queue */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pending Approvals */}
         <motion.div
@@ -238,12 +239,22 @@ export const DoctorDashboard: React.FC = () => {
           <PendingApprovals />
         </motion.div>
 
+        {/* Payment Receipts to Review */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+          className="medical-card p-6"
+        >
+          <PaymentReceiptsReview />
+        </motion.div>
+
         {/* Patient Queue */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="medical-card p-6"
+          className="medical-card p-6 lg:col-span-2"
         >
           <PatientQueue />
         </motion.div>

@@ -268,7 +268,41 @@ export const createAppointment = async (req, res) => {
       approvalStatus: req.body.approvalStatus || 'pending'
     });
 
-
+    // 🔔 Send notification to doctor
+    try {
+      const { sendNotification } = await import('../services/socketService.js');
+      
+      if (appointment.requiresApproval) {
+        // Premium service - requires approval
+        await sendNotification(
+          appointment.doctorWalletAddress,
+          'new_appointment_request',
+          {
+            title: 'New Premium Appointment Request',
+            message: `New ${appointment.serviceType} appointment request from patient. Fee: ${appointment.fee} Birr`,
+            relatedId: appointment.id,
+            priority: 'high'
+          }
+        );
+        console.log('🔔 Sent premium appointment notification to doctor');
+      } else {
+        // Free in-person - just notify
+        await sendNotification(
+          appointment.doctorWalletAddress,
+          'new_appointment_request',
+          {
+            title: 'New Appointment Scheduled',
+            message: `New in-person appointment scheduled for ${new Date(appointment.appointmentDate).toLocaleString()}`,
+            relatedId: appointment.id,
+            priority: 'medium'
+          }
+        );
+        console.log('🔔 Sent appointment notification to doctor');
+      }
+    } catch (notifError) {
+      console.error('⚠️ Failed to send notification:', notifError.message);
+      // Don't fail the appointment creation if notification fails
+    }
 
     console.log('✅ Appointment created:', {
       id: appointment.id,

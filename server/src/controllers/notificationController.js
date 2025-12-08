@@ -55,18 +55,31 @@ export const getUserNotifications = async (req, res) => {
       where.type = type;
     }
 
-    const notifications = await Notification.findAll({
-      where,
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['email', 'profileData']
-        }
-      ],
-      order: [['createdAt', 'DESC']],
-      limit: parseInt(limit)
-    });
+    // Try with associations first, fallback to simple query if it fails
+    let notifications;
+    try {
+      notifications = await Notification.findAll({
+        where,
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['email', 'profileData'],
+            required: false // LEFT JOIN - don't fail if user not found
+          }
+        ],
+        order: [['createdAt', 'DESC']],
+        limit: parseInt(limit)
+      });
+    } catch (includeError) {
+      console.warn('⚠️ Association failed, fetching without includes:', includeError.message);
+      // Fallback: fetch without associations
+      notifications = await Notification.findAll({
+        where,
+        order: [['createdAt', 'DESC']],
+        limit: parseInt(limit)
+      });
+    }
 
     console.log(`✅ Found ${notifications.length} notifications`);
 
@@ -78,10 +91,12 @@ export const getUserNotifications = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Get notifications error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch notifications',
-      message: error.message
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };

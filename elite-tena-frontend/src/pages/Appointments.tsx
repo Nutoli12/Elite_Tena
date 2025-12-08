@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Plus, MapPin, Clock, Video, MoreVertical, DollarSign, Upload, QrCode, X, Loader2, Trash2 } from 'lucide-react';
+import { Calendar, Plus, MapPin, Clock, Video, MoreVertical, DollarSign, Upload, QrCode, X, Loader2, Trash2, MessageSquare } from 'lucide-react';
 import axios from '../lib/axios';
 import type { Appointment } from '../types/healthcare';
 import { BookAppointmentModal } from '../components/modals/BookAppointmentModal';
@@ -388,11 +388,38 @@ export const Appointments: React.FC = () => {
                         </motion.button>
                       )}
 
-                      {/* Video Call */}
+                      {/* Chat Button - Available after payment confirmed */}
+                      {(appointment.paymentStatus === 'confirmed' || (appointment.serviceType === 'chat' && appointment.approvalStatus === 'approved')) && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => window.location.href = `/messages?userId=${appointment.doctorId}`}
+                          className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          Chat with Doctor
+                        </motion.button>
+                      )}
+
+                      {/* Video Call Button - For video appointments after payment confirmed */}
+                      {appointment.serviceType === 'videoCall' && appointment.paymentStatus === 'confirmed' && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => window.location.href = `/messages?userId=${appointment.doctorId}&startCall=true`}
+                          className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                        >
+                          <Video className="w-4 h-4" />
+                          Join Video Call
+                        </motion.button>
+                      )}
+
+                      {/* Legacy Video Call (for old telemedicine appointments) */}
                       {appointment.type === 'telemedicine' && appointment.status === 'confirmed' && (
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
+                          onClick={() => window.location.href = `/messages?userId=${appointment.doctorId}&startCall=true`}
                           className="bg-medical-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
                         >
                           <Video className="w-4 h-4" />

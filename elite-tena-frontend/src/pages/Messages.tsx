@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MessageSquare, Search, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,14 +21,51 @@ interface Conversation {
 
 export const Messages: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Get userId from URL parameter
+  const preselectedUserId = searchParams.get('userId');
+
+  // If userId is in URL, create conversation immediately
+  useEffect(() => {
+    if (preselectedUserId && !selectedConversation) {
+      console.log('🔍 URL has userId:', preselectedUserId);
+      const newConversation: Conversation = {
+        other_user: preselectedUserId,
+        last_message_content: '',
+        last_message_time: new Date().toISOString(),
+        unread_count: 0,
+        email: '',
+        profileData: { fullName: 'User' },
+        role: ''
+      };
+      setSelectedConversation(newConversation);
+      console.log('✅ Conversation auto-selected from URL');
+    }
+  }, [preselectedUserId]);
+
   useEffect(() => {
     loadConversations();
   }, [user]);
+
+  // Update conversation details when conversations load
+  useEffect(() => {
+    if (preselectedUserId && selectedConversation && conversations.length > 0) {
+      const existingConv = conversations.find(
+        conv => conv.other_user.toLowerCase() === preselectedUserId.toLowerCase()
+      );
+      
+      if (existingConv) {
+        // Update with full details
+        setSelectedConversation(existingConv);
+        console.log('✅ Updated conversation with full details');
+      }
+    }
+  }, [conversations, preselectedUserId]);
 
   const loadConversations = async () => {
     if (!user?.walletAddress) return;
