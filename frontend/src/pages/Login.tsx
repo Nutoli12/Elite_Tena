@@ -174,19 +174,7 @@ export const Login: React.FC = () => {
           </Link>
         </p>
 
-        {/* Demo Mode */}
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <button
-            onClick={() => {
-              localStorage.setItem('auth_token', 'demo-token');
-              localStorage.setItem('user_wallet', '0xDemo123');
-              window.location.href = '/dashboard';
-            }}
-            className="w-full py-2 text-sm text-gray-600 hover:text-medical-600 transition-colors"
-          >
-            🎯 Try Demo Mode
-          </button>
-        </div>
+
       </motion.div>
     </div>
   );

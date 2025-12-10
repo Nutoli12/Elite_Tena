@@ -126,6 +126,33 @@ class EnhancedNotificationService {
       priority: 'low'
     },
 
+    // Prescription access notifications
+    prescription_access_granted: {
+      title: 'Prescription Access Granted',
+      getMessage: (data) => `${data.patientName} granted you access to their prescription: ${data.medicationName}`,
+      priority: 'medium'
+    },
+    prescription_access_revoked: {
+      title: 'Prescription Access Revoked',
+      getMessage: (data) => `Access to prescription ${data.medicationName} has been revoked`,
+      priority: 'low'
+    },
+    prescription_dispensed: {
+      title: 'Prescription Dispensed',
+      getMessage: (data) => `Your prescription ${data.medicationName} was dispensed by ${data.pharmacyName}`,
+      priority: 'medium'
+    },
+    prescription_access_expires_soon: {
+      title: 'Prescription Access Expiring',
+      getMessage: (data) => `Your access to ${data.patientName}'s prescription expires in ${data.hoursRemaining} hours`,
+      priority: 'medium'
+    },
+    prescription_emergency_access: {
+      title: 'Emergency Prescription Access',
+      getMessage: (data) => `${data.pharmacyName} requested emergency access to your prescription: ${data.medicationName}. Reason: ${data.reason}`,
+      priority: 'high'
+    },
+
     // System notifications
     system_update: {
       title: 'System Update',

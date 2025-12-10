@@ -43,6 +43,7 @@ export const ComprehensiveConsultation: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   // Consultation data state
   const [consultationData, setConsultationData] = useState({
@@ -118,7 +119,7 @@ export const ComprehensiveConsultation: React.FC = () => {
 
   // Timer effect
   useEffect(() => {
-    if (startTime) {
+    if (startTime && !isCompleted) {
       const interval = setInterval(() => {
         const now = new Date();
         const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
@@ -127,7 +128,7 @@ export const ComprehensiveConsultation: React.FC = () => {
 
       return () => clearInterval(interval);
     }
-  }, [startTime]);
+  }, [startTime, isCompleted]);
 
   // Auto-save effect
   useEffect(() => {
@@ -151,6 +152,16 @@ export const ComprehensiveConsultation: React.FC = () => {
         // Load existing data
         if (apt.consultationStartedAt) {
           setStartTime(new Date(apt.consultationStartedAt));
+          
+          // Check if consultation is already completed
+          if (apt.status === 'completed' || apt.consultationEndedAt) {
+            setIsCompleted(true);
+            // Calculate final elapsed time
+            const start = new Date(apt.consultationStartedAt);
+            const end = apt.consultationEndedAt ? new Date(apt.consultationEndedAt) : new Date();
+            const elapsed = Math.floor((end.getTime() - start.getTime()) / 1000);
+            setElapsedTime(elapsed);
+          }
           
           // Load all saved data
           setConsultationData({
@@ -278,6 +289,9 @@ export const ComprehensiveConsultation: React.FC = () => {
     }
 
     try {
+      // Stop the timer
+      setIsCompleted(true);
+
       const response = await axios.post(`/consultations/${appointmentId}/finalize`, {
         ...consultationData,
         consultationDuration: elapsedTime,
@@ -291,6 +305,8 @@ export const ComprehensiveConsultation: React.FC = () => {
     } catch (error: any) {
       console.error('❌ Failed to complete consultation:', error);
       alert(error.response?.data?.message || 'Failed to complete consultation');
+      // Restart timer if completion failed
+      setIsCompleted(false);
     }
   };
 

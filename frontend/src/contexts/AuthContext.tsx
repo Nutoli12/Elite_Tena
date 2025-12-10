@@ -50,67 +50,28 @@ const initialState: AuthState = {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Check for existing session on mount
+  // Clear session on page refresh - always redirect to login
   useEffect(() => {
-    const checkExistingSession = async () => {
-      try {
-        const token = localStorage.getItem('auth_token');
-        const wallet = localStorage.getItem('user_wallet');
-
-        if (token && wallet) {
-          // Demo mode - create mock user
-          if (token === 'demo-token') {
-            const demoUser: UserProfile = {
-              id: 'demo-user-1',
-              walletAddress: wallet,
-              fullName: 'Demo Patient',
-              role: 'patient',
-              email: 'demo@elitetena.com',
-              isApproved: true,
-              createdAt: new Date().toISOString(),
-              lastLogin: new Date().toISOString()
-            };
-            dispatch({ type: 'SET_USER', payload: demoUser });
-            dispatch({ type: 'SET_LOADING', payload: false });
-            return;
-          }
-
-          // Real mode - verify with backend
-          try {
-            const response = await axios.get('/auth/profile', {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (response.data && response.data.data && response.data.data.user) {
-              dispatch({ type: 'SET_USER', payload: response.data.data.user });
-            } else {
-              localStorage.removeItem('auth_token');
-              localStorage.removeItem('user_wallet');
-            }
-          } catch (error) {
-            // Backend not available - use demo mode
-            console.log('Backend not available or session invalid, using demo mode');
-            const demoUser: UserProfile = {
-              id: 'demo-user-1',
-              walletAddress: wallet,
-              fullName: 'Demo Patient',
-              role: 'patient',
-              email: 'demo@elitetena.com',
-              isApproved: true,
-              createdAt: new Date().toISOString(),
-              lastLogin: new Date().toISOString()
-            };
-            dispatch({ type: 'SET_USER', payload: demoUser });
-          }
-        }
-      } catch (error) {
-        console.error('Session check failed:', error);
-      } finally {
-        dispatch({ type: 'SET_LOADING', payload: false });
-      }
+    const clearSessionOnRefresh = () => {
+      // Always clear authentication on page load/refresh
+      console.log('Page refreshed - clearing session and redirecting to login');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_wallet');
+      dispatch({ type: 'LOGOUT' });
+      dispatch({ type: 'SET_LOADING', payload: false });
     };
 
-    checkExistingSession();
+    clearSessionOnRefresh();
+  }, []);
+
+  // Listen for logout events from axios interceptor
+  useEffect(() => {
+    const handleLogout = () => {
+      dispatch({ type: 'LOGOUT' });
+    };
+
+    window.addEventListener('auth:logout', handleLogout);
+    return () => window.removeEventListener('auth:logout', handleLogout);
   }, []);
 
   const connectWallet = async (): Promise<string> => {

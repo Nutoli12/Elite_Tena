@@ -40,25 +40,8 @@ const StaffList: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to fetch staff:', error);
-      // Demo data fallback
-      setStaff([
-        {
-          walletAddress: '0xdemo1',
-          email: 'dr.smith@hospital.com',
-          role: 'doctor',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          profileData: { fullName: 'Dr. John Smith', phone: '+1234567890' }
-        },
-        {
-          walletAddress: '0xdemo2',
-          email: 'lab.tech@hospital.com',
-          role: 'lab_technician',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          profileData: { fullName: 'Mike Wilson', phone: '+1234567891' }
-        }
-      ]);
+      // Set empty array on error
+      setStaff([]);
     } finally {
       setLoading(false);
     }

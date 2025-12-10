@@ -4,18 +4,18 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { 
   Pill, 
-  Package, 
   Clock,
   CheckCircle,
   AlertTriangle,
-  Users,
-  ShoppingCart
+  QrCode,
+  Shield
 } from 'lucide-react';
 import axios from '../../lib/axios';
+import { QRCodeScanner } from '../../components/pharmacist/QRCodeScanner';
+import { AccessiblePrescriptions } from '../../components/pharmacist/AccessiblePrescriptions';
 
 export const PharmacyDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useTranslation();
   const [stats, setStats] = useState({
     pendingPrescriptions: 0,
     dispensedToday: 0,
@@ -24,6 +24,8 @@ export const PharmacyDashboard: React.FC = () => {
   });
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showScanner, setShowScanner] = useState(false);
+  const [showAccessible, setShowAccessible] = useState(false);
 
   useEffect(() => {
     fetchPharmacyData();
@@ -135,7 +137,7 @@ export const PharmacyDashboard: React.FC = () => {
             animate={{ x: 0, opacity: 1 }}
             className="text-3xl font-bold mb-2"
           >
-            Welcome, {user?.profileData?.fullName || 'Pharmacist'}!
+            Welcome, {(user as any)?.profileData?.fullName || user?.name || 'Pharmacist'}!
           </motion.h1>
           <motion.p
             initial={{ x: -20, opacity: 0 }}
@@ -268,10 +270,34 @@ export const PharmacyDashboard: React.FC = () => {
       >
         <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <motion.button
+            onClick={() => setShowScanner(!showScanner)}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.8 }}
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex flex-col items-center justify-center p-4 border-2 border-purple-200 bg-purple-50 rounded-xl hover:border-purple-500 hover:bg-purple-100 transition-all"
+          >
+            <QrCode className="w-8 h-8 text-purple-600 mb-2" />
+            <span className="text-sm font-medium text-gray-700">Scan QR Code</span>
+          </motion.button>
+
+          <motion.button
+            onClick={() => setShowAccessible(!showAccessible)}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.9 }}
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex flex-col items-center justify-center p-4 border-2 border-blue-200 bg-blue-50 rounded-xl hover:border-blue-500 hover:bg-blue-100 transition-all"
+          >
+            <Shield className="w-8 h-8 text-blue-600 mb-2" />
+            <span className="text-sm font-medium text-gray-700">Accessible Rx</span>
+          </motion.button>
+
           {[
-            { name: 'Dispense Meds', icon: '💊', href: '/prescriptions' },
             { name: 'Check Inventory', icon: '📦', href: '/prescriptions' },
-            { name: 'Patient History', icon: '👤', href: '/prescriptions' },
             { name: 'Reports', icon: '📊', href: '/prescriptions' },
           ].map((action, index) => (
             <motion.a
@@ -279,7 +305,7 @@ export const PharmacyDashboard: React.FC = () => {
               href={action.href}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.8 + index * 0.1 }}
+              transition={{ delay: 1.0 + index * 0.1 }}
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
               className="flex flex-col items-center justify-center p-4 border-2 border-gray-200 rounded-xl hover:border-medical-500 hover:bg-medical-50 transition-all"
@@ -290,6 +316,35 @@ export const PharmacyDashboard: React.FC = () => {
           ))}
         </div>
       </motion.div>
+
+      {/* QR Code Scanner Section */}
+      {showScanner && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+        >
+          <QRCodeScanner
+            onSuccess={(prescription) => {
+              console.log('Access granted to prescription:', prescription);
+              fetchPharmacyData();
+              setShowScanner(false);
+              setShowAccessible(true);
+            }}
+          />
+        </motion.div>
+      )}
+
+      {/* Accessible Prescriptions Section */}
+      {showAccessible && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+        >
+          <AccessiblePrescriptions />
+        </motion.div>
+      )}
     </motion.div>
   );
 };

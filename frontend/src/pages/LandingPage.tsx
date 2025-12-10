@@ -6,12 +6,12 @@ import {
   FileText, CheckCircle, Moon, Sun,
   Wallet, ArrowRight, Sparkles
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+
 import { ParticleBackground } from '../components/ui/ParticleBackground';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  // AuthGuard handles authentication, no need to check here
   const [darkMode, setDarkMode] = useState(false);
   const { scrollYProgress } = useScroll();
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
@@ -30,10 +30,7 @@ export const LandingPage: React.FC = () => {
     }
   }, [darkMode]);
 
-  if (isAuthenticated) {
-    navigate('/dashboard');
-    return null;
-  }
+
 
   const features = [
     {

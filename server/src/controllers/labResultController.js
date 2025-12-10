@@ -88,12 +88,15 @@ export const getLabResultById = async (req, res) => {
 };
 
 /**
- * Create a new lab result
+ * Create a new lab result - TRUE WEB3 INTEGRATION
  */
 export const createLabResult = async (req, res) => {
+  const transaction = await db.sequelize.transaction();
+  
   try {
     const {
       patientWalletAddress,
+      labTechWalletAddress,
       testType,
       testName,
       results,
@@ -102,26 +105,34 @@ export const createLabResult = async (req, res) => {
       status,
       performedBy,
       testDate,
-      notes
+      notes,
+      ipfsHash
     } = req.body;
 
-    console.log('📝 Creating lab result for patient:', patientWalletAddress);
+    console.log('🔬 ========== CREATING LAB RESULT WITH BLOCKCHAIN ==========');
+    console.log('🔬 Patient Wallet:', patientWalletAddress);
+    console.log('🔬 Lab Tech Wallet:', labTechWalletAddress);
+    console.log('🔬 Test Name:', testName);
+    console.log('🔬 IPFS Hash:', ipfsHash);
 
-    // Validate required fields
-    if (!patientWalletAddress || !testType || !testName || !testDate) {
+    // Validate required fields - IPFS hash is now REQUIRED for blockchain storage
+    if (!patientWalletAddress || !labTechWalletAddress || !testType || !testName || !testDate || !ipfsHash) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         error: 'Missing required fields',
-        message: 'patientWalletAddress, testType, testName, and testDate are required'
+        message: 'patientWalletAddress, labTechWalletAddress, testType, testName, testDate, and ipfsHash are required for blockchain storage'
       });
     }
 
     // Verify patient exists
     const patient = await Patient.findOne({
-      where: { walletAddress: patientWalletAddress.toLowerCase() }
+      where: { walletAddress: patientWalletAddress.toLowerCase() },
+      transaction
     });
 
     if (!patient) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         error: 'Patient not found',
@@ -129,9 +140,42 @@ export const createLabResult = async (req, res) => {
       });
     }
 
-    // Create lab result
+    // ========== BLOCKCHAIN FIRST APPROACH ==========
+    console.log('🔗 Step 1: Submitting lab result to BLOCKCHAIN...');
+    
+    // Import blockchain service
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    const blockchainService = require('../../services/blockchain.cjs');
+
+    // Submit lab result to blockchain FIRST (primary data store)
+    const blockchainResult = await blockchainService.submitLabResult(
+      patientWalletAddress.toLowerCase(),
+      labTechWalletAddress.toLowerCase(),
+      ipfsHash
+    );
+
+    if (!blockchainResult.success) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Blockchain storage failed',
+        message: blockchainResult.error,
+        details: 'Lab result must be stored on blockchain first',
+        blockchain: false
+      });
+    }
+
+    console.log('✅ Step 1 Complete: Lab result submitted to blockchain:', blockchainResult.transactionHash);
+    console.log('🔬 Blockchain Lab Result ID:', blockchainResult.labResultId);
+
+    // ========== DATABASE SYNC (Secondary) ==========
+    console.log('🔗 Step 2: Syncing to database for performance...');
+
+    // Create lab result in database (for performance/search)
     const labResult = await LabResult.create({
       patientWalletAddress: patientWalletAddress.toLowerCase(),
+      labTechWalletAddress: labTechWalletAddress.toLowerCase(),
       testType,
       testName,
       results,
@@ -140,22 +184,45 @@ export const createLabResult = async (req, res) => {
       status: status || 'pending',
       performedBy,
       testDate,
-      notes
-    });
+      notes,
+      ipfsHash,
+      // Blockchain metadata
+      blockchainTxHash: blockchainResult.transactionHash,
+      blockchainLabResultId: blockchainResult.labResultId,
+      blockNumber: blockchainResult.blockNumber,
+      gasUsed: blockchainResult.gasUsed,
+      onBlockchain: true
+    }, { transaction });
 
-    console.log('✅ Lab result created:', labResult.id);
+    await transaction.commit();
+
+    console.log('✅ Step 2 Complete: Lab result synced to database:', labResult.id);
+    console.log('🎉 TRUE WEB3: Lab result stored on blockchain with database sync');
+    console.log('🔬 ========== BLOCKCHAIN LAB RESULT CREATION COMPLETE ==========');
 
     res.status(201).json({
       success: true,
-      message: 'Lab result created successfully',
-      data: labResult
+      message: 'Lab result created successfully on blockchain',
+      data: {
+        ...labResult.toJSON(),
+        blockchain: {
+          transactionHash: blockchainResult.transactionHash,
+          labResultId: blockchainResult.labResultId,
+          blockNumber: blockchainResult.blockNumber,
+          gasUsed: blockchainResult.gasUsed,
+          stored: true,
+          network: 'sepolia'
+        }
+      }
     });
   } catch (error) {
+    await transaction.rollback();
     console.error('❌ Create lab result error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to create lab result',
-      message: error.message
+      message: error.message,
+      blockchain: false
     });
   }
 };

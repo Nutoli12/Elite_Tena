@@ -30,7 +30,7 @@ const Appointment = (sequelize) => {
       allowNull: false
     },
     status: {
-      type: DataTypes.ENUM('scheduled', 'completed', 'cancelled', 'no-show'),
+      type: DataTypes.ENUM('scheduled', 'in_progress', 'completed', 'cancelled', 'no-show'),
       defaultValue: 'scheduled'
     },
     reason: {

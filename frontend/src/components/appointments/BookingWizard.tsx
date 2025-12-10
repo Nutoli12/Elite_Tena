@@ -122,20 +122,8 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ isOpen, onClose, o
             setDoctors(response.data.data || []);
         } catch (error) {
             console.error('Failed to fetch doctors:', error);
-            // Mock data for demo
-            setDoctors([
-                {
-                    walletAddress: '0xdoctor1',
-                    specialization: department,
-                    licenseNumber: 'MD-12345',
-                    rating: 4.8,
-                    profileData: {
-                        fullName: 'Dr. Alemayehu Tadesse',
-                        bio: 'Experienced specialist with 10+ years',
-                        experience: '10 years'
-                    }
-                }
-            ]);
+            // Set empty array on error
+            setDoctors([]);
         } finally {
             setLoading(false);
         }

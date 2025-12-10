@@ -40,33 +40,13 @@ export const UpcomingAppointments: React.FC = () => {
           }));
         setAppointments(upcomingAppointments);
       } else {
-        // Demo data fallback
-        setAppointments([
-          {
-            id: 'demo-1',
-            doctor: 'Dr. Demo',
-            specialization: 'General Medicine',
-            date: '2024-12-15',
-            time: '10:00 AM',
-            type: 'in-person',
-            location: 'Demo Hospital - Connect wallet for real data'
-          }
-        ]);
+        // No appointments found
+        setAppointments([]);
       }
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
-      // Demo data fallback
-      setAppointments([
-        {
-          id: 'demo-1',
-          doctor: 'Dr. Demo',
-          specialization: 'General Medicine',
-          date: '2024-12-15',
-          time: '10:00 AM',
-          type: 'in-person',
-          location: 'Demo Hospital - Connect wallet for real data'
-        }
-      ]);
+      // Set empty array on error
+      setAppointments([]);
     } finally {
       setLoading(false);
     }

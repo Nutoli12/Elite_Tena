@@ -643,19 +643,25 @@ export const getAvailableSlots = async (req, res) => {
 };
 
 /**
- * 👤 NEW: Patient books available slot
+ * 👤 NEW: Patient books available slot - TRUE WEB3 INTEGRATION
  */
 export const bookAppointmentSlot = async (req, res) => {
+  const transaction = await db.sequelize.transaction();
+  
   try {
     const { slotId } = req.params;
-    const { patientWalletAddress, reason, notes } = req.body;
+    const { patientWalletAddress, reason, notes, appointmentFee } = req.body;
 
-    console.log('📅 Patient booking appointment slot:', slotId);
+    console.log('📅 ========== BOOKING APPOINTMENT WITH BLOCKCHAIN PAYMENT ==========');
+    console.log('📅 Slot ID:', slotId);
+    console.log('📅 Patient Wallet:', patientWalletAddress);
+    console.log('📅 Appointment Fee:', appointmentFee, 'ETH');
 
     // Find the available slot
-    const slot = await Appointment.findByPk(slotId);
+    const slot = await Appointment.findByPk(slotId, { transaction });
 
     if (!slot) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         error: 'Appointment slot not found'
@@ -663,6 +669,7 @@ export const bookAppointmentSlot = async (req, res) => {
     }
 
     if (slot.status !== 'available') {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         error: 'Appointment slot not available'
@@ -671,39 +678,119 @@ export const bookAppointmentSlot = async (req, res) => {
 
     // Verify patient exists
     const patient = await Patient.findOne({
-      where: { walletAddress: patientWalletAddress.toLowerCase() }
+      where: { walletAddress: patientWalletAddress.toLowerCase() },
+      transaction
     });
 
     if (!patient) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         error: 'Patient not found'
       });
     }
 
-    // Book the slot
-    await slot.update({
-      patientWalletAddress: patientWalletAddress.toLowerCase(),
-      status: 'scheduled',
-      reason: reason || 'Consultation',
-      notes: notes || slot.notes,
-      bookedAt: new Date()
-    });
+    // ========== BLOCKCHAIN PAYMENT FIRST ==========
+    if (appointmentFee && parseFloat(appointmentFee) > 0) {
+      console.log('🔗 Step 1: Processing blockchain payment...');
+      
+      // Import blockchain service
+      const { createRequire } = await import('module');
+      const require = createRequire(import.meta.url);
+      const blockchainService = require('../../services/blockchain.cjs');
 
-    console.log('✅ Appointment slot booked successfully');
+      // Convert fee to Wei
+      const { ethers } = require('ethers');
+      const feeInWei = ethers.parseEther(appointmentFee.toString());
 
-    res.json({
-      success: true,
-      message: 'Appointment booked successfully',
-      data: slot
-    });
+      // Book appointment with payment on blockchain
+      const blockchainResult = await blockchainService.bookAppointment(
+        patientWalletAddress.toLowerCase(),
+        slot.doctorWalletAddress.toLowerCase(),
+        feeInWei
+      );
+
+      if (!blockchainResult.success) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          error: 'Blockchain payment failed',
+          message: blockchainResult.error,
+          details: 'Appointment payment must be processed on blockchain first',
+          blockchain: false
+        });
+      }
+
+      console.log('✅ Step 1 Complete: Blockchain payment processed:', blockchainResult.transactionHash);
+
+      // Update slot with blockchain payment info
+      await slot.update({
+        patientWalletAddress: patientWalletAddress.toLowerCase(),
+        status: 'scheduled',
+        reason: reason || 'Consultation',
+        notes: notes || slot.notes,
+        bookedAt: new Date(),
+        paymentStatus: 'paid',
+        fee: appointmentFee,
+        // Blockchain metadata
+        blockchainTxHash: blockchainResult.transactionHash,
+        blockNumber: blockchainResult.blockNumber,
+        gasUsed: blockchainResult.gasUsed,
+        onBlockchain: true
+      }, { transaction });
+
+      await transaction.commit();
+
+      console.log('✅ Step 2 Complete: Appointment booked with blockchain payment');
+      console.log('🎉 TRUE WEB3: Appointment payment processed on blockchain');
+      console.log('📅 ========== BLOCKCHAIN APPOINTMENT BOOKING COMPLETE ==========');
+
+      res.json({
+        success: true,
+        message: 'Appointment booked successfully with blockchain payment',
+        data: {
+          ...slot.toJSON(),
+          blockchain: {
+            transactionHash: blockchainResult.transactionHash,
+            blockNumber: blockchainResult.blockNumber,
+            gasUsed: blockchainResult.gasUsed,
+            appointmentFee: blockchainResult.appointmentFee,
+            paid: true,
+            network: 'sepolia'
+          }
+        }
+      });
+    } else {
+      // Free appointment - no blockchain payment needed
+      await slot.update({
+        patientWalletAddress: patientWalletAddress.toLowerCase(),
+        status: 'scheduled',
+        reason: reason || 'Consultation',
+        notes: notes || slot.notes,
+        bookedAt: new Date(),
+        paymentStatus: 'free',
+        fee: 0
+      }, { transaction });
+
+      await transaction.commit();
+
+      console.log('✅ Free appointment booked successfully');
+
+      res.json({
+        success: true,
+        message: 'Free appointment booked successfully',
+        data: slot
+      });
+    }
 
   } catch (error) {
+    await transaction.rollback();
     console.error('❌ Book appointment slot error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to book appointment',
-      message: error.message
+      message: error.message,
+      blockchain: false
     });
   }
 };

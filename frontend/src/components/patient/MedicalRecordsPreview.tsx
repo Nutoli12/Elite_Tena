@@ -33,33 +33,13 @@ export const MedicalRecordsPreview: React.FC = () => {
         }));
         setRecords(backendRecords);
       } else {
-        // Fallback to demo data if no records
-        setRecords([
-          {
-            id: 'demo-1',
-            title: 'Demo Checkup 2024',
-            doctor: 'Dr. Demo',
-            date: '2024-01-15',
-            type: 'Consultation',
-            diagnosis: 'Demo record - Connect wallet to see real data',
-            ipfsHash: null
-          }
-        ]);
+        // No records found
+        setRecords([]);
       }
     } catch (error) {
       console.error('Failed to fetch medical records:', error);
-      // Fallback to demo data
-      setRecords([
-        {
-          id: 'demo-1',
-          title: 'Demo Checkup 2024',
-          doctor: 'Dr. Demo',
-          date: '2024-01-15',
-          type: 'Consultation',
-          diagnosis: 'Demo record - Connect wallet to see real data',
-          ipfsHash: null
-        }
-      ]);
+      // Set empty array on error
+      setRecords([]);
     } finally {
       setLoading(false);
     }

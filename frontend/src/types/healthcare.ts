@@ -4,6 +4,7 @@ export interface MedicalRecord {
   id: string;
   patientId: string;
   doctorId: string;
+  doctorName?: string;
   title: string;
   diagnosis: string;
   treatment: string;

@@ -130,11 +130,28 @@ const Consent = (sequelize) => {
     // Blockchain Integration
     blockchainTxHash: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: true,
+      comment: 'Blockchain transaction hash for consent grant'
     },
     revocationTxHash: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: true,
+      comment: 'Blockchain transaction hash for consent revocation'
+    },
+    blockNumber: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Block number where consent transaction was mined'
+    },
+    gasUsed: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Gas used for blockchain transaction'
+    },
+    onBlockchain: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      comment: 'Whether this consent is stored on blockchain'
     },
     // Audit Trail
     accessCount: {

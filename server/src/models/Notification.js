@@ -40,6 +40,10 @@ export default (sequelize, DataTypes) => {
         'new_lab_order', 'urgent_test', 'results_uploaded',
         // Consent notifications
         'consent_request', 'consent_granted', 'consent_revoked', 'consent_expired',
+        // Prescription access notifications
+        'prescription_access_granted', 'prescription_access_revoked',
+        'prescription_dispensed', 'prescription_access_expires_soon',
+        'prescription_emergency_access',
         // System notifications
         'system_update', 'maintenance_scheduled'
       ),

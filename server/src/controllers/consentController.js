@@ -196,13 +196,21 @@ export const getPendingRequests = async (req, res) => {
  * ✅ PATIENT: Grant Consent (Approve Request)
  */
 export const grantConsent = async (req, res) => {
+  const transaction = await db.sequelize.transaction();
+  
   try {
     const { consentId } = req.params;
-    const { patientWalletAddress, customDuration, customPermissions } = req.body;
+    const { patientWalletAddress, customDuration, customPermissions, consentType = 'MedicalRecords' } = req.body;
 
-    const consent = await Consent.findByPk(consentId);
+    console.log('🔐 ========== GRANTING CONSENT WITH BLOCKCHAIN ==========');
+    console.log('🔐 Consent ID:', consentId);
+    console.log('🔐 Patient Wallet:', patientWalletAddress);
+    console.log('🔐 Consent Type:', consentType);
+
+    const consent = await Consent.findByPk(consentId, { transaction });
 
     if (!consent) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         message: 'Consent request not found'
@@ -211,6 +219,7 @@ export const grantConsent = async (req, res) => {
 
     // Verify patient owns this consent
     if (consent.patientWalletAddress !== patientWalletAddress) {
+      await transaction.rollback();
       return res.status(403).json({
         success: false,
         message: 'Unauthorized to grant this consent'
@@ -223,13 +232,66 @@ export const grantConsent = async (req, res) => {
     }
 
     // Update duration if custom one provided
+    let durationHours = 24; // Default 24 hours
     if (customDuration) {
       consent.durationType = customDuration.type;
       consent.durationValue = customDuration.value;
+      
+      // Convert to hours for blockchain
+      if (customDuration.type === 'hours') {
+        durationHours = customDuration.value;
+      } else if (customDuration.type === 'days') {
+        durationHours = customDuration.value * 24;
+      } else if (customDuration.type === 'weeks') {
+        durationHours = customDuration.value * 24 * 7;
+      }
     }
 
-    // Grant the consent
+    // ========== BLOCKCHAIN FIRST APPROACH ==========
+    console.log('🔗 Step 1: Granting consent on BLOCKCHAIN...');
+    
+    // Import blockchain service
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    const blockchainService = require('../../services/blockchain.cjs');
+
+    // Map consent type to blockchain enum
+    const blockchainConsentType = blockchainService.ConsentType[consentType] || 0;
+
+    // Grant consent on blockchain FIRST (primary data store)
+    const blockchainResult = await blockchainService.grantConsent(
+      patientWalletAddress.toLowerCase(),
+      consent.doctorWalletAddress.toLowerCase(),
+      blockchainConsentType,
+      durationHours
+    );
+
+    if (!blockchainResult.success) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Blockchain consent failed',
+        message: blockchainResult.error,
+        details: 'Consent must be granted on blockchain first',
+        blockchain: false
+      });
+    }
+
+    console.log('✅ Step 1 Complete: Consent granted on blockchain:', blockchainResult.transactionHash);
+
+    // ========== DATABASE SYNC (Secondary) ==========
+    console.log('🔗 Step 2: Syncing to database for performance...');
+
+    // Grant the consent in database (for performance/search)
     await consent.grant(patientWalletAddress);
+    
+    // Update with blockchain metadata
+    await consent.update({
+      blockchainTxHash: blockchainResult.transactionHash,
+      blockNumber: blockchainResult.blockNumber,
+      gasUsed: blockchainResult.gasUsed,
+      onBlockchain: true
+    }, { transaction });
 
     // Send notification to doctor
     try {
@@ -599,11 +661,25 @@ export const getDoctorConsents = async (req, res) => {
           include: [{
             model: User,
             as: 'user',
-            attributes: ['name', 'email']
+            attributes: ['name', 'email', 'profileData']
           }]
         }
       ],
       order: [['requestedAt', 'DESC']]
+    });
+
+    // Log what we're returning for debugging
+    console.log('📤 getDoctorConsents: Returning', consents.length, 'consents');
+    consents.forEach((consent, index) => {
+      console.log(`  Consent ${index + 1}:`, {
+        patientWallet: consent.patientWalletAddress,
+        hasPatient: !!consent.patient,
+        patientName: consent.patient?.name,
+        hasUser: !!consent.patient?.user,
+        userName: consent.patient?.user?.name,
+        userEmail: consent.patient?.user?.email,
+        hasProfileData: !!consent.patient?.user?.profileData
+      });
     });
 
     res.json({

@@ -10,7 +10,11 @@ export const initializeSocket = (httpServer) => {
             origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
             methods: ['GET', 'POST'],
             credentials: true
-        }
+        },
+        transports: ['websocket', 'polling'],
+        allowEIO3: true,
+        pingTimeout: 60000,
+        pingInterval: 25000
     });
 
     io.on('connection', (socket) => {

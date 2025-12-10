@@ -108,6 +108,8 @@ export const getPrescriptionById = async (req, res) => {
  * Create a new prescription
  */
 export const createPrescription = async (req, res) => {
+  const transaction = await db.sequelize.transaction();
+  
   try {
     const {
       patientWalletAddress,
@@ -120,26 +122,34 @@ export const createPrescription = async (req, res) => {
       quantity,
       refills,
       issueDate,
-      expiryDate
+      expiryDate,
+      ipfsHash
     } = req.body;
 
-    console.log('📝 Creating prescription for patient:', patientWalletAddress);
+    console.log('💊 ========== CREATING PRESCRIPTION WITH BLOCKCHAIN ==========');
+    console.log('💊 Patient Wallet:', patientWalletAddress);
+    console.log('💊 Doctor Wallet:', doctorWalletAddress);
+    console.log('💊 Medication:', medicationName);
+    console.log('💊 IPFS Hash:', ipfsHash);
 
-    // Validate required fields
-    if (!patientWalletAddress || !doctorWalletAddress || !medicationName || !dosage || !frequency || !duration || !quantity || !issueDate || !expiryDate) {
+    // Validate required fields - IPFS hash is now REQUIRED for blockchain storage
+    if (!patientWalletAddress || !doctorWalletAddress || !medicationName || !dosage || !frequency || !duration || !quantity || !issueDate || !expiryDate || !ipfsHash) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         error: 'Missing required fields',
-        message: 'patientWalletAddress, doctorWalletAddress, medicationName, dosage, frequency, duration, quantity, issueDate, and expiryDate are required'
+        message: 'patientWalletAddress, doctorWalletAddress, medicationName, dosage, frequency, duration, quantity, issueDate, expiryDate, and ipfsHash are required for blockchain storage'
       });
     }
 
     // Verify patient exists
     const patient = await Patient.findOne({
-      where: { walletAddress: patientWalletAddress.toLowerCase() }
+      where: { walletAddress: patientWalletAddress.toLowerCase() },
+      transaction
     });
 
     if (!patient) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         error: 'Patient not found',
@@ -149,10 +159,12 @@ export const createPrescription = async (req, res) => {
 
     // Verify doctor exists
     const doctor = await Doctor.findOne({
-      where: { walletAddress: doctorWalletAddress.toLowerCase() }
+      where: { walletAddress: doctorWalletAddress.toLowerCase() },
+      transaction
     });
 
     if (!doctor) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         error: 'Doctor not found',
@@ -160,7 +172,39 @@ export const createPrescription = async (req, res) => {
       });
     }
 
-    // Create prescription
+    // ========== BLOCKCHAIN FIRST APPROACH ==========
+    console.log('🔗 Step 1: Issuing prescription on BLOCKCHAIN...');
+    
+    // Import blockchain service
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    const blockchainService = require('../../services/blockchain.cjs');
+
+    // Issue prescription on blockchain FIRST (primary data store)
+    const blockchainResult = await blockchainService.issuePrescription(
+      patientWalletAddress.toLowerCase(),
+      doctorWalletAddress.toLowerCase(),
+      ipfsHash
+    );
+
+    if (!blockchainResult.success) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Blockchain storage failed',
+        message: blockchainResult.error,
+        details: 'Prescription must be issued on blockchain first',
+        blockchain: false
+      });
+    }
+
+    console.log('✅ Step 1 Complete: Prescription issued on blockchain:', blockchainResult.transactionHash);
+    console.log('💊 Blockchain Prescription ID:', blockchainResult.prescriptionId);
+
+    // ========== DATABASE SYNC (Secondary) ==========
+    console.log('🔗 Step 2: Syncing to database for performance...');
+
+    // Create prescription in database (for performance/search)
     const prescription = await Prescription.create({
       patientWalletAddress: patientWalletAddress.toLowerCase(),
       doctorWalletAddress: doctorWalletAddress.toLowerCase(),
@@ -173,22 +217,45 @@ export const createPrescription = async (req, res) => {
       refills: refills || 0,
       issueDate,
       expiryDate,
-      isFilled: false
-    });
+      isFilled: false,
+      ipfsHash,
+      // Blockchain metadata
+      blockchainTxHash: blockchainResult.transactionHash,
+      blockchainPrescriptionId: blockchainResult.prescriptionId,
+      blockNumber: blockchainResult.blockNumber,
+      gasUsed: blockchainResult.gasUsed,
+      onBlockchain: true
+    }, { transaction });
 
-    console.log('✅ Prescription created:', prescription.id);
+    await transaction.commit();
+
+    console.log('✅ Step 2 Complete: Prescription synced to database:', prescription.id);
+    console.log('🎉 TRUE WEB3: Prescription issued on blockchain with database sync');
+    console.log('💊 ========== BLOCKCHAIN PRESCRIPTION CREATION COMPLETE ==========');
 
     res.status(201).json({
       success: true,
-      message: 'Prescription created successfully',
-      data: prescription
+      message: 'Prescription issued successfully on blockchain',
+      data: {
+        ...prescription.toJSON(),
+        blockchain: {
+          transactionHash: blockchainResult.transactionHash,
+          prescriptionId: blockchainResult.prescriptionId,
+          blockNumber: blockchainResult.blockNumber,
+          gasUsed: blockchainResult.gasUsed,
+          stored: true,
+          network: 'sepolia'
+        }
+      }
     });
   } catch (error) {
+    await transaction.rollback();
     console.error('❌ Create prescription error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to create prescription',
-      message: error.message
+      message: error.message,
+      blockchain: false
     });
   }
 };
@@ -372,13 +439,22 @@ export const dispensePrescription = async (req, res) => {
 
     console.log('✅ Prescription dispensed successfully');
 
-    // TODO: Send notification to patient
-    // await NotificationService.createNotification(
-    //   prescription.patientWalletAddress,
-    //   'Prescription Ready',
-    //   `Your prescription for ${prescription.medicationName} has been dispensed`,
-    //   'prescription'
-    // );
+    // Send notification to patient
+    try {
+      const EnhancedNotificationService = (await import('../services/enhancedNotificationService.js')).default;
+      await EnhancedNotificationService.sendToUser(
+        prescription.patientWalletAddress,
+        'prescription_dispensed',
+        {
+          medicationName: prescription.medicationName,
+          pharmacyName: 'Pharmacy',
+          relatedId: prescription.id,
+          relatedType: 'prescription'
+        }
+      );
+    } catch (notifError) {
+      console.warn('⚠️ Failed to send notification:', notifError.message);
+    }
 
     res.json({
       success: true,

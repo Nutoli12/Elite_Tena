@@ -1,9 +1,12 @@
 import express from 'express';
-import { getAllMedicalRecords, getMedicalRecords, createMedicalRecord, updateMedicalRecord } from '../controllers/medicalRecordController.js';
+import { getAllMedicalRecords, getMedicalRecords, createMedicalRecord, updateMedicalRecord, debugRecordAccess } from '../controllers/medicalRecordController.js';
 
 const router = express.Router();
 
 // Apply authentication to all medical record routes
+
+// Debug endpoint - check record access
+router.get('/debug/:recordId', debugRecordAccess);
 
 // Get all medical records (admin only - no filtering)
 router.get('/', getAllMedicalRecords);

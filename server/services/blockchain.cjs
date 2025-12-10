@@ -5,21 +5,24 @@ const fs = require('fs');
 /**
  * Enhanced Blockchain Integration Service
  * Connects backend to EliteHealthSystemEnhanced smart contract
+ * TRUE WEB3 INTEGRATION - Blockchain as Primary Data Store
  */
 class BlockchainService {
   constructor() {
     this.provider = null;
     this.contract = null;
+    this.signer = null;
     this.contractAddress = process.env.CONTRACT_ADDRESS;
     this.rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8545';
+    this.privateKey = process.env.PRIVATE_KEY;
     
     // Consent type enum (matches smart contract)
     this.ConsentType = {
       MedicalRecords: 0,
-      Treatment: 1,
-      Prescriptions: 2,
-      LabResults: 3,
-      Emergency: 4
+      Prescriptions: 1,
+      LabResults: 2,
+      Appointments: 3,
+      All: 4
     };
     
     // Role enum (matches smart contract)
@@ -28,33 +31,50 @@ class BlockchainService {
       Patient: 1,
       Doctor: 2,
       Pharmacist: 3,
-      LabTechnician: 4,
-      Admin: 5
+      LabTechnician: 4
+    };
+
+    // Transaction options
+    this.txOptions = {
+      gasLimit: 500000,
+      gasPrice: ethers.parseUnits('20', 'gwei')
     };
   }
 
   /**
-   * Initialize blockchain connection
+   * Initialize blockchain connection with WRITE capabilities
    */
   async initialize() {
     try {
-      console.log('🔗 Initializing blockchain connection...');
+      console.log('🔗 Initializing TRUE WEB3 blockchain connection...');
       
-      // Reload contract address from environment (in case it wasn't set during construction)
+      // Reload contract address from environment
       this.contractAddress = process.env.CONTRACT_ADDRESS;
       this.rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8545';
+      this.privateKey = process.env.PRIVATE_KEY;
       
       if (!this.contractAddress) {
         throw new Error('CONTRACT_ADDRESS not set in environment variables');
       }
+
+      if (!this.privateKey) {
+        console.warn('⚠️  PRIVATE_KEY not set - blockchain writes will be disabled');
+      }
       
       console.log('   Contract Address:', this.contractAddress);
       console.log('   RPC URL:', this.rpcUrl);
+      console.log('   Private Key:', this.privateKey ? 'SET' : 'NOT SET');
       
       // Connect to blockchain
       this.provider = new ethers.JsonRpcProvider(this.rpcUrl);
       
-      // Load contract ABI - try multiple locations
+      // Create signer for transactions
+      if (this.privateKey) {
+        this.signer = new ethers.Wallet(this.privateKey, this.provider);
+        console.log('✅ Signer created:', this.signer.address);
+      }
+      
+      // Load contract ABI
       const artifactPaths = [
         path.join(__dirname, '../contracts/EliteHealthSystemEnhanced.json'),
         path.join(__dirname, '../../shared/contracts/EliteHealthSystemEnhanced.json'),
@@ -74,16 +94,27 @@ class BlockchainService {
         throw new Error('Contract artifact not found. Please run: cd elite-tena-smart-contracts && node scripts/export-abi.js');
       }
       
-      // Create contract instance
+      // Create contract instances (read-only and with signer)
       this.contract = new ethers.Contract(
         this.contractAddress,
         artifact.abi,
         this.provider
       );
+
+      if (this.signer) {
+        this.contractWithSigner = new ethers.Contract(
+          this.contractAddress,
+          artifact.abi,
+          this.signer
+        );
+      }
       
-      console.log('✅ Blockchain service initialized');
+      // Test connection
+      const network = await this.provider.getNetwork();
+      console.log('✅ TRUE WEB3 blockchain service initialized');
       console.log('   Contract:', this.contractAddress);
-      console.log('   Network:', await this.provider.getNetwork());
+      console.log('   Network:', network.name, 'Chain ID:', network.chainId.toString());
+      console.log('   Write Enabled:', !!this.signer);
       
       return true;
     } catch (error) {
@@ -321,6 +352,331 @@ class BlockchainService {
     return ethers.keccak256(
       ethers.toUtf8Bytes(`labresult_${patientWallet}_${labTechWallet}_${timestamp}`)
     );
+  }
+
+  // ========== TRUE WEB3 DATA STORAGE FUNCTIONS ==========
+
+  /**
+   * Store medical record on blockchain (PRIMARY DATA STORE)
+   */
+  async storeMedicalRecord(patientWallet, doctorWallet, ipfsHash) {
+    try {
+      if (!this.contractWithSigner) {
+        throw new Error('Blockchain writes not enabled - missing private key');
+      }
+
+      console.log('📝 Storing medical record on blockchain:', { patientWallet, doctorWallet, ipfsHash });
+
+      // Check consent first
+      const hasConsent = await this.checkActiveConsent(patientWallet, doctorWallet, this.ConsentType.MedicalRecords);
+      if (!hasConsent) {
+        throw new Error('No active consent for medical records');
+      }
+
+      // Store on blockchain
+      const tx = await this.contractWithSigner.storeMedicalRecord(
+        patientWallet,
+        ipfsHash,
+        this.txOptions
+      );
+
+      console.log('⏳ Transaction submitted:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('✅ Medical record stored on blockchain:', receipt.transactionHash);
+
+      return {
+        success: true,
+        transactionHash: receipt.transactionHash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString()
+      };
+    } catch (error) {
+      console.error('❌ Failed to store medical record on blockchain:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Issue prescription on blockchain (PRIMARY DATA STORE)
+   */
+  async issuePrescription(patientWallet, doctorWallet, ipfsHash) {
+    try {
+      if (!this.contractWithSigner) {
+        throw new Error('Blockchain writes not enabled - missing private key');
+      }
+
+      console.log('💊 Issuing prescription on blockchain:', { patientWallet, doctorWallet, ipfsHash });
+
+      // Check consent first
+      const hasConsent = await this.checkActiveConsent(patientWallet, doctorWallet, this.ConsentType.Prescriptions);
+      if (!hasConsent) {
+        throw new Error('No active consent for prescriptions');
+      }
+
+      // Issue prescription on blockchain
+      const tx = await this.contractWithSigner.issuePrescription(
+        patientWallet,
+        ipfsHash,
+        this.txOptions
+      );
+
+      console.log('⏳ Transaction submitted:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('✅ Prescription issued on blockchain:', receipt.transactionHash);
+
+      // Extract prescription ID from events
+      const prescriptionEvent = receipt.logs.find(log => {
+        try {
+          const parsed = this.contract.interface.parseLog(log);
+          return parsed.name === 'PrescriptionIssued';
+        } catch (e) {
+          return false;
+        }
+      });
+
+      let prescriptionId = null;
+      if (prescriptionEvent) {
+        const parsed = this.contract.interface.parseLog(prescriptionEvent);
+        prescriptionId = parsed.args[0].toString();
+      }
+
+      return {
+        success: true,
+        prescriptionId,
+        transactionHash: receipt.transactionHash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString()
+      };
+    } catch (error) {
+      console.error('❌ Failed to issue prescription on blockchain:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Grant consent on blockchain (PRIMARY DATA STORE)
+   */
+  async grantConsent(patientWallet, providerWallet, consentType, durationHours = 0) {
+    try {
+      if (!this.contractWithSigner) {
+        throw new Error('Blockchain writes not enabled - missing private key');
+      }
+
+      console.log('🔐 Granting consent on blockchain:', { 
+        patientWallet, 
+        providerWallet, 
+        consentType, 
+        durationHours 
+      });
+
+      // Grant consent on blockchain
+      const tx = await this.contractWithSigner.grantConsent(
+        providerWallet,
+        consentType,
+        durationHours,
+        this.txOptions
+      );
+
+      console.log('⏳ Transaction submitted:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('✅ Consent granted on blockchain:', receipt.transactionHash);
+
+      return {
+        success: true,
+        transactionHash: receipt.transactionHash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString()
+      };
+    } catch (error) {
+      console.error('❌ Failed to grant consent on blockchain:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Revoke consent on blockchain
+   */
+  async revokeConsent(patientWallet, providerWallet, consentType) {
+    try {
+      if (!this.contractWithSigner) {
+        throw new Error('Blockchain writes not enabled - missing private key');
+      }
+
+      console.log('🚫 Revoking consent on blockchain:', { patientWallet, providerWallet, consentType });
+
+      const tx = await this.contractWithSigner.revokeConsent(
+        providerWallet,
+        consentType,
+        this.txOptions
+      );
+
+      console.log('⏳ Transaction submitted:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('✅ Consent revoked on blockchain:', receipt.transactionHash);
+
+      return {
+        success: true,
+        transactionHash: receipt.transactionHash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString()
+      };
+    } catch (error) {
+      console.error('❌ Failed to revoke consent on blockchain:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Submit lab result on blockchain
+   */
+  async submitLabResult(patientWallet, labTechWallet, ipfsHash) {
+    try {
+      if (!this.contractWithSigner) {
+        throw new Error('Blockchain writes not enabled - missing private key');
+      }
+
+      console.log('🔬 Submitting lab result on blockchain:', { patientWallet, labTechWallet, ipfsHash });
+
+      // Check consent first
+      const hasConsent = await this.checkActiveConsent(patientWallet, labTechWallet, this.ConsentType.LabResults);
+      if (!hasConsent) {
+        throw new Error('No active consent for lab results');
+      }
+
+      const tx = await this.contractWithSigner.submitLabResult(
+        patientWallet,
+        ipfsHash,
+        this.txOptions
+      );
+
+      console.log('⏳ Transaction submitted:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('✅ Lab result submitted on blockchain:', receipt.transactionHash);
+
+      // Extract lab result ID from events
+      const labEvent = receipt.logs.find(log => {
+        try {
+          const parsed = this.contract.interface.parseLog(log);
+          return parsed.name === 'LabResultSubmitted';
+        } catch (e) {
+          return false;
+        }
+      });
+
+      let labResultId = null;
+      if (labEvent) {
+        const parsed = this.contract.interface.parseLog(labEvent);
+        labResultId = parsed.args[0].toString();
+      }
+
+      return {
+        success: true,
+        labResultId,
+        transactionHash: receipt.transactionHash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString()
+      };
+    } catch (error) {
+      console.error('❌ Failed to submit lab result on blockchain:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Book appointment with payment on blockchain
+   */
+  async bookAppointment(patientWallet, doctorWallet, appointmentFee) {
+    try {
+      if (!this.contractWithSigner) {
+        throw new Error('Blockchain writes not enabled - missing private key');
+      }
+
+      console.log('📅 Booking appointment on blockchain:', { 
+        patientWallet, 
+        doctorWallet, 
+        appointmentFee: ethers.formatEther(appointmentFee) + ' ETH'
+      });
+
+      const tx = await this.contractWithSigner.bookAppointment(
+        doctorWallet,
+        {
+          ...this.txOptions,
+          value: appointmentFee
+        }
+      );
+
+      console.log('⏳ Transaction submitted:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('✅ Appointment booked on blockchain:', receipt.transactionHash);
+
+      return {
+        success: true,
+        transactionHash: receipt.transactionHash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+        appointmentFee: ethers.formatEther(appointmentFee)
+      };
+    } catch (error) {
+      console.error('❌ Failed to book appointment on blockchain:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Check active consent (READ from blockchain)
+   */
+  async checkActiveConsent(patientWallet, providerWallet, consentType) {
+    try {
+      const hasConsent = await this.contract.checkConsent(
+        patientWallet,
+        providerWallet,
+        consentType
+      );
+      
+      console.log('🔍 Consent check:', { 
+        patientWallet: patientWallet.substring(0, 8) + '...', 
+        providerWallet: providerWallet.substring(0, 8) + '...', 
+        consentType: this.getConsentTypeName(consentType),
+        hasConsent 
+      });
+      
+      return hasConsent;
+    } catch (error) {
+      console.error('❌ Failed to check consent:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Get medical records from blockchain
+   */
+  async getMedicalRecordsFromBlockchain(patientWallet) {
+    try {
+      const records = await this.contract.getMedicalRecords(patientWallet);
+      console.log('📋 Retrieved medical records from blockchain:', records.length, 'records');
+      return records;
+    } catch (error) {
+      console.error('❌ Failed to get medical records from blockchain:', error.message);
+      return [];
+    }
   }
 
   /**

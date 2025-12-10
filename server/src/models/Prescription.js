@@ -66,6 +66,69 @@ const Prescription = (sequelize) => {
     pharmacyNotes: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    // Pharmacy workflow fields
+    status: {
+      type: DataTypes.STRING,
+      defaultValue: 'active',
+      comment: 'active, dispensed, expired, cancelled'
+    },
+    dispensedBy: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Pharmacist wallet address'
+    },
+    dispensedDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    dispensedQuantity: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    dispensingNotes: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    batchNumber: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    medicationExpiryDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    // IPFS integration
+    ipfsHash: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'IPFS hash for prescription data'
+    },
+    // Blockchain integration fields
+    blockchainTxHash: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Blockchain transaction hash'
+    },
+    blockchainPrescriptionId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Blockchain-generated prescription ID'
+    },
+    blockNumber: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Block number where transaction was mined'
+    },
+    gasUsed: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Gas used for blockchain transaction'
+    },
+    onBlockchain: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      comment: 'Whether this prescription is stored on blockchain'
     }
   }, {
     tableName: 'prescriptions',

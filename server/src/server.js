@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import session from 'express-session';
+import path from 'path';
 
 // AdminJS imports
 import { admin, adminRouter } from './admin.js';
@@ -28,6 +29,8 @@ import premiumServiceRoutes from './routes/premiumService.js';
 import consultationRoutes from './routes/consultation.js';
 import chatRoutes from './routes/chat.js';
 import videoCallRoutes from './routes/videoCall.js';
+import prescriptionAccessRoutes from './routes/prescriptionAccess.js';
+import databaseRoutes from './routes/database.js';
 import { initializeSocket } from './services/socketService.js';
 
 // ... (imports)
@@ -103,6 +106,9 @@ app.use(admin.options.rootPath, adminRouter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve static files
+app.use('/public', express.static('public'));
+
 // Session configuration
 app.use(session({
   name: 'elitetena.sid',
@@ -129,6 +135,8 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/medical-records', medicalRecordRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/prescriptions', prescriptionAccessRoutes); // Prescription access control
+app.use('/api/database', databaseRoutes); // Database explorer
 app.use('/api/lab-results', labResultRoutes);
 app.use('/api/lab-technicians', labTechnicianRoutes);
 app.use('/api/pharmacists', pharmacistRoutes);
@@ -140,6 +148,11 @@ app.use('/api/premium-services', premiumServiceRoutes); // Premium service route
 app.use('/api/consultations', consultationRoutes); // Consultation routes
 app.use('/api/chat', chatRoutes); // Chat routes
 app.use('/api/video-calls', videoCallRoutes); // Video call routes
+
+// Database viewer route
+app.get('/database', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'database-viewer.html'));
+});
 
 // Enhanced health check
 app.get('/api/health', async (req, res) => {

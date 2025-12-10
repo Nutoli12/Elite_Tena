@@ -93,8 +93,11 @@ export const getMedicalRecords = async (req, res) => {
     // Get requesting user from header (in production, this would come from JWT token)
     const requestingWallet = req.headers['x-wallet-address'];
 
-    console.log('🔍 Fetching medical records for:', normalizedWallet);
-    console.log('🔍 Requested by:', requestingWallet);
+    console.log('🔍 ========== FETCHING MEDICAL RECORDS ==========');
+    console.log('🔍 Patient Wallet (from URL):', patientWallet);
+    console.log('🔍 Normalized Wallet:', normalizedWallet);
+    console.log('🔍 Requesting User Wallet:', requestingWallet);
+    console.log('🔍 Wallets Match?:', requestingWallet?.toLowerCase().trim() === normalizedWallet);
 
     // Check if requesting user has permission
     let userRole = null;
@@ -195,19 +198,48 @@ export const getMedicalRecords = async (req, res) => {
           model: Patient,
           as: 'patient',
           required: false,
-          attributes: ['walletAddress']
+          attributes: ['walletAddress'],
+          include: [{
+            model: db.User,
+            as: 'user',
+            attributes: ['name', 'email']
+          }]
         },
         {
           model: Doctor,
           as: 'doctor',
           required: false,
-          attributes: ['walletAddress', 'specialization']
+          attributes: ['walletAddress', 'specialization', 'name'],
+          include: [{
+            model: db.User,
+            as: 'user',
+            attributes: ['name', 'email']
+          }]
         }
       ],
       order: [['createdAt', 'DESC']]
     });
 
-    console.log(`✅ Found ${records.length} medical records`);
+    console.log(`✅ Found ${records.length} medical records for wallet: ${normalizedWallet}`);
+    if (records.length > 0) {
+      console.log('📋 Record details:');
+      records.forEach((record, index) => {
+        console.log(`  ${index + 1}. ID: ${record.id}, Title: ${record.title}, Patient: ${record.patientWalletAddress}, Doctor: ${record.doctorWalletAddress}`);
+      });
+    } else {
+      console.log('⚠️ No records found. Checking database...');
+      // Let's check if there are ANY records for similar wallets
+      const allRecords = await MedicalRecord.findAll({
+        attributes: ['id', 'patientWalletAddress', 'title', 'createdAt'],
+        limit: 10,
+        order: [['createdAt', 'DESC']]
+      });
+      console.log('📊 Recent records in database:');
+      allRecords.forEach((record, index) => {
+        console.log(`  ${index + 1}. Patient: ${record.patientWalletAddress}, Title: ${record.title}`);
+      });
+    }
+    console.log('🔍 ========== FETCH COMPLETE ==========');
 
     res.json({
       success: true,
@@ -225,9 +257,11 @@ export const getMedicalRecords = async (req, res) => {
 };
 
 /**
- * Create a new medical record
+ * Create a new medical record - TRUE WEB3 INTEGRATION
  */
 export const createMedicalRecord = async (req, res) => {
+  const transaction = await db.sequelize.transaction();
+  
   try {
     // Support wallet from either URL path or request body
     const patientWalletFromPath = req.params.patientWallet;
@@ -248,23 +282,33 @@ export const createMedicalRecord = async (req, res) => {
     // Use wallet from path if provided, otherwise from body
     const finalPatientWallet = patientWalletFromPath || patientWalletAddress;
 
-    console.log('📝 Creating medical record for patient:', finalPatientWallet);
+    console.log('📝 ========== CREATING MEDICAL RECORD WITH BLOCKCHAIN ==========');
+    console.log('📝 Patient Wallet (from path):', patientWalletFromPath);
+    console.log('📝 Patient Wallet (from body):', patientWalletAddress);
+    console.log('📝 Final Patient Wallet:', finalPatientWallet);
+    console.log('📝 Doctor Wallet:', doctorWalletAddress);
+    console.log('📝 Record Title:', title);
+    console.log('📝 Record Type:', recordType);
+    console.log('📝 IPFS Hash:', ipfsHash);
 
-    // Validate required fields
-    if (!finalPatientWallet || !doctorWalletAddress || !recordType || !title || !visitDate) {
+    // Validate required fields - IPFS hash is now REQUIRED for blockchain storage
+    if (!finalPatientWallet || !doctorWalletAddress || !recordType || !title || !visitDate || !ipfsHash) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         error: 'Missing required fields',
-        message: 'patientWalletAddress, doctorWalletAddress, recordType, title, and visitDate are required'
+        message: 'patientWalletAddress, doctorWalletAddress, recordType, title, visitDate, and ipfsHash are required for blockchain storage'
       });
     }
 
     // Verify patient exists
     const patient = await Patient.findOne({
-      where: { walletAddress: finalPatientWallet.toLowerCase() }
+      where: { walletAddress: finalPatientWallet.toLowerCase() },
+      transaction
     });
 
     if (!patient) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         error: 'Patient not found',
@@ -274,10 +318,12 @@ export const createMedicalRecord = async (req, res) => {
 
     // Verify doctor exists
     const doctor = await Doctor.findOne({
-      where: { walletAddress: doctorWalletAddress.toLowerCase() }
+      where: { walletAddress: doctorWalletAddress.toLowerCase() },
+      transaction
     });
 
     if (!doctor) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         error: 'Doctor not found',
@@ -285,7 +331,38 @@ export const createMedicalRecord = async (req, res) => {
       });
     }
 
-    // Create medical record
+    // ========== BLOCKCHAIN FIRST APPROACH ==========
+    console.log('🔗 Step 1: Storing medical record on BLOCKCHAIN...');
+    
+    // Import blockchain service
+    const { createRequire } = await import('module');
+    const require = createRequire(import.meta.url);
+    const blockchainService = require('../../services/blockchain.cjs');
+
+    // Store on blockchain FIRST (primary data store)
+    const blockchainResult = await blockchainService.storeMedicalRecord(
+      finalPatientWallet.toLowerCase(),
+      doctorWalletAddress.toLowerCase(),
+      ipfsHash
+    );
+
+    if (!blockchainResult.success) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Blockchain storage failed',
+        message: blockchainResult.error,
+        details: 'Medical record must be stored on blockchain first',
+        blockchain: false
+      });
+    }
+
+    console.log('✅ Step 1 Complete: Medical record stored on blockchain:', blockchainResult.transactionHash);
+
+    // ========== DATABASE SYNC (Secondary) ==========
+    console.log('🔗 Step 2: Syncing to database for performance...');
+
+    // Create medical record in database (for performance/search)
     const record = await MedicalRecord.create({
       patientWalletAddress: finalPatientWallet.toLowerCase(),
       doctorWalletAddress: doctorWalletAddress.toLowerCase(),
@@ -297,22 +374,44 @@ export const createMedicalRecord = async (req, res) => {
       visitDate,
       ipfsHash,
       fileUrl,
-      isEncrypted: isEncrypted !== undefined ? isEncrypted : true
-    });
+      isEncrypted: isEncrypted !== undefined ? isEncrypted : true,
+      // Blockchain metadata
+      blockchainTxHash: blockchainResult.transactionHash,
+      blockNumber: blockchainResult.blockNumber,
+      gasUsed: blockchainResult.gasUsed,
+      onBlockchain: true
+    }, { transaction });
 
-    console.log('✅ Medical record created:', record.id);
+    await transaction.commit();
+
+    console.log('✅ Step 2 Complete: Medical record synced to database:', record.id);
+    console.log('✅ Stored Patient Wallet:', record.patientWalletAddress);
+    console.log('✅ Stored Doctor Wallet:', record.doctorWalletAddress);
+    console.log('🎉 TRUE WEB3: Medical record stored on blockchain with database sync');
+    console.log('📝 ========== BLOCKCHAIN RECORD CREATION COMPLETE ==========');
 
     res.status(201).json({
       success: true,
-      message: 'Medical record created successfully',
-      data: record
+      message: 'Medical record created successfully on blockchain',
+      data: {
+        ...record.toJSON(),
+        blockchain: {
+          transactionHash: blockchainResult.transactionHash,
+          blockNumber: blockchainResult.blockNumber,
+          gasUsed: blockchainResult.gasUsed,
+          stored: true,
+          network: 'sepolia'
+        }
+      }
     });
   } catch (error) {
+    await transaction.rollback();
     console.error('❌ Create medical record error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to create medical record',
-      message: error.message
+      message: error.message,
+      blockchain: false
     });
   }
 };
@@ -387,6 +486,111 @@ export const deleteMedicalRecord = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to delete medical record',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Debug: Check record access and permissions
+ */
+export const debugRecordAccess = async (req, res) => {
+  try {
+    const { recordId } = req.params;
+    const requestingWallet = req.headers['x-wallet-address'];
+
+    console.log('🔍 ========== DEBUG RECORD ACCESS ==========');
+    console.log('🔍 Record ID:', recordId);
+    console.log('🔍 Requesting Wallet:', requestingWallet);
+
+    // Find the record
+    const record = await MedicalRecord.findByPk(recordId, {
+      include: [
+        {
+          model: Patient,
+          as: 'patient',
+          include: [{
+            model: db.User,
+            as: 'user',
+            attributes: ['walletAddress', 'email', 'name']
+          }]
+        },
+        {
+          model: Doctor,
+          as: 'doctor',
+          include: [{
+            model: db.User,
+            as: 'user',
+            attributes: ['walletAddress', 'email', 'name']
+          }]
+        }
+      ]
+    });
+
+    if (!record) {
+      return res.json({
+        success: false,
+        error: 'Record not found',
+        recordId
+      });
+    }
+
+    // Check consent if requesting user is a doctor
+    let consentInfo = null;
+    if (requestingWallet) {
+      const { Consent } = db;
+      const consent = await Consent.findOne({
+        where: {
+          patientWalletAddress: record.patientWalletAddress,
+          doctorWalletAddress: requestingWallet.toLowerCase(),
+          status: 'active'
+        }
+      });
+      consentInfo = consent ? {
+        id: consent.id,
+        status: consent.status,
+        permissions: consent.permissions,
+        expiresAt: consent.expiresAt
+      } : null;
+    }
+
+    const debugInfo = {
+      success: true,
+      record: {
+        id: record.id,
+        title: record.title,
+        patientWallet: record.patientWalletAddress,
+        doctorWallet: record.doctorWalletAddress,
+        createdAt: record.createdAt
+      },
+      patient: {
+        wallet: record.patient?.walletAddress,
+        name: record.patient?.user?.name,
+        email: record.patient?.user?.email
+      },
+      doctor: {
+        wallet: record.doctor?.walletAddress,
+        name: record.doctor?.user?.name,
+        email: record.doctor?.user?.email
+      },
+      access: {
+        requestingWallet,
+        isPatient: requestingWallet?.toLowerCase() === record.patientWalletAddress,
+        isDoctor: requestingWallet?.toLowerCase() === record.doctorWalletAddress,
+        hasConsent: !!consentInfo,
+        consentDetails: consentInfo
+      }
+    };
+
+    console.log('📋 Debug Info:', JSON.stringify(debugInfo, null, 2));
+    console.log('🔍 ========== DEBUG COMPLETE ==========');
+
+    res.json(debugInfo);
+  } catch (error) {
+    console.error('❌ Debug record access error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to debug record access',
       message: error.message
     });
   }

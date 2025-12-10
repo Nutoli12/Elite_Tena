@@ -63,6 +63,27 @@ const MedicalRecord = (sequelize) => {
       type: DataTypes.JSONB,
       allowNull: true,
       defaultValue: {}
+    },
+    // Blockchain integration fields
+    blockchainTxHash: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Blockchain transaction hash'
+    },
+    blockNumber: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Block number where transaction was mined'
+    },
+    gasUsed: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Gas used for blockchain transaction'
+    },
+    onBlockchain: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      comment: 'Whether this record is stored on blockchain'
     }
   }, {
     tableName: 'medical_records',

@@ -42,6 +42,7 @@ import Notification from './Notification.js';
 import DoctorPaymentSettings from './DoctorPaymentSettings.js';
 import Message from './Message.js';
 import VideoCall from './VideoCall.js';
+import PrescriptionAccessGrant from './PrescriptionAccessGrant.js';
 
 // Initialize models with sequelize instance
 const db = {
@@ -64,7 +65,8 @@ const db = {
   Notification: Notification(sequelize, Sequelize.DataTypes),
   DoctorPaymentSettings: DoctorPaymentSettings(sequelize, Sequelize.DataTypes),
   Message: Message(sequelize, Sequelize.DataTypes),
-  VideoCall: VideoCall(sequelize, Sequelize.DataTypes)
+  VideoCall: VideoCall(sequelize, Sequelize.DataTypes),
+  PrescriptionAccessGrant: PrescriptionAccessGrant(sequelize, Sequelize.DataTypes)
 };
 
 // ... REST OF YOUR ASSOCIATIONS CODE REMAINS EXACTLY THE SAME ...

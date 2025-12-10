@@ -8,6 +8,8 @@ import type { Appointment } from '../types/healthcare';
 import { BookAppointmentModal } from '../components/modals/BookAppointmentModal';
 import { PaymentDetailsModal } from '../components/modals/PaymentDetailsModal';
 import { UploadReceiptModal } from '../components/modals/UploadReceiptModal';
+import { PaymentModal } from '../components/modals/PaymentModal';
+import { PaymentStatus } from '../components/payment/PaymentStatus';
 import { QRCodeDisplay } from '../components/QRCodeDisplay';
 
 export const Appointments: React.FC = () => {
@@ -20,6 +22,7 @@ export const Appointments: React.FC = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [rescheduleData, setRescheduleData] = useState({ date: '', time: '' });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -55,6 +58,24 @@ export const Appointments: React.FC = () => {
       console.error('❌ Failed to book appointment:', error);
       alert('Failed to book appointment. Please try again.');
     }
+  };
+
+  const handlePaymentRequired = (appointmentId: string, amount: number) => {
+    // Prevent opening multiple payment modals
+    if (showPaymentModal) {
+      return;
+    }
+    
+    setSelectedAppointment({ id: appointmentId });
+    setPaymentAmount(amount);
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = (paymentData: any) => {
+    console.log('✅ Payment successful:', paymentData);
+    setShowPaymentModal(false);
+    fetchAppointments(); // Refresh to show updated payment status
+    alert('Payment completed successfully!');
   };
 
   // Cancel appointment handler
@@ -336,12 +357,13 @@ export const Appointments: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Payment Status Badge */}
-                    {getPaymentStatusBadge(appointment) && (
-                      <div className="mt-3">
-                        {getPaymentStatusBadge(appointment)}
-                      </div>
-                    )}
+                    {/* Enhanced Payment Status */}
+                    <div className="mt-3">
+                      <PaymentStatus
+                        appointmentId={appointment.id}
+                        onPaymentRequired={(amount) => handlePaymentRequired(appointment.id, amount)}
+                      />
+                    </div>
 
                     {/* Action Buttons */}
                     <div className="flex flex-wrap gap-2 mt-4">
@@ -352,13 +374,17 @@ export const Appointments: React.FC = () => {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => {
-                              setSelectedAppointment(appointment);
-                              setShowPaymentModal(true);
+                              if (!showPaymentModal) {
+                                setSelectedAppointment(appointment);
+                                setPaymentAmount(appointment.fee || 0);
+                                setShowPaymentModal(true);
+                              }
                             }}
-                            className="bg-medical-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                            disabled={showPaymentModal}
+                            className="bg-medical-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <DollarSign className="w-4 h-4" />
-                            View Payment Details
+                            Pay Now ({appointment.fee} ETB)
                           </motion.button>
                           <motion.button
                             whileHover={{ scale: 1.05 }}
@@ -668,6 +694,21 @@ export const Appointments: React.FC = () => {
             </div>
           </motion.div>
         </motion.div>
+      )}
+
+      {/* Payment Modal */}
+      {selectedAppointment && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedAppointment(null);
+          }}
+          appointmentId={selectedAppointment.id}
+          amount={paymentAmount}
+          description={`Healthcare consultation payment for appointment with ${selectedAppointment.doctorId || 'Doctor'}`}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
       )}
     </motion.div>
   );

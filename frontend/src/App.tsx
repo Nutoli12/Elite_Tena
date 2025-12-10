@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { Web3Provider } from './contexts/Web3Context';
 import { SocketProvider } from './contexts/SocketContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AuthGuard } from './components/auth/AuthGuard';
 import { HealthcareLayout } from './components/layout/HealthcareLayout';
 import { MedicalRecords } from './pages/MedicalRecords';
 import { Prescriptions } from './pages/Prescriptions';
@@ -37,9 +38,30 @@ import './i18n';
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route 
+        path="/" 
+        element={
+          <AuthGuard requireAuth={false}>
+            <LandingPage />
+          </AuthGuard>
+        } 
+      />
+      <Route 
+        path="/login" 
+        element={
+          <AuthGuard requireAuth={false}>
+            <Login />
+          </AuthGuard>
+        } 
+      />
+      <Route 
+        path="/register" 
+        element={
+          <AuthGuard requireAuth={false}>
+            <Register />
+          </AuthGuard>
+        } 
+      />
       <Route
         path="/dashboard"
         element={

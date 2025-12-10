@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Plus, CheckCircle, XCircle, Clock, DollarSign } from 'lucide-react';
+import { CreditCard, Plus, CheckCircle, XCircle, Clock, DollarSign, Loader2, RefreshCw } from 'lucide-react';
 import axios from '../lib/axios';
+import { PaymentModal } from '../components/modals/PaymentModal';
 
 interface Payment {
   id: string;
   appointmentId: string;
   amount: number;
   currency: string;
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
   paymentMethod: string;
   transactionId: string;
   createdAt: string;
@@ -27,9 +28,18 @@ export const Payments: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPayments();
+    
+    // Set up auto-refresh every 10 seconds for real-time updates
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refreshing payments...');
+      fetchPayments();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchPayments = async () => {
@@ -46,60 +56,13 @@ export const Payments: React.FC = () => {
         setPayments(response.data.data);
         console.log('✅ Loaded', response.data.data.length, 'payments');
       } else {
-        // Demo data fallback
-        setPayments([
-          {
-            id: 'demo-1',
-            appointmentId: 'apt-1',
-            amount: 500,
-            currency: 'ETB',
-            status: 'completed',
-            paymentMethod: 'chapa',
-            transactionId: 'TXN-123456',
-            createdAt: '2024-01-15T10:00:00Z',
-            appointment: {
-              id: 'apt-1',
-              appointmentDate: '2024-01-20T10:00:00Z',
-              reason: 'General Checkup'
-            }
-          },
-          {
-            id: 'demo-2',
-            appointmentId: 'apt-2',
-            amount: 750,
-            currency: 'ETB',
-            status: 'pending',
-            paymentMethod: 'telebirr',
-            transactionId: 'TXN-789012',
-            createdAt: '2024-01-18T14:30:00Z',
-            appointment: {
-              id: 'apt-2',
-              appointmentDate: '2024-01-22T14:30:00Z',
-              reason: 'Consultation'
-            }
-          }
-        ]);
+        // No payments found
+        setPayments([]);
       }
     } catch (error) {
       console.error('❌ Failed to fetch payments:', error);
-      // Demo data fallback
-      setPayments([
-        {
-          id: 'demo-1',
-          appointmentId: 'apt-1',
-          amount: 500,
-          currency: 'ETB',
-          status: 'completed',
-          paymentMethod: 'chapa',
-          transactionId: 'TXN-123456',
-          createdAt: '2024-01-15T10:00:00Z',
-          appointment: {
-            id: 'apt-1',
-            appointmentDate: '2024-01-20T10:00:00Z',
-            reason: 'General Checkup'
-          }
-        }
-      ]);
+      // Set empty array on error
+      setPayments([]);
     } finally {
       setLoading(false);
     }
@@ -111,6 +74,8 @@ export const Payments: React.FC = () => {
         return <CheckCircle className="w-5 h-5 text-green-500" />;
       case 'failed':
         return <XCircle className="w-5 h-5 text-red-500" />;
+      case 'cancelled':
+        return <XCircle className="w-5 h-5 text-gray-500" />;
       case 'pending':
         return <Clock className="w-5 h-5 text-yellow-500" />;
       default:
@@ -124,6 +89,8 @@ export const Payments: React.FC = () => {
         return 'bg-green-100 text-green-800';
       case 'failed':
         return 'bg-red-100 text-red-800';
+      case 'cancelled':
+        return 'bg-gray-100 text-gray-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       default:
@@ -131,33 +98,129 @@ export const Payments: React.FC = () => {
     }
   };
 
-  const handleInitiatePayment = async () => {
+  const handleInitiatePayment = () => {
+    // Open payment modal instead of directly creating payment
+    setShowPaymentModal(true);
+  };
+
+  const handleCompletePayment = async (payment: Payment) => {
+    setActionLoading(payment.id);
     try {
-      console.log('💳 Initiating payment for user:', user?.walletAddress);
+      console.log('✅ Completing payment:', payment.id);
       
-      const response = await axios.post('/payments/initialize', {
-        patientWallet: user?.walletAddress,
-        doctorWallet: '0xDOCTOR12345678901234567890123456789012345',
-        amount: 500,
-        provider: 'chapa',
-        email: user?.email || 'patient@elitetena.com',
-        firstName: user?.fullName?.split(' ')[0] || 'Patient',
-        lastName: user?.fullName?.split(' ')[1] || 'User',
-        phoneNumber: '+251911000000'
+      // First, try to verify the payment with the provider
+      console.log('🔍 Verifying with provider:', payment.paymentMethod, payment.transactionId);
+      
+      const verifyResponse = await axios.get(`/payments/verify?txRef=${payment.transactionId}&provider=${payment.paymentMethod}`);
+      
+      console.log('📊 Verification response:', verifyResponse.data);
+      
+      if (verifyResponse.data.success && verifyResponse.data.status === 'completed') {
+        console.log('✅ Payment verified and completed with provider');
+        alert('✅ Payment verified and completed successfully!');
+        fetchPayments(); // Refresh the list
+      } else {
+        // Ask user if they want to manually mark as completed
+        const manualConfirm = confirm(
+          'Payment verification with provider failed or is still pending.\n\n' +
+          'Do you want to manually mark this payment as completed?\n\n' +
+          'Only do this if you have confirmed the payment was successful.'
+        );
+        
+        if (manualConfirm) {
+          const updateResponse = await axios.patch(`/payments/${payment.id}/status`, {
+            status: 'completed'
+          });
+          
+          if (updateResponse.data.success) {
+            console.log('✅ Payment manually marked as completed');
+            alert('✅ Payment manually marked as completed!');
+            fetchPayments(); // Refresh the list
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to complete payment:', error);
+      
+      // More detailed error handling
+      if (error.response?.status === 404) {
+        alert('❌ Payment not found. It may have been already processed.');
+      } else if (error.response?.status === 400) {
+        alert('❌ Payment verification failed: ' + (error.response?.data?.message || 'Invalid payment data'));
+      } else {
+        alert('❌ Failed to complete payment. Please check your connection and try again.');
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancelPayment = async (paymentId: string) => {
+    if (!confirm('Are you sure you want to cancel this payment?')) {
+      return;
+    }
+
+    setActionLoading(paymentId);
+    try {
+      console.log('❌ Cancelling payment:', paymentId);
+      
+      const response = await axios.patch(`/payments/${paymentId}/status`, {
+        status: 'cancelled'
       });
 
       if (response.data.success) {
-        console.log('✅ Payment initialized successfully');
-        alert('Payment initialized successfully! (Demo mode - auto-completing in 5 seconds)');
-        
-        // For demo - refresh payments after 6 seconds
-        setTimeout(() => {
-          fetchPayments();
-        }, 6000);
+        console.log('✅ Payment cancelled successfully');
+        alert('Payment cancelled successfully!');
+        fetchPayments(); // Refresh the list
       }
     } catch (error) {
-      console.error('❌ Failed to initiate payment:', error);
-      alert('Failed to initiate payment. Please try again.');
+      console.error('❌ Failed to cancel payment:', error);
+      alert('Failed to cancel payment. Please try again.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRetryPayment = async (payment: Payment) => {
+    setActionLoading(payment.id);
+    try {
+      console.log('🔄 Retrying payment:', payment.id);
+      
+      // Create a new payment with the same details
+      const response = await axios.post('/payments/initialize', {
+        patientWallet: user?.walletAddress,
+        appointmentId: payment.appointmentId,
+        amount: payment.amount,
+        provider: payment.paymentMethod,
+        email: user?.email || 'patient@elitetena.com',
+        firstName: user?.fullName?.split(' ')[0] || 'Patient',
+        lastName: user?.fullName?.split(' ')[1] || 'User',
+        phoneNumber: '+251911000000',
+        description: `Retry payment for ${payment.appointment?.reason || 'Healthcare Service'}`
+      });
+
+      if (response.data.success) {
+        console.log('✅ Payment retry initialized successfully');
+        
+        // Open the payment window
+        const { checkoutUrl } = response.data.data;
+        if (checkoutUrl) {
+          window.open(checkoutUrl, 'payment', 'width=600,height=700,scrollbars=yes,resizable=yes');
+        }
+        
+        alert('Payment retry initialized! Please complete the payment in the opened window.');
+        
+        // Cancel the old failed payment (without loading state to avoid conflict)
+        await axios.patch(`/payments/${payment.id}/status`, { status: 'cancelled' });
+        
+        // Refresh payments to show the new payment
+        fetchPayments();
+      }
+    } catch (error) {
+      console.error('❌ Failed to retry payment:', error);
+      alert('Failed to retry payment. Please try again.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -186,15 +249,30 @@ export const Payments: React.FC = () => {
           <p className="text-gray-600 mt-1">Manage your healthcare payments</p>
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleInitiatePayment}
-          className="healthcare-button flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Make Payment
-        </motion.button>
+        <div className="flex gap-3">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              console.log('🔄 Manual refresh triggered');
+              fetchPayments();
+            }}
+            className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 flex items-center gap-2"
+          >
+            <RefreshCw className="w-5 h-5" />
+            Refresh
+          </motion.button>
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleInitiatePayment}
+            className="healthcare-button flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Make Payment
+          </motion.button>
+        </div>
       </div>
 
       {/* Payment Summary Cards */}
@@ -256,7 +334,13 @@ export const Payments: React.FC = () => {
 
       {/* Payment History */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment History</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Payment History</h2>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span>Auto-refreshing every 10s</span>
+          </div>
+        </div>
         <div className="space-y-4">
           <AnimatePresence>
             {payments.map((payment, index) => (
@@ -309,22 +393,82 @@ export const Payments: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Action buttons based on payment status */}
                 {payment.status === 'pending' && (
                   <div className="mt-4 flex gap-2">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="bg-medical-500 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                      onClick={() => handleCompletePayment(payment)}
+                      disabled={actionLoading === payment.id}
+                      className="bg-medical-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
+                      {actionLoading === payment.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4" />
+                      )}
                       Complete Payment
                     </motion.button>
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium"
+                      onClick={() => handleCancelPayment(payment.id)}
+                      disabled={actionLoading === payment.id}
+                      className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
+                      {actionLoading === payment.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <XCircle className="w-4 h-4" />
+                      )}
                       Cancel
                     </motion.button>
+                  </div>
+                )}
+
+                {payment.status === 'failed' && (
+                  <div className="mt-4 flex gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleRetryPayment(payment)}
+                      disabled={actionLoading === payment.id}
+                      className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {actionLoading === payment.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <DollarSign className="w-4 h-4" />
+                      )}
+                      Retry Payment
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleCancelPayment(payment.id)}
+                      disabled={actionLoading === payment.id}
+                      className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {actionLoading === payment.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <XCircle className="w-4 h-4" />
+                      )}
+                      Cancel
+                    </motion.button>
+                  </div>
+                )}
+
+                {payment.status === 'completed' && (
+                  <div className="mt-4">
+                    <span className="text-sm text-green-600 font-medium">✅ Payment completed successfully</span>
+                  </div>
+                )}
+
+                {payment.status === 'cancelled' && (
+                  <div className="mt-4">
+                    <span className="text-sm text-gray-600 font-medium">❌ Payment was cancelled</span>
                   </div>
                 )}
               </motion.div>
@@ -353,6 +497,20 @@ export const Payments: React.FC = () => {
           </motion.button>
         </motion.div>
       )}
+
+      {/* Payment Modal for new payments */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        appointmentId="" // Direct payment, no appointment
+        amount={500} // Default amount, user can change in modal
+        description="Direct Healthcare Payment"
+        onPaymentSuccess={(paymentData) => {
+          console.log('✅ Payment successful:', paymentData);
+          setShowPaymentModal(false);
+          fetchPayments(); // Refresh payments list
+        }}
+      />
     </motion.div>
   );
 };

@@ -1,12 +1,13 @@
 const axios = require('axios');
+require('dotenv').config();
 
 /**
  * Chapa Payment Service
  * Documentation: https://developer.chapa.co/docs
  */
 class ChapaService {
-  constructor() {
-    this.secretKey = process.env.CHAPA_SECRET_KEY || '';
+  constructor(secretKey) {
+    this.secretKey = secretKey || process.env.CHAPA_SECRET_KEY || '';
     this.baseURL = 'https://api.chapa.co/v1';
   }
 
@@ -15,23 +16,37 @@ class ChapaService {
    */
   async initializePayment(data) {
     try {
+      // Validate secret key
+      if (!this.secretKey) {
+        throw new Error('Chapa secret key not configured. Please add CHAPA_SECRET_KEY to your .env file. Get one from https://dashboard.chapa.co/');
+      }
+
+      const requestPayload = {
+        amount: data.amount,
+        currency: data.currency || 'ETB',
+        email: data.email,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        phone_number: data.phoneNumber,
+        tx_ref: data.txRef,
+        callback_url: data.callbackUrl,
+        return_url: data.returnUrl,
+        customization: {
+          title: data.title || 'Elite Tena',
+          description: data.description || 'Healthcare Payment',
+        },
+      };
+
+      console.log('🔑 Chapa API Request:', {
+        url: `${this.baseURL}/transaction/initialize`,
+        payload: requestPayload,
+        titleLength: (data.title || 'Elite Tena').length,
+        secretKeyLength: this.secretKey.length
+      });
+
       const response = await axios.post(
         `${this.baseURL}/transaction/initialize`,
-        {
-          amount: data.amount,
-          currency: data.currency || 'ETB',
-          email: data.email,
-          first_name: data.firstName,
-          last_name: data.lastName,
-          phone_number: data.phoneNumber,
-          tx_ref: data.txRef, // Unique transaction reference
-          callback_url: data.callbackUrl,
-          return_url: data.returnUrl,
-          customization: {
-            title: data.title || 'Elite Tena Healthcare',
-            description: data.description || 'Healthcare Payment',
-          },
-        },
+        requestPayload,
         {
           headers: {
             Authorization: `Bearer ${this.secretKey}`,
@@ -40,16 +55,38 @@ class ChapaService {
         }
       );
 
+      console.log('✅ Chapa API Response:', response.data);
+
       return {
         success: true,
         data: response.data.data,
         checkoutUrl: response.data.data.checkout_url,
       };
     } catch (error) {
-      console.error('Chapa initialization error:', error.response?.data || error.message);
+      console.error('❌ Chapa initialization error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        secretKeyConfigured: !!this.secretKey && this.secretKey !== 'CHASECK_TEST-your-actual-chapa-secret-key-here'
+      });
+      
+      let errorMessage = 'Payment initialization failed';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Invalid Chapa API credentials. Please check your secret key.';
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response?.data?.message || 'Invalid payment request data';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       return {
         success: false,
-        error: error.response?.data?.message || error.message,
+        error: errorMessage,
+        details: error.response?.data
       };
     }
   }
@@ -115,10 +152,10 @@ class ChapaService {
  * Documentation: https://developer.ethiotelecom.et/
  */
 class TelebirrService {
-  constructor() {
-    this.appId = process.env.TELEBIRR_APP_ID || '';
-    this.appKey = process.env.TELEBIRR_APP_KEY || '';
-    this.merchantId = process.env.TELEBIRR_MERCHANT_ID || '';
+  constructor(appId, appKey, merchantId) {
+    this.appId = appId || process.env.TELEBIRR_APP_ID || '';
+    this.appKey = appKey || process.env.TELEBIRR_APP_KEY || '';
+    this.merchantId = merchantId || process.env.TELEBIRR_MERCHANT_ID || '';
     this.baseURL = process.env.TELEBIRR_BASE_URL || 'https://app.ethiotelecom.et:9443/payment';
   }
 
@@ -255,8 +292,13 @@ class TelebirrService {
  */
 class PaymentService {
   constructor() {
-    this.chapa = new ChapaService();
-    this.telebirr = new TelebirrService();
+    // Pass environment variables explicitly to ensure they're available
+    this.chapa = new ChapaService(process.env.CHAPA_SECRET_KEY);
+    this.telebirr = new TelebirrService(
+      process.env.TELEBIRR_APP_ID,
+      process.env.TELEBIRR_APP_KEY,
+      process.env.TELEBIRR_MERCHANT_ID
+    );
   }
 
   /**

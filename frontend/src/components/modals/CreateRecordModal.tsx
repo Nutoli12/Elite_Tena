@@ -9,6 +9,7 @@ interface CreateRecordModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: any) => Promise<void>;
+  preSelectedPatient?: string; // Pre-select a patient wallet address
 }
 
 interface Patient {
@@ -16,7 +17,7 @@ interface Patient {
   fullName: string;
 }
 
-export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, onClose, onSubmit }) => {
+export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, onClose, onSubmit, preSelectedPatient }) => {
   const { user } = useAuth();
   const { register, handleSubmit, formState: { errors }, reset } = useForm();
   const [loading, setLoading] = useState(false);
@@ -31,6 +32,30 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
       fetchPatients();
     }
   }, [isOpen, user?.walletAddress]);
+
+  // Pre-select patient if provided and ensure they're in the list
+  useEffect(() => {
+    if (preSelectedPatient && isOpen && patients.length > 0) {
+      // Check if pre-selected patient is in the list
+      const patientExists = patients.some(p => p.walletAddress === preSelectedPatient);
+      
+      if (patientExists) {
+        setSelectedPatient(preSelectedPatient);
+        console.log('✅ Pre-selected patient:', preSelectedPatient);
+      } else {
+        console.warn('⚠️ Pre-selected patient not in list, adding manually');
+        // Add the patient to the list if not found
+        setPatients(prev => [...prev, {
+          walletAddress: preSelectedPatient,
+          fullName: `Patient ${preSelectedPatient.substring(0, 8)}...`
+        }]);
+        setSelectedPatient(preSelectedPatient);
+      }
+    } else if (preSelectedPatient && isOpen && patients.length === 0) {
+      // If patients haven't loaded yet, wait for them
+      console.log('⏳ Waiting for patients to load...');
+    }
+  }, [preSelectedPatient, isOpen, patients]);
 
   const fetchPatients = async () => {
     setLoadingPatients(true);
@@ -52,12 +77,27 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
           appointmentsResponse.data.data.forEach((appointment: any) => {
             const patientWallet = appointment.patientWalletAddress;
             if (patientWallet && !uniquePatients.has(patientWallet)) {
+              // Try multiple sources for patient name
+              let patientName = 
+                appointment.patient?.user?.profileData?.fullName ||
+                appointment.patient?.user?.name ||
+                appointment.patient?.name;
+              
+              // If no name found or it's just "User", try to extract from email
+              if (!patientName || patientName === 'User') {
+                const email = appointment.patient?.user?.email;
+                if (email) {
+                  // Extract name from email (e.g., "semir@gmail.com" → "Semir")
+                  const emailUsername = email.split('@')[0];
+                  patientName = emailUsername.charAt(0).toUpperCase() + emailUsername.slice(1);
+                } else {
+                  patientName = `Patient ${patientWallet.substring(0, 8)}...`;
+                }
+              }
+              
               uniquePatients.set(patientWallet, {
                 walletAddress: patientWallet,
-                fullName: appointment.patient?.user?.profileData?.fullName || 
-                         appointment.patient?.user?.name ||
-                         appointment.patient?.name ||
-                         `Patient ${patientWallet.substring(0, 8)}...`
+                fullName: patientName
               });
             }
           });
@@ -73,16 +113,43 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
         });
 
         if (consentsResponse.data.success) {
+          console.log('🔍 Raw consent data:', JSON.stringify(consentsResponse.data.data, null, 2));
+          
           consentsResponse.data.data.forEach((consent: any) => {
             const patientWallet = consent.patientWalletAddress;
             if (patientWallet && !uniquePatients.has(patientWallet)) {
+              // Log what data we have for this patient
+              console.log('🔍 Patient data for', patientWallet.substring(0, 10), ':', {
+                'patient.user.profileData': consent.patient?.user?.profileData,
+                'patient.user.name': consent.patient?.user?.name,
+                'patient.name': consent.patient?.name,
+                'patient.user.email': consent.patient?.user?.email
+              });
+              
+              // Try multiple sources for patient name
+              let patientName = 
+                consent.patient?.user?.profileData?.fullName ||
+                consent.patient?.user?.name || 
+                consent.patient?.name;
+              
+              // If no name found, try to extract from email
+              if (!patientName || patientName === 'User') {
+                const email = consent.patient?.user?.email;
+                if (email) {
+                  // Extract name from email (e.g., "semir@example.com" → "Semir")
+                  const emailUsername = email.split('@')[0];
+                  patientName = emailUsername.charAt(0).toUpperCase() + emailUsername.slice(1);
+                } else {
+                  patientName = `Patient ${patientWallet.substring(0, 8)}...`;
+                }
+              }
+              
               uniquePatients.set(patientWallet, {
                 walletAddress: patientWallet,
-                fullName: consent.patient?.user?.name || 
-                         consent.patient?.name ||
-                         consent.patient?.user?.email?.split('@')[0] ||
-                         `Patient ${patientWallet.substring(0, 8)}...`
+                fullName: patientName
               });
+              
+              console.log(`✅ Added patient: ${patientName} (${patientWallet.substring(0, 10)}...)`);
             }
           });
           console.log('✅ Added', consentsResponse.data.data.length, 'patients with active consent');
@@ -94,6 +161,7 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
       const patientList = Array.from(uniquePatients.values());
       setPatients(patientList);
       console.log('✅ Total unique patients:', patientList.length);
+      console.log('📋 Patient list:', patientList.map(p => `${p.fullName} (${p.walletAddress.substring(0, 10)}...)`));
     } catch (error) {
       console.error('❌ Failed to fetch patients:', error);
       setPatients([]);
@@ -161,6 +229,11 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <User className="w-4 h-4 inline mr-1" />
                   Select Patient *
+                  {preSelectedPatient && (
+                    <span className="ml-2 text-xs text-green-600 font-normal">
+                      (Pre-selected from consent)
+                    </span>
+                  )}
                 </label>
                 {loadingPatients ? (
                   <div className="flex items-center justify-center py-3 text-gray-500">

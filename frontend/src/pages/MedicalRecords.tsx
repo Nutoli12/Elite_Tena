@@ -122,23 +122,36 @@ export const MedicalRecords: React.FC = () => {
 
     try {
       console.log('🔍 Fetching medical records for:', targetWallet);
+      console.log('  Current user wallet:', user?.walletAddress);
+      console.log('  Viewing patient wallet:', viewingPatientWallet);
+      console.log('  Target wallet (final):', targetWallet);
       const response = await axios.get(`/medical-records/${targetWallet}`);
       
       if (response.data.success) {
-        const backendRecords = response.data.data.map((record: any) => ({
-          id: record.id.toString(),
-          patientId: record.patientWalletAddress,
-          doctorId: record.doctorWalletAddress,
-          title: `${record.recordType} - ${new Date(record.createdAt).toLocaleDateString()}`,
-          diagnosis: record.diagnosis || 'No diagnosis provided',
-          treatment: record.treatment || 'No treatment specified',
-          symptoms: 'See full record',
-          notes: record.notes || 'No additional notes',
-          date: record.createdAt.split('T')[0],
-          ipfsHash: record.ipfsHash,
-          isEncrypted: true,
-          blockchainTxHash: record.blockchainTxHash || null
-        }));
+        const backendRecords = response.data.data.map((record: any) => {
+          // Extract doctor name from multiple sources
+          const doctorName = 
+            record.doctor?.user?.name ||
+            record.doctor?.name ||
+            record.doctor?.user?.email?.split('@')[0] ||
+            `Dr. ${record.doctorWalletAddress.substring(0, 8)}...`;
+          
+          return {
+            id: record.id.toString(),
+            patientId: record.patientWalletAddress,
+            doctorId: record.doctorWalletAddress,
+            doctorName: doctorName,
+            title: `${record.recordType} - ${new Date(record.createdAt).toLocaleDateString()}`,
+            diagnosis: record.diagnosis || 'No diagnosis provided',
+            treatment: record.treatment || 'No treatment specified',
+            symptoms: 'See full record',
+            notes: record.notes || 'No additional notes',
+            date: record.createdAt.split('T')[0],
+            ipfsHash: record.ipfsHash,
+            isEncrypted: true,
+            blockchainTxHash: record.blockchainTxHash || null
+          };
+        });
         
         setRecords(backendRecords);
         console.log('✅ Loaded', backendRecords.length, 'medical records');
@@ -205,7 +218,11 @@ export const MedicalRecords: React.FC = () => {
         isEncrypted: true
       };
 
-      console.log('📤 Sending record to backend...', recordData);
+      console.log('📤 Sending record to backend...');
+      console.log('  Patient Wallet:', recordData.patientWalletAddress);
+      console.log('  Doctor Wallet:', recordData.doctorWalletAddress);
+      console.log('  Title:', recordData.title);
+      console.log('  Record Type:', recordData.recordType);
 
       const response = await axios.post('/medical-records', recordData, {
         headers: {
@@ -215,8 +232,10 @@ export const MedicalRecords: React.FC = () => {
 
       if (response.data.success) {
         console.log('✅ Medical record created successfully');
+        console.log('📋 Created record:', response.data.data);
+        console.log('🔄 Refreshing records for wallet:', targetWallet);
         alert('Medical record created successfully!');
-        fetchRecords(); // Refresh the list
+        await fetchRecords(); // Refresh the list
       } else {
         console.error('❌ Failed to create record:', response.data);
         alert('Failed to create medical record. Please try again.');
@@ -289,15 +308,22 @@ export const MedicalRecords: React.FC = () => {
           </div>
 
           {user?.role === 'doctor' && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowCreateModal(true)}
-              className="healthcare-button flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Create Record
-            </motion.button>
+            <div className="flex flex-col items-end gap-2">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowCreateModal(true)}
+                disabled={viewingPatientWallet && !hasAccess}
+                className="healthcare-button flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={viewingPatientWallet && !hasAccess ? "You need patient consent to create records" : "Create a new medical record"}
+              >
+                <Plus className="w-5 h-5" />
+                Create Record
+              </motion.button>
+              {viewingPatientWallet && !hasAccess && (
+                <p className="text-xs text-red-600">Consent required to create records</p>
+              )}
+            </div>
           )}
         </div>
 
@@ -374,7 +400,7 @@ export const MedicalRecords: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-1">
                         <User className="w-4 h-4" />
-                        <span>Dr. {record.doctorId}</span>
+                        <span>{record.doctorName || `Dr. ${record.doctorId.substring(0, 8)}...`}</span>
                       </div>
                     </div>
                   </div>
@@ -418,6 +444,9 @@ export const MedicalRecords: React.FC = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    alert(`Medical Record Details:\n\nTitle: ${record.title}\nDiagnosis: ${record.diagnosis}\nTreatment: ${record.treatment}\nSymptoms: ${record.symptoms}\nDate: ${record.date}\nDoctor: ${record.doctorId}\n\n${record.ipfsHash ? `IPFS Hash: ${record.ipfsHash}` : ''}\n${record.blockchainTxHash ? `Blockchain TX: ${record.blockchainTxHash}` : ''}`);
+                  }}
                   className="flex-1 border border-medical-500 text-medical-500 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
                 >
                   <Eye className="w-4 h-4" />
@@ -426,6 +455,13 @@ export const MedicalRecords: React.FC = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    if (record.ipfsHash) {
+                      window.open(`https://gateway.pinata.cloud/ipfs/${record.ipfsHash}`, '_blank');
+                    } else {
+                      alert('No file attached to this record');
+                    }
+                  }}
                   className="flex-1 bg-medical-500 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
                 >
                   <Download className="w-4 h-4" />
@@ -457,6 +493,7 @@ export const MedicalRecords: React.FC = () => {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateRecord}
+        preSelectedPatient={viewingPatientWallet || undefined}
       />
     </motion.div>
   );

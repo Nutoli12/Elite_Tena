@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elite Tena - Database Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">🏥 Elite Tena Database Viewer</h1>
+            <p class="text-gray-600">Simple database explorer - like Prisma Studio</p>
+        </div>
+
+        <!-- Navigation -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex flex-wrap gap-4">
+                <button onclick="loadTables()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    📊 Tables Overview
+                </button>
+                <button onclick="loadStats()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    📈 Statistics
+                </button>
+                <button onclick="showQueryBuilder()" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+                    🔍 Query Builder
+                </button>
+                <a href="/admin" target="_blank" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600">
+                    👑 AdminJS Panel
+                </a>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div id="content" class="bg-white rounded-lg shadow-md p-6">
+            <div class="text-center text-gray-500">
+                <p>Click a button above to start exploring your database</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/database';
+
+        // Load tables overview
+        async function loadTables() {
+            try {
+                showLoading();
+                const response = await axios.get(`${API_BASE}/tables`);
+                const tables = response.data.data.tables;
+                
+                let html = `
+                    <h2 class="text-2xl font-bold mb-4">📊 Database Tables</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                `;
+                
+                for (const [name, table] of Object.entries(tables)) {
+                    html += `
+                        <div class="border rounded-lg p-4 hover:shadow-md cursor-pointer" onclick="loadTable('${name}')">
+                            <h3 class="font-semibold text-lg">${name}</h3>
+                            <p class="text-gray-600">${table.count} records</p>
+                            <p class="text-sm text-gray-500">Table: ${table.tableName}</p>
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                document.getElementById('content').innerHTML = html;
+            } catch (error) {
+                showError('Failed to load tables: ' + error.message);
+            }
+        }
+
+        // Load specific table data
+        async function loadTable(tableName) {
+            try {
+                showLoading();
+                const [dataResponse, schemaResponse] = await Promise.all([
+                    axios.get(`${API_BASE}/table/${tableName}?limit=20`),
+                    axios.get(`${API_BASE}/schema/${tableName}`)
+                ]);
+                
+                const { records, pagination } = dataResponse.data.data;
+                const { schema } = schemaResponse.data.data;
+                
+                let html = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold">📋 ${tableName}</h2>
+                        <button onclick="loadTables()" class="bg-gray-500 text-white px-3 py-1 rounded text-sm">
+                            ← Back to Tables
+                        </button>
+                    </div>
+                    
+                    <div class="mb-4 p-4 bg-gray-50 rounded">
+                        <p><strong>Total Records:</strong> ${pagination.total}</p>
+                        <p><strong>Showing:</strong> ${records.length} of ${pagination.total}</p>
+                    </div>
+                `;
+                
+                if (records.length > 0) {
+                    html += '<div class="overflow-x-auto"><table class="min-w-full border border-gray-300">';
+                    
+                    // Headers
+                    html += '<thead class="bg-gray-100"><tr>';
+                    const fields = Object.keys(records[0]);
+                    fields.forEach(field => {
+                        const fieldSchema = schema[field];
+                        const typeInfo = fieldSchema ? ` (${fieldSchema.type})` : '';
+                        html += `<th class="border px-4 py-2 text-left">${field}${typeInfo}</th>`;
+                    });
+                    html += '</tr></thead>';
+                    
+                    // Data rows
+                    html += '<tbody>';
+                    records.forEach(record => {
+                        html += '<tr class="hover:bg-gray-50">';
+                        fields.forEach(field => {
+                            let value = record[field];
+                            if (value === null) value = '<span class="text-gray-400">NULL</span>';
+                            else if (typeof value === 'object') value = JSON.stringify(value);
+                            else if (typeof value === 'string' && value.length > 50) {
+                                value = value.substring(0, 50) + '...';
+                            }
+                            html += `<td class="border px-4 py-2">${value}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table></div>';
+                } else {
+                    html += '<p class="text-gray-500 text-center py-8">No records found in this table</p>';
+                }
+                
+                document.getElementById('content').innerHTML = html;
+            } catch (error) {
+                showError('Failed to load table data: ' + error.message);
+            }
+        }
+
+        // Load database statistics
+        async function loadStats() {
+            try {
+                showLoading();
+                const response = await axios.get(`${API_BASE}/stats`);
+                const { totalRecords, recentActivity } = response.data.data;
+                
+                let html = `
+                    <h2 class="text-2xl font-bold mb-4">📈 Database Statistics</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h3 class="text-lg font-semibold mb-3">Total Records</h3>
+                            <div class="space-y-2">
+                `;
+                
+                for (const [model, count] of Object.entries(totalRecords)) {
+                    html += `
+                        <div class="flex justify-between p-2 bg-gray-50 rounded">
+                            <span>${model}</span>
+                            <span class="font-semibold">${count}</span>
+                        </div>
+                    `;
+                }
+                
+                html += `
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-lg font-semibold mb-3">Recent Activity (24h)</h3>
+                            <div class="space-y-2">
+                `;
+                
+                for (const [model, count] of Object.entries(recentActivity)) {
+                    const color = count > 0 ? 'bg-green-50 text-green-800' : 'bg-gray-50';
+                    html += `
+                        <div class="flex justify-between p-2 ${color} rounded">
+                            <span>${model}</span>
+                            <span class="font-semibold">${count}</span>
+                        </div>
+                    `;
+                }
+                
+                html += '</div></div></div>';
+                document.getElementById('content').innerHTML = html;
+            } catch (error) {
+                showError('Failed to load statistics: ' + error.message);
+            }
+        }
+
+        // Show query builder
+        function showQueryBuilder() {
+            const html = `
+                <h2 class="text-2xl font-bold mb-4">🔍 SQL Query Builder</h2>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">SQL Query (SELECT only):</label>
+                    <textarea id="sqlQuery" class="w-full p-3 border rounded-lg" rows="4" 
+                              placeholder="SELECT * FROM users LIMIT 10;"></textarea>
+                </div>
+                <button onclick="executeQuery()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Execute Query
+                </button>
+                <div id="queryResults" class="mt-4"></div>
+            `;
+            document.getElementById('content').innerHTML = html;
+        }
+
+        // Execute SQL query
+        async function executeQuery() {
+            try {
+                const sql = document.getElementById('sqlQuery').value.trim();
+                if (!sql) {
+                    alert('Please enter a SQL query');
+                    return;
+                }
+                
+                showLoading('queryResults');
+                const response = await axios.post(`${API_BASE}/query`, { sql });
+                const { results, rowCount } = response.data.data;
+                
+                let html = `<h3 class="font-semibold mb-2">Results (${rowCount} rows):</h3>`;
+                
+                if (results.length > 0) {
+                    html += '<div class="overflow-x-auto"><table class="min-w-full border border-gray-300">';
+                    
+                    // Headers
+                    html += '<thead class="bg-gray-100"><tr>';
+                    Object.keys(results[0]).forEach(key => {
+                        html += `<th class="border px-4 py-2 text-left">${key}</th>`;
+                    });
+                    html += '</tr></thead>';
+                    
+                    // Data
+                    html += '<tbody>';
+                    results.forEach(row => {
+                        html += '<tr class="hover:bg-gray-50">';
+                        Object.values(row).forEach(value => {
+                            if (value === null) value = '<span class="text-gray-400">NULL</span>';
+                            else if (typeof value === 'object') value = JSON.stringify(value);
+                            html += `<td class="border px-4 py-2">${value}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table></div>';
+                } else {
+                    html += '<p class="text-gray-500">No results returned</p>';
+                }
+                
+                document.getElementById('queryResults').innerHTML = html;
+            } catch (error) {
+                showError('Query failed: ' + error.response?.data?.message || error.message, 'queryResults');
+            }
+        }
+
+        // Utility functions
+        function showLoading(elementId = 'content') {
+            document.getElementById(elementId).innerHTML = `
+                <div class="text-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                    <p class="mt-4 text-gray-600">Loading...</p>
+                </div>
+            `;
+        }
+
+        function showError(message, elementId = 'content') {
+            document.getElementById(elementId).innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p class="text-red-800">❌ ${message}</p>
+                </div>
+            `;
+        }
+
+        // Load tables on page load
+        window.onload = () => loadTables();
+    </script>
+</body>
+</html>

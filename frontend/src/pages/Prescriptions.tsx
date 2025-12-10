@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pill, Plus, Search, Clock, CheckCircle, AlertTriangle, User } from 'lucide-react';
+import { Pill, Plus, Search, Clock, CheckCircle, AlertTriangle, User, Shield } from 'lucide-react';
 import axios from '../lib/axios';
 import type { Prescription } from '../types/healthcare';
+import { PrescriptionAccessControl } from '../components/prescription/PrescriptionAccessControl';
 
 export const Prescriptions: React.FC = () => {
   const { user } = useAuth();
@@ -13,6 +14,8 @@ export const Prescriptions: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
+  const [showAccessControl, setShowAccessControl] = useState(false);
 
   useEffect(() => {
     fetchPrescriptions();
@@ -26,47 +29,8 @@ export const Prescriptions: React.FC = () => {
       setPrescriptions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch prescriptions:', error);
-      // Mock data for demo
-      setPrescriptions([
-        {
-          id: '1',
-          patientId: user?.id || '',
-          doctorId: 'doc1',
-          medication: 'Metformin',
-          dosage: '500mg',
-          frequency: 'Twice daily',
-          duration: '30 days',
-          instructions: 'Take with meals',
-          quantity: 60,
-          refills: 2,
-          status: 'active',
-          issued: '2024-01-15',
-          expires: '2024-04-15',
-          isFilled: false,
-          blockchainTxHash: '0x123abc...',
-          ipfsHash: 'QmXyz...'
-        },
-        {
-          id: '2',
-          patientId: user?.id || '',
-          doctorId: 'doc2',
-          medication: 'Amoxicillin',
-          dosage: '250mg',
-          frequency: 'Three times daily',
-          duration: '7 days',
-          instructions: 'Complete full course',
-          quantity: 21,
-          refills: 0,
-          status: 'filled',
-          issued: '2024-01-10',
-          expires: '2024-02-10',
-          isFilled: true,
-          filledBy: 'City Pharmacy',
-          filledAt: '2024-01-11',
-          blockchainTxHash: '0x456def...',
-          ipfsHash: 'QmAbc...'
-        }
-      ]);
+      // Set empty array on error
+      setPrescriptions([]);
     } finally {
       setLoading(false);
     }
@@ -228,8 +192,50 @@ export const Prescriptions: React.FC = () => {
                   </motion.div>
                 )}
 
+                {/* Suggested Pharmacy Banner */}
+                {user?.role === 'patient' && (prescription as any).suggestedPharmacyName && !(prescription as any).patientApprovedAt && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3"
+                  >
+                    <div className="flex items-start gap-2">
+                      <Shield className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-green-800 font-medium">
+                          Doctor suggested: {(prescription as any).suggestedPharmacyName}
+                        </p>
+                        <button
+                          onClick={() => {
+                            setSelectedPrescription(prescription);
+                            setShowAccessControl(true);
+                          }}
+                          className="text-sm text-green-600 font-medium mt-1 hover:underline"
+                        >
+                          Quick Approve →
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Action Buttons */}
                 <div className="flex gap-2">
+                  {user?.role === 'patient' && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        setSelectedPrescription(prescription);
+                        setShowAccessControl(true);
+                      }}
+                      className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1"
+                    >
+                      <Shield className="w-4 h-4" />
+                      Manage Access
+                    </motion.button>
+                  )}
+
                   {user?.role === 'pharmacist' && !prescription.isFilled && (
                     <motion.button
                       whileHover={{ scale: 1.05 }}
@@ -280,6 +286,50 @@ export const Prescriptions: React.FC = () => {
               ? 'Try adjusting your search or filter'
               : 'No prescriptions have been issued yet'}
           </p>
+        </motion.div>
+      )}
+
+      {/* Access Control Modal */}
+      {showAccessControl && selectedPrescription && user?.role === 'patient' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            setShowAccessControl(false);
+            setSelectedPrescription(null);
+          }}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Manage Prescription Access</h2>
+                <p className="text-sm text-gray-600 mt-1">{(selectedPrescription as any).medication}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAccessControl(false);
+                  setSelectedPrescription(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <span className="text-2xl text-gray-500">×</span>
+              </button>
+            </div>
+            <div className="p-6">
+              <PrescriptionAccessControl
+                prescription={selectedPrescription}
+                onUpdate={fetchPrescriptions}
+              />
+            </div>
+          </motion.div>
         </motion.div>
       )}
     </motion.div>
