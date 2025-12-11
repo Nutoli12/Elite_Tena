@@ -14,6 +14,9 @@ export interface MedicalRecord {
   ipfsHash?: string;
   isEncrypted: boolean;
   blockchainTxHash?: string;
+  blockNumber?: number;
+  gasUsed?: string;
+  onBlockchain?: boolean;
 }
 
 export interface Prescription {

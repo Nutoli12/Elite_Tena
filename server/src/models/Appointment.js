@@ -57,6 +57,21 @@ const Appointment = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: true
     },
+    blockNumber: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Block number where payment transaction was mined'
+    },
+    gasUsed: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Gas used for blockchain payment transaction'
+    },
+    onBlockchain: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      comment: 'Whether this appointment payment is on blockchain'
+    },
 
     // 🆕 PHASE 3: Payment & Approval (PEER-TO-PEER)
     serviceType: {

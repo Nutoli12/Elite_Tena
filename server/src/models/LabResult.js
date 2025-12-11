@@ -140,6 +140,13 @@ const LabResult = (sequelize) => {
     timestamps: true
   });
 
+  LabResult.associate = function(models) {
+    LabResult.belongsTo(models.Patient, {
+      foreignKey: 'patientWalletAddress',
+      as: 'patient'
+    });
+  };
+
   return LabResult;
 };
 

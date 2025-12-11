@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAllMedicalRecords, getMedicalRecords, createMedicalRecord, updateMedicalRecord, debugRecordAccess } from '../controllers/medicalRecordController.js';
+import { getAllMedicalRecords, getMedicalRecords, createMedicalRecord, updateMedicalRecord, debugRecordAccess, verifyMedicalRecord } from '../controllers/medicalRecordController.js';
 
 const router = express.Router();
 
@@ -7,6 +7,9 @@ const router = express.Router();
 
 // Debug endpoint - check record access
 router.get('/debug/:recordId', debugRecordAccess);
+
+// Blockchain verification endpoint
+router.get('/verify/:id', verifyMedicalRecord);
 
 // Get all medical records (admin only - no filtering)
 router.get('/', getAllMedicalRecords);

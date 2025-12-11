@@ -31,6 +31,8 @@ import chatRoutes from './routes/chat.js';
 import videoCallRoutes from './routes/videoCall.js';
 import prescriptionAccessRoutes from './routes/prescriptionAccess.js';
 import databaseRoutes from './routes/database.js';
+import blockchainSyncRoutes from './routes/blockchain-sync.js';
+import legacyMigrationRoutes from './routes/legacy-migration.js';
 import { initializeSocket } from './services/socketService.js';
 
 // ... (imports)
@@ -137,6 +139,8 @@ app.use('/api/medical-records', medicalRecordRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/prescriptions', prescriptionAccessRoutes); // Prescription access control
 app.use('/api/database', databaseRoutes); // Database explorer
+app.use('/api/blockchain-sync', blockchainSyncRoutes); // Blockchain sync service
+app.use('/api/legacy-migration', legacyMigrationRoutes); // Legacy record migration
 app.use('/api/lab-results', labResultRoutes);
 app.use('/api/lab-technicians', labTechnicianRoutes);
 app.use('/api/pharmacists', pharmacistRoutes);
@@ -466,6 +470,15 @@ const startServer = async () => {
     // Initialize Socket.IO
     const io = initializeSocket(server);
     console.log('🔌 Socket.IO initialized');
+
+    // Start blockchain sync service
+    try {
+      const { default: blockchainSyncService } = await import('../services/blockchain-sync.service.js');
+      blockchainSyncService.start();
+      console.log('🔄 Blockchain sync service started');
+    } catch (error) {
+      console.log('⚠️  Blockchain sync service not available:', error.message);
+    }
 
     return server;
 

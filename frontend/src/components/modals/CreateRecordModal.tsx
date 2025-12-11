@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Loader2, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../contexts/AuthContext';
+import { AlertModal } from './AlertModal';
+import { useAlert } from '../../hooks/useAlert';
 import axios from '../../lib/axios';
 
 interface CreateRecordModalProps {
@@ -25,6 +27,9 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<string>('');
   const [loadingPatients, setLoadingPatients] = useState(false);
+  
+  // Alert hook
+  const { alertState, showWarning, hideAlert } = useAlert();
 
   // Fetch doctor's patients when modal opens
   useEffect(() => {
@@ -172,7 +177,7 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
 
   const handleFormSubmit = async (data: any) => {
     if (!selectedPatient) {
-      alert('Please select a patient');
+      showWarning('Patient Required', 'Please select a patient');
       return;
     }
 
@@ -357,6 +362,15 @@ export const CreateRecordModal: React.FC<CreateRecordModalProps> = ({ isOpen, on
                 </button>
               </div>
             </form>
+
+            {/* Alert Modal */}
+            <AlertModal
+              isOpen={alertState.isOpen}
+              onClose={hideAlert}
+              type={alertState.type}
+              title={alertState.title}
+              message={alertState.message}
+            />
           </motion.div>
         </motion.div>
       )}

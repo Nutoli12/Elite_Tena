@@ -54,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const clearSessionOnRefresh = () => {
       // Always clear authentication on page load/refresh
-      console.log('Page refreshed - clearing session and redirecting to login');
+      console.log('🔄 Page refreshed - clearing session and redirecting to login');
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user_wallet');
       dispatch({ type: 'LOGOUT' });
@@ -67,7 +67,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Listen for logout events from axios interceptor
   useEffect(() => {
     const handleLogout = () => {
+      console.log('🚪 Logout event received from axios interceptor');
       dispatch({ type: 'LOGOUT' });
+      // Redirect to login page
+      window.location.href = '/';
     };
 
     window.addEventListener('auth:logout', handleLogout);

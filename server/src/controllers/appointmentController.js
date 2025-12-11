@@ -794,3 +794,5 @@ export const bookAppointmentSlot = async (req, res) => {
     });
   }
 };
+
+
