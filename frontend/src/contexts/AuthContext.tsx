@@ -50,18 +50,52 @@ const initialState: AuthState = {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Clear session on page refresh - always redirect to login
+  // Restore session on page load/refresh
   useEffect(() => {
-    const clearSessionOnRefresh = () => {
-      // Always clear authentication on page load/refresh
-      console.log('🔄 Page refreshed - clearing session and redirecting to login');
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_wallet');
-      dispatch({ type: 'LOGOUT' });
-      dispatch({ type: 'SET_LOADING', payload: false });
+    const restoreSession = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const walletAddress = localStorage.getItem('user_wallet');
+
+        if (token && walletAddress) {
+          console.log('🔄 Page refreshed - restoring session for:', walletAddress);
+          
+          // Verify token is still valid by making a test request
+          const response = await axios.get('/auth/me');
+          const user = response.data.data;
+
+          const userProfile: UserProfile = {
+            id: user.walletAddress,
+            walletAddress: user.walletAddress,
+            email: user.email,
+            fullName: user.profileData?.fullName || 
+                     user.profileData?.name || 
+                     (user.profileData?.firstName && user.profileData?.lastName 
+                       ? `${user.profileData.firstName} ${user.profileData.lastName}` 
+                       : 'User'),
+            role: user.role,
+            isApproved: user.isActive,
+            createdAt: user.createdAt,
+            lastLogin: new Date().toISOString()
+          };
+
+          dispatch({ type: 'SET_USER', payload: userProfile });
+          console.log('✅ Session restored successfully');
+        } else {
+          console.log('🔄 No saved session found');
+          dispatch({ type: 'LOGOUT' });
+        }
+      } catch (error) {
+        console.log('❌ Session restore failed - clearing invalid session');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_wallet');
+        dispatch({ type: 'LOGOUT' });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
     };
 
-    clearSessionOnRefresh();
+    restoreSession();
   }, []);
 
   // Listen for logout events from axios interceptor
@@ -152,7 +186,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: user.walletAddress,
         walletAddress: user.walletAddress,
         email: user.email,
-        fullName: user.profileData?.fullName || 'User',
+        fullName: user.profileData?.fullName || 
+                 user.profileData?.name || 
+                 (user.profileData?.firstName && user.profileData?.lastName 
+                   ? `${user.profileData.firstName} ${user.profileData.lastName}` 
+                   : 'User'),
         role: user.role,
         isApproved: user.isActive,
         createdAt: new Date().toISOString(),
@@ -188,7 +226,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: user.walletAddress,
         walletAddress: user.walletAddress,
         email: user.email,
-        fullName: user.profileData?.fullName || 'User',
+        fullName: user.profileData?.fullName || 
+                 user.profileData?.name || 
+                 (user.profileData?.firstName && user.profileData?.lastName 
+                   ? `${user.profileData.firstName} ${user.profileData.lastName}` 
+                   : 'User'),
         role: user.role,
         isApproved: user.isActive,
         createdAt: new Date().toISOString(),

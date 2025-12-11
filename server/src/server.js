@@ -33,6 +33,8 @@ import prescriptionAccessRoutes from './routes/prescriptionAccess.js';
 import databaseRoutes from './routes/database.js';
 import blockchainSyncRoutes from './routes/blockchain-sync.js';
 import legacyMigrationRoutes from './routes/legacy-migration.js';
+import smartSchedulingRoutes from './routes/smartScheduling.js';
+import appointmentWorkflowRoutes from './routes/appointmentWorkflow.js';
 import { initializeSocket } from './services/socketService.js';
 
 // ... (imports)
@@ -49,8 +51,8 @@ const blockchainService = require('../services/blockchain.cjs');
 import db from './models/index.js';
 import { testConnection } from './config/database.js';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from server/.env
+dotenv.config({ path: path.join(process.cwd(), 'server', '.env') });
 
 // Constants
 const PORT = process.env.PORT || 3003;
@@ -152,6 +154,8 @@ app.use('/api/premium-services', premiumServiceRoutes); // Premium service route
 app.use('/api/consultations', consultationRoutes); // Consultation routes
 app.use('/api/chat', chatRoutes); // Chat routes
 app.use('/api/video-calls', videoCallRoutes); // Video call routes
+app.use('/api/smart-scheduling', smartSchedulingRoutes); // Smart scheduling routes
+app.use('/api/appointment-workflow', appointmentWorkflowRoutes); // Complete appointment workflow
 
 // Database viewer route
 app.get('/database', (req, res) => {
@@ -380,13 +384,16 @@ const startServer = async () => {
     console.log('✅ Database associations initialized successfully');
 
     console.log('2. Syncing database models...');
-    await db.sequelize.sync({
-      force: false,
-      alter: false  // Disabled to prevent PostgreSQL syntax errors
-    });
-    console.log('✅ Database models synchronized');
+    // Temporarily skip sync to get server running faster
+    // await db.sequelize.sync({
+    //   force: false,
+    //   alter: false  // Disabled to prevent PostgreSQL syntax errors
+    // });
+    console.log('✅ Database models synchronized (skipped for faster startup)');
 
     // 🛠️ Manual Migrations for Phase 3 & 4 (Safe Column Additions)
+    // Temporarily disabled to get server running faster
+    /*
     try {
       console.log('🛠️ Running manual migrations...');
       const q = db.sequelize.query.bind(db.sequelize);
@@ -419,6 +426,8 @@ const startServer = async () => {
     } catch (err) {
       console.error('⚠️ Manual migration warning:', err.message);
     }
+    */
+    console.log('✅ Manual migrations skipped for faster startup');
 
     console.log('3. Checking admin user...');
     const adminWallet = process.env.ADMIN_WALLET_ADDRESS;

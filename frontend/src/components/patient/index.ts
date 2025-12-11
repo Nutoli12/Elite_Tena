@@ -3,4 +3,4 @@ export { RecentPrescriptions } from './RecentPrescriptions';
 export { UpcomingAppointments } from './UpcomingAppointments';
 export { MedicalRecordsPreview } from './MedicalRecordsPreview';
 export { LabResultsSummary } from './LabResultsSummary';
-export { ConsentStatus } from './ConsentStatus';
+export { ConsentStatusWidget } from './ConsentStatus';

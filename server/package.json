@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "init-db": "node scripts/init-db.js",
-    "test": "echo \"No tests specified\"",
+    "test": "cross-env NODE_OPTIONS=\"--experimental-vm-modules\" jest",
+    "test:watch": "cross-env NODE_OPTIONS=\"--experimental-vm-modules\" jest --watch",
+    "test:property": "cross-env NODE_OPTIONS=\"--experimental-vm-modules\" jest test/atomic-slot-booking-simple.property.test.js",
     "test:upload": "node scripts/test-file-upload.js",
     "test:upload:curl": "test-upload.bat",
     "test:upload:ps": "powershell -ExecutionPolicy Bypass -File test-upload.ps1"
@@ -30,6 +32,7 @@
     "express-rate-limit": "^8.2.1",
     "express-session": "^1.18.2",
     "helmet": "^8.1.0",
+    "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
@@ -42,9 +45,15 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.28.5",
+    "babel-jest": "^30.2.0",
+    "cross-env": "^10.1.0",
+    "fast-check": "^4.4.0",
     "form-data": "^4.0.5",
+    "jest": "^30.2.0",
     "node-fetch": "^3.3.2",
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "uuid": "^13.0.0"
   },
   "keywords": [],
   "author": "",

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Plus, MapPin, Clock, Video, MoreVertical, DollarSign, Upload, QrCode, X, Loader2, Trash2, MessageSquare } from 'lucide-react';
+import { Calendar, Plus, MapPin, Clock, Video, MoreVertical, DollarSign, Upload, QrCode, MessageSquare } from 'lucide-react';
 import axios from '../lib/axios';
 import type { Appointment } from '../types/healthcare';
 import { BookAppointmentModal } from '../components/modals/BookAppointmentModal';
@@ -11,6 +11,8 @@ import { UploadReceiptModal } from '../components/modals/UploadReceiptModal';
 import { PaymentModal } from '../components/modals/PaymentModal';
 import { PaymentStatus } from '../components/payment/PaymentStatus';
 import { QRCodeDisplay } from '../components/QRCodeDisplay';
+import { PatientNoteModal } from '../components/appointment/PatientNoteModal';
+import { RescheduleModal } from '../components/appointment/RescheduleModal';
 
 export const Appointments: React.FC = () => {
   const { user } = useAuth();
@@ -24,8 +26,8 @@ export const Appointments: React.FC = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
-  const [rescheduleData, setRescheduleData] = useState({ date: '', time: '' });
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showPatientNoteModal, setShowPatientNoteModal] = useState(false);
+  const [actionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -78,71 +80,29 @@ export const Appointments: React.FC = () => {
     alert('Payment completed successfully!');
   };
 
-  // Cancel appointment handler
-  const handleCancelAppointment = async (appointmentId: string) => {
-    if (!confirm('Are you sure you want to cancel this appointment?')) return;
-
-    setActionLoading(appointmentId);
-    try {
-      const response = await axios.patch(`/appointments/${appointmentId}/cancel`);
-      if (response.data.success) {
-        alert('Appointment cancelled successfully');
-        fetchAppointments();
-      }
-    } catch (error) {
-      console.error('❌ Failed to cancel appointment:', error);
-      alert('Failed to cancel appointment. Please try again.');
-    } finally {
-      setActionLoading(null);
-    }
+  // Leave patient note handler (replaces cancel)
+  const handleLeaveNote = () => {
+    setShowPatientNoteModal(true);
   };
 
-  // Delete appointment handler
-  const handleDeleteAppointment = async (appointmentId: string) => {
-    if (!confirm('Are you sure you want to delete this appointment? This action cannot be undone.')) return;
-
-    setActionLoading(appointmentId);
-    try {
-      const response = await axios.delete(`/appointments/${appointmentId}`);
-      if (response.data.success) {
-        alert('Appointment deleted successfully');
-        fetchAppointments();
-      }
-    } catch (error) {
-      console.error('❌ Failed to delete appointment:', error);
-      alert('Failed to delete appointment. Please try again.');
-    } finally {
-      setActionLoading(null);
-    }
+  const handleNoteSubmitted = () => {
+    fetchAppointments();
+    setShowPatientNoteModal(false);
+    setSelectedAppointment(null);
+    alert('Note saved successfully. Doctor has been notified.');
   };
 
-  // Reschedule appointment handler
-  const handleRescheduleAppointment = async () => {
-    if (!selectedAppointment || !rescheduleData.date || !rescheduleData.time) {
-      alert('Please select a new date and time');
-      return;
-    }
+  // Reschedule appointment handler (with 24-hour check)
+  const handleRescheduleClick = (appointment: any) => {
+    setSelectedAppointment(appointment);
+    setShowRescheduleModal(true);
+  };
 
-    setActionLoading(selectedAppointment.id);
-    try {
-      const newDateTime = `${rescheduleData.date}T${rescheduleData.time}:00`;
-      const response = await axios.put(`/appointments/${selectedAppointment.id}`, {
-        appointmentDate: newDateTime
-      });
-
-      if (response.data.success) {
-        alert('Appointment rescheduled successfully');
-        setShowRescheduleModal(false);
-        setSelectedAppointment(null);
-        setRescheduleData({ date: '', time: '' });
-        fetchAppointments();
-      }
-    } catch (error) {
-      console.error('❌ Failed to reschedule appointment:', error);
-      alert('Failed to reschedule appointment. Please try again.');
-    } finally {
-      setActionLoading(null);
-    }
+  const handleRescheduled = () => {
+    fetchAppointments();
+    setShowRescheduleModal(false);
+    setSelectedAppointment(null);
+    alert('Appointment rescheduled successfully');
   };
 
   const fetchAppointments = async () => {
@@ -166,7 +126,10 @@ export const Appointments: React.FC = () => {
         const backendAppointments = response.data.data.map((apt: any) => ({
           id: apt.id.toString(),
           patientId: apt.patientWalletAddress,
-          doctorId: apt.doctorDetails?.user?.profileData?.fullName || apt.doctorWalletAddress,
+          doctorId: apt.doctorWalletAddress, // Keep wallet for backend calls
+          doctorName: apt.appointedWith?.name || apt.displayDoctor || 'Unknown Doctor', // Use enhanced doctor name
+          doctorSpecialization: apt.appointedWith?.specialization || 'General',
+          displayDoctor: apt.displayDoctor || `${apt.appointedWith?.name || 'Unknown Doctor'} (${apt.appointedWith?.specialization || 'General'})`,
           date: apt.appointmentDate.split('T')[0],
           time: new Date(apt.appointmentDate).toLocaleTimeString('en-US', {
             hour: '2-digit',
@@ -215,21 +178,7 @@ export const Appointments: React.FC = () => {
     }
   };
 
-  const getPaymentStatusBadge = (apt: any) => {
-    if (apt.approvalStatus === 'pending') {
-      return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">Pending Approval</span>;
-    }
-    if (apt.approvalStatus === 'approved' && apt.paymentStatus === 'pending') {
-      return <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">Payment Required</span>;
-    }
-    if (apt.paymentStatus === 'paid') {
-      return <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">Payment Pending Confirmation</span>;
-    }
-    if (apt.paymentStatus === 'confirmed') {
-      return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Payment Confirmed</span>;
-    }
-    return null;
-  };
+
 
   if (loading) {
     return (
@@ -323,7 +272,7 @@ export const Appointments: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h4 className="font-semibold text-gray-900">{appointment.doctorId}</h4>
+                        <h4 className="font-semibold text-gray-900">{appointment.displayDoctor}</h4>
                         <p className="text-sm text-gray-600">{appointment.reason}</p>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -453,51 +402,41 @@ export const Appointments: React.FC = () => {
                         </motion.button>
                       )}
 
-                      {/* Standard Actions */}
-                      {appointment.status !== 'cancelled' && appointment.status !== 'completed' && (
+                      {/* New No-Cancel System Actions */}
+                      {appointment.status !== 'cancelled' && appointment.status !== 'completed' && !appointment.notes?.includes('patient_noted') && (
                         <>
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => {
-                              setSelectedAppointment(appointment);
-                              setRescheduleData({ date: appointment.date, time: '' });
-                              setShowRescheduleModal(true);
-                            }}
+                            onClick={() => handleRescheduleClick(appointment)}
                             disabled={actionLoading === appointment.id}
-                            className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                            className="border border-blue-300 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 disabled:opacity-50 flex items-center gap-2"
                           >
+                            <Calendar className="w-4 h-4" />
                             Reschedule
                           </motion.button>
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => handleCancelAppointment(appointment.id)}
+                            onClick={() => {
+                              setSelectedAppointment(appointment);
+                              handleLeaveNote();
+                            }}
                             disabled={actionLoading === appointment.id}
-                            className="border border-yellow-300 text-yellow-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-50 disabled:opacity-50 flex items-center gap-2"
+                            className="border border-orange-300 text-orange-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-50 disabled:opacity-50 flex items-center gap-2"
                           >
-                            {actionLoading === appointment.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <X className="w-4 h-4" />
-                            )}
-                            Cancel
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => handleDeleteAppointment(appointment.id)}
-                            disabled={actionLoading === appointment.id}
-                            className="border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-50 disabled:opacity-50 flex items-center gap-2"
-                          >
-                            {actionLoading === appointment.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                            Delete
+                            <MessageSquare className="w-4 h-4" />
+                            Leave Note
                           </motion.button>
                         </>
+                      )}
+                      
+                      {/* Show status for appointments with notes */}
+                      {appointment.notes?.includes('patient_noted') && (
+                        <div className="flex items-center gap-2 text-orange-600">
+                          <MessageSquare className="w-4 h-4" />
+                          <span className="text-sm font-medium">Note sent to doctor</span>
+                        </div>
                       )}
                       {appointment.status === 'cancelled' && (
                         <span className="text-gray-400 text-sm italic">Cancelled</span>
@@ -595,105 +534,30 @@ export const Appointments: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Reschedule Modal */}
-      {showRescheduleModal && selectedAppointment && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          onClick={() => {
+      {/* New Reschedule Modal with 24-hour check */}
+      {selectedAppointment && (
+        <RescheduleModal
+          isOpen={showRescheduleModal}
+          onClose={() => {
             setShowRescheduleModal(false);
             setSelectedAppointment(null);
           }}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-900">Reschedule Appointment</h3>
-              <button
-                onClick={() => {
-                  setShowRescheduleModal(false);
-                  setSelectedAppointment(null);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
+          appointment={selectedAppointment}
+          onRescheduled={handleRescheduled}
+        />
+      )}
 
-            <div className="space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600">Current appointment:</p>
-                <p className="font-medium text-gray-900">
-                  {selectedAppointment.date} at {selectedAppointment.time}
-                </p>
-                <p className="text-sm text-gray-600">{selectedAppointment.doctorId}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">New Date *</label>
-                <input
-                  type="date"
-                  value={rescheduleData.date}
-                  onChange={(e) => setRescheduleData(prev => ({ ...prev, date: e.target.value }))}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">New Time *</label>
-                <select
-                  value={rescheduleData.time}
-                  onChange={(e) => setRescheduleData(prev => ({ ...prev, time: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500 focus:border-transparent"
-                >
-                  <option value="">Select time</option>
-                  <option value="09:00">09:00 AM</option>
-                  <option value="10:00">10:00 AM</option>
-                  <option value="11:00">11:00 AM</option>
-                  <option value="14:00">02:00 PM</option>
-                  <option value="15:00">03:00 PM</option>
-                  <option value="16:00">04:00 PM</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowRescheduleModal(false);
-                  setSelectedAppointment(null);
-                }}
-                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleRescheduleAppointment}
-                disabled={!rescheduleData.date || !rescheduleData.time || actionLoading === selectedAppointment.id}
-                className="flex-1 px-4 py-3 bg-medical-500 text-white rounded-xl font-medium hover:bg-medical-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {actionLoading === selectedAppointment.id ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Confirm Reschedule'
-                )}
-              </motion.button>
-            </div>
-          </motion.div>
-        </motion.div>
+      {/* New Patient Note Modal */}
+      {selectedAppointment && (
+        <PatientNoteModal
+          isOpen={showPatientNoteModal}
+          onClose={() => {
+            setShowPatientNoteModal(false);
+            setSelectedAppointment(null);
+          }}
+          appointment={selectedAppointment}
+          onNoteSubmitted={handleNoteSubmitted}
+        />
       )}
 
       {/* Payment Modal */}
@@ -706,7 +570,7 @@ export const Appointments: React.FC = () => {
           }}
           appointmentId={selectedAppointment.id}
           amount={paymentAmount}
-          description={`Healthcare consultation payment for appointment with ${selectedAppointment.doctorId || 'Doctor'}`}
+          description={`Healthcare consultation payment for appointment with ${selectedAppointment.displayDoctor || selectedAppointment.doctorName || 'Doctor'}`}
           onPaymentSuccess={handlePaymentSuccess}
         />
       )}

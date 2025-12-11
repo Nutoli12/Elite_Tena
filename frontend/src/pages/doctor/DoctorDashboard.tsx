@@ -14,10 +14,13 @@ import { PendingApprovals } from '../../components/doctor/PendingApprovals';
 import { PaymentReceiptsReview } from '../../components/doctor/PaymentReceiptsReview';
 import { PatientQueue } from '../../components/doctor/PatientQueue';
 import { UpcomingAppointments } from '../../components/doctor/UpcomingAppointments';
+import { QuickActions } from '../../components/common/QuickActions';
+import { useNavigationService } from '../../services/navigationService';
 
 export const DoctorDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const navigationService = useNavigationService(navigate);
   const [stats, setStats] = useState({
     todayTotal: 0,
     completedToday: 0,
@@ -271,36 +274,10 @@ export const DoctorDashboard: React.FC = () => {
       </motion.div>
 
       {/* Quick Actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-        className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
-      >
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { name: 'View Appointments', icon: '📅', href: '/appointments' },
-            { name: 'Medical Records', icon: '📁', href: '/medical-records' },
-            { name: 'Patient Access', icon: '🛡️', href: '/doctor/consent' },
-            { name: 'Issue Prescription', icon: '💊', href: '/prescriptions' },
-          ].map((action, index) => (
-            <motion.a
-              key={action.name}
-              href={action.href}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.9 + index * 0.1 }}
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex flex-col items-center justify-center p-4 border-2 border-gray-200 rounded-xl hover:border-medical-500 hover:bg-medical-50 transition-all"
-            >
-              <span className="text-3xl mb-2">{action.icon}</span>
-              <span className="text-sm font-medium text-gray-700">{action.name}</span>
-            </motion.a>
-          ))}
-        </div>
-      </motion.div>
+      <QuickActions
+        actions={navigationService.getDoctorQuickActions()}
+        delay={0.8}
+      />
     </motion.div>
   );
 };

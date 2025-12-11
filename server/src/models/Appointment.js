@@ -198,6 +198,44 @@ const Appointment = (sequelize) => {
       allowNull: true,
       comment: 'Doctor notes during consultation'
     },
+
+    // 🆕 WORKFLOW STATE TRACKING
+    workflowState: {
+      type: DataTypes.ENUM(
+        'scheduled',
+        'patient_checked_in', 
+        'ready_for_consultation',
+        'consultation_started',
+        'video_call_active',
+        'consultation_completed',
+        'follow_up_scheduled',
+        'completed'
+      ),
+      defaultValue: 'scheduled',
+      field: 'workflow_state',
+      comment: 'Current state in the appointment workflow process'
+    },
+    videoCallId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: 'video_call_id',
+      references: {
+        model: 'video_calls',
+        key: 'id'
+      },
+      comment: 'Reference to active video call session'
+    },
+    diagnosis: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Medical diagnosis from consultation'
+    },
+    treatmentPlan: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'treatment_plan',
+      comment: 'Treatment plan prescribed by doctor'
+    },
     chiefComplaint: {
       type: DataTypes.TEXT,
       allowNull: true,
@@ -242,7 +280,54 @@ const Appointment = (sequelize) => {
       type: DataTypes.JSON,
       allowNull: true,
       comment: 'Comprehensive consultation data (draft)'
-    }
+    },
+
+    // 🆕 NO-CANCEL SYSTEM: Patient Note System (TEMPORARILY DISABLED - USING NOTES FIELD)
+    // patientNote: {
+    //   type: DataTypes.TEXT,
+    //   allowNull: true,
+    //   comment: 'Note left by patient if they cannot attend'
+    // },
+    // patientNoteDate: {
+    //   type: DataTypes.DATE,
+    //   allowNull: true,
+    //   comment: 'When patient left the note'
+    // },
+    // canReschedule: {
+    //   type: DataTypes.BOOLEAN,
+    //   defaultValue: true,
+    //   comment: 'Whether appointment can still be rescheduled (blocked 24h before)'
+    // },
+    // rescheduleDeadline: {
+    //   type: DataTypes.DATE,
+    //   allowNull: true,
+    //   comment: 'Deadline for rescheduling (24 hours before appointment)'
+    // },
+    // lastRescheduleDate: {
+    //   type: DataTypes.DATE,
+    //   allowNull: true,
+    //   comment: 'When appointment was last rescheduled'
+    // },
+    // rescheduleCount: {
+    //   type: DataTypes.INTEGER,
+    //   defaultValue: 0,
+    //   comment: 'Number of times appointment has been rescheduled'
+    // },
+    // isRescheduled: {
+    //   type: DataTypes.BOOLEAN,
+    //   defaultValue: false,
+    //   comment: 'Whether this appointment was rescheduled from another'
+    // },
+    // originalAppointmentDate: {
+    //   type: DataTypes.DATE,
+    //   allowNull: true,
+    //   comment: 'Original appointment date if rescheduled'
+    // },
+    // rescheduleReason: {
+    //   type: DataTypes.TEXT,
+    //   allowNull: true,
+    //   comment: 'Reason for rescheduling'
+    // }
   }, {
     tableName: 'appointments',
     timestamps: true

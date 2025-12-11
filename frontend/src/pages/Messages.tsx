@@ -186,7 +186,7 @@ export const Messages: React.FC = () => {
             </div>
             <Chat
               otherUserWallet={selectedConversation.other_user}
-              otherUserName={selectedConversation.profileData?.fullName || selectedConversation.email || 'User'}
+              otherUserName={selectedConversation.profileData?.fullName || selectedConversation.profileData?.name || (selectedConversation.profileData?.firstName && selectedConversation.profileData?.lastName ? `${selectedConversation.profileData.firstName} ${selectedConversation.profileData.lastName}` : selectedConversation.email || 'User')}
             />
           </div>
         ) : (

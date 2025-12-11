@@ -194,7 +194,7 @@ export const Payments: React.FC = () => {
         provider: payment.paymentMethod,
         email: user?.email || 'patient@elitetena.com',
         firstName: user?.fullName?.split(' ')[0] || 'Patient',
-        lastName: user?.fullName?.split(' ')[1] || 'User',
+        lastName: user?.fullName?.split(' ')[1] || user?.profileData?.lastName || 'User',
         phoneNumber: '+251911000000',
         description: `Retry payment for ${payment.appointment?.reason || 'Healthcare Service'}`
       });

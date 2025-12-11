@@ -20,23 +20,28 @@ export const UpcomingAppointments: React.FC = () => {
     }
 
     try {
-      const response = await axios.get(`/appointments/patient/${user.walletAddress}`);
+      const response = await axios.get('/appointments', {
+        params: {
+          userRole: 'patient',
+          userId: user.walletAddress
+        }
+      });
       if (response.data.success) {
         const upcomingAppointments = response.data.data
           .filter((apt: any) => new Date(apt.appointmentDate) > new Date())
           .slice(0, 2)
           .map((apt: any) => ({
             id: apt.id,
-            doctor: apt.doctorWalletAddress || 'Unknown Doctor',
-            specialization: apt.specialization || 'General Medicine',
+            doctor: apt.displayDoctor || apt.appointedWith?.name || 'Unknown Doctor',
+            specialization: apt.appointedWith?.specialization || 'General Medicine',
             date: apt.appointmentDate.split('T')[0],
             time: new Date(apt.appointmentDate).toLocaleTimeString('en-US', { 
               hour: 'numeric', 
               minute: '2-digit', 
               hour12: true 
             }),
-            type: apt.appointmentType || 'in-person',
-            location: apt.location || 'Hospital'
+            type: apt.serviceType || 'in-person',
+            location: apt.serviceType === 'videoCall' ? 'Video Call' : 'Elite-Tena Healthcare'
           }));
         setAppointments(upcomingAppointments);
       } else {

@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Shield, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
-export const ConsentStatus: React.FC = () => {
+export const ConsentStatusWidget: React.FC = () => {
   const consents = [
     {
       id: 1,

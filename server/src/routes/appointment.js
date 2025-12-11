@@ -4,12 +4,14 @@ import {
   getAppointmentById,
   createAppointment,
   updateAppointment,
-  cancelAppointment,
   deleteAppointment,
   getDoctorSchedule,
   createDoctorSlot,
   getAvailableSlots,
-  bookAppointmentSlot
+  bookAppointmentSlot,
+  leavePatientNote,
+  checkRescheduleEligibility,
+  rescheduleAppointment
 } from '../controllers/appointmentController.js';
 
 // 🆕 PHASE 3: Payment & Approval
@@ -88,8 +90,17 @@ router.post('/book-slot/:slotId', bookAppointmentSlot);
 // Update appointment
 router.put('/:id', updateAppointment);
 
-// Cancel appointment (special action)
-router.patch('/:id/cancel', cancelAppointment);
+// 🚫 REMOVED: Cancel appointment - replaced with note system
+// router.patch('/:id/cancel', cancelAppointment);
+
+// 📝 NEW: Patient note system (replaces cancel)
+router.post('/:id/leave-note', leavePatientNote);
+
+// ⏰ NEW: Check reschedule eligibility (24-hour rule)
+router.get('/:id/reschedule-check', checkRescheduleEligibility);
+
+// 🔄 NEW: Reschedule appointment (with restrictions)
+router.patch('/:id/reschedule', rescheduleAppointment);
 
 // Delete appointment
 router.delete('/:id', deleteAppointment);

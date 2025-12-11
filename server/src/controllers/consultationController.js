@@ -233,45 +233,18 @@ export const completeConsultation = async (req, res) => {
 /**
  * Get consultation details
  */
+
+/**
+ * Get consultation details (SIMPLIFIED VERSION)
+ */
 export const getConsultationDetails = async (req, res) => {
   try {
     const { appointmentId } = req.params;
 
     console.log('🔍 Fetching consultation details for:', appointmentId);
 
-    let appointment;
-    try {
-      appointment = await Appointment.findByPk(appointmentId, {
-        include: [
-          {
-            model: Patient,
-            as: 'patientDetails',
-            include: [
-              {
-                model: User,
-                as: 'user',
-                attributes: ['email', 'profileData']
-              }
-            ]
-          },
-          {
-            model: Doctor,
-            as: 'doctorDetails',
-            include: [
-              {
-                model: User,
-                as: 'user',
-                attributes: ['email', 'profileData']
-              }
-            ]
-          }
-        ]
-      });
-    } catch (queryError) {
-      console.error('❌ Database query error in getConsultationDetails (with includes):', queryError);
-      console.log('⚠️ Retrying without associations...');
-      appointment = await Appointment.findByPk(appointmentId);
-    }
+    // Simple query without complex associations
+    const appointment = await Appointment.findByPk(appointmentId);
 
     if (!appointment) {
       return res.status(404).json({
@@ -280,57 +253,72 @@ export const getConsultationDetails = async (req, res) => {
       });
     }
 
-    // Get patient's medical history
+    // Get basic patient info
+    let patient = null;
+    try {
+      patient = await Patient.findOne({
+        where: { walletAddress: appointment.patientWalletAddress }
+      });
+    } catch (error) {
+      console.log('⚠️ Could not fetch patient details');
+    }
+
+    // Get basic doctor info
+    let doctor = null;
+    try {
+      doctor = await Doctor.findOne({
+        where: { walletAddress: appointment.doctorWalletAddress }
+      });
+    } catch (error) {
+      console.log('⚠️ Could not fetch doctor details');
+    }
+
+    // Get recent medical records (simplified)
     let medicalHistory = [];
     try {
-      if (appointment.patientWalletAddress) {
-        medicalHistory = await MedicalRecord.findAll({
-          where: { patientWalletAddress: appointment.patientWalletAddress },
-          order: [['recordDate', 'DESC']],
-          limit: 5
-        });
-      }
-    } catch (histError) {
-      console.error('❌ Error fetching medical history:', histError);
+      medicalHistory = await MedicalRecord.findAll({
+        where: { patientWalletAddress: appointment.patientWalletAddress },
+        order: [['recordDate', 'DESC']],
+        limit: 3
+      });
+    } catch (error) {
+      console.log('⚠️ Could not fetch medical history');
     }
 
-    // Get active prescriptions
-    let activePrescriptions = [];
-    try {
-      if (appointment.patientWalletAddress) {
-        activePrescriptions = await Prescription.findAll({
-          where: {
-            patientWalletAddress: appointment.patientWalletAddress,
-            status: 'active'
-          }
-        });
-      }
-    } catch (rxError) {
-      console.error('❌ Error fetching prescriptions:', rxError);
-    }
-
-    console.log('✅ Consultation details retrieved');
+    console.log('✅ Successfully fetched consultation details');
 
     res.json({
       success: true,
       data: {
         appointment,
-        medicalHistory,
-        activePrescriptions,
-        warning: !appointment.patientDetails ? 'Associations failed to load' : undefined
+        patient: patient ? {
+          walletAddress: patient.walletAddress,
+          name: patient.name,
+          dateOfBirth: patient.dateOfBirth,
+          gender: patient.gender,
+          phone: patient.phone
+        } : null,
+        doctor: doctor ? {
+          walletAddress: doctor.walletAddress,
+          name: doctor.name,
+          specialization: doctor.specialization
+        } : null,
+        medicalHistory: medicalHistory || [],
+        activePrescriptions: [], // Simplified for now
+        consultationStarted: !!appointment.consultationStartedAt,
+        consultationNotes: appointment.consultationNotes || ''
       }
     });
 
   } catch (error) {
-    console.error('❌ Get consultation details fatal error:', error);
+    console.error('❌ Get consultation details error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch consultation details',
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: error.message
     });
   }
-};
+};;
 
 /**
  * Update comprehensive consultation data (auto-save)

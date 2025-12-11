@@ -17,6 +17,7 @@ router.post('/register', register);
 router.post('/login', login);
 router.post('/logout', logout);
 router.get('/profile', getProfile);
+router.get('/me', getProfile); // Alias for profile - used for session verification
 router.post('/verify-signature', verifySignature);
 
 // 🔐 NEW: Wallet Authentication Endpoints

@@ -185,7 +185,7 @@ class ConsentGateService {
   private evaluateConsent(
     consentStatus: ConsentStatus,
     action: string,
-    patientWallet: string
+    _patientWallet: string
   ): ConsentGateResult {
     if (!consentStatus.hasAccess) {
       return {
@@ -259,14 +259,14 @@ class ConsentGateService {
     const interval = setInterval(async () => {
       // Check for consent updates for cached entries
       for (const [cacheKey] of this.consentCache) {
-        const [doctorWallet, patientWallet] = cacheKey.split('-');
+        const [doctorWallet, patientWalletAddr] = cacheKey.split('-');
         try {
-          const freshStatus = await this.fetchConsentStatus(patientWallet, doctorWallet);
+          const freshStatus = await this.fetchConsentStatus(patientWalletAddr, doctorWallet);
           const cachedStatus = this.consentCache.get(cacheKey);
           
           if (cachedStatus && freshStatus.hasAccess !== cachedStatus.hasAccess) {
             this.cacheConsent(cacheKey, freshStatus);
-            callback(patientWallet, doctorWallet, freshStatus);
+            callback(patientWalletAddr, doctorWallet, freshStatus);
           }
         } catch (error) {
           console.error('Consent polling error:', error);

@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Clock, QrCode, UserCheck, AlertCircle, Plus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import axios from '../../lib/axios';
 import { QuickApproveModal } from '../modals/QuickApproveModal';
 import { ManualGrantModal } from '../modals/ManualGrantModal';
 import { QRCodeModal } from '../modals/QRCodeModal';
 import { AccessGrantsList } from './AccessGrantsList';
+import { useNavigationService } from '../../services/navigationService';
 
 interface PrescriptionAccessControlProps {
   prescription: any;
@@ -18,6 +20,8 @@ export const PrescriptionAccessControl: React.FC<PrescriptionAccessControlProps>
   onUpdate
 }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const navigationService = useNavigationService(navigate);
   const [showQuickApprove, setShowQuickApprove] = useState(false);
   const [showManualGrant, setShowManualGrant] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
@@ -28,6 +32,26 @@ export const PrescriptionAccessControl: React.FC<PrescriptionAccessControlProps>
     if (prescription?.id) {
       loadAccessGrants();
     }
+
+    // Listen for prescription access action events
+    const handlePrescriptionAccessAction = (event: CustomEvent) => {
+      const { action, prescription: eventPrescription } = event.detail;
+      if (eventPrescription?.id === prescription?.id) {
+        if (action === 'quickApprove') {
+          setShowQuickApprove(true);
+        } else if (action === 'manualGrant') {
+          setShowManualGrant(true);
+        } else if (action === 'qrCode') {
+          setShowQRCode(true);
+        }
+      }
+    };
+
+    window.addEventListener('prescriptionAccessAction', handlePrescriptionAccessAction as EventListener);
+    
+    return () => {
+      window.removeEventListener('prescriptionAccessAction', handlePrescriptionAccessAction as EventListener);
+    };
   }, [prescription?.id]);
 
   const loadAccessGrants = async () => {

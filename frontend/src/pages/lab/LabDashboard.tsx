@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Beaker, 
@@ -12,10 +13,14 @@ import {
   Users
 } from 'lucide-react';
 import axios from '../../lib/axios';
+import { QuickActions } from '../../components/common/QuickActions';
+import { useNavigationService } from '../../services/navigationService';
 
 export const LabDashboard: React.FC = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const navigationService = useNavigationService(navigate);
   const [stats, setStats] = useState({
     pendingTests: 0,
     completedTests: 0,
@@ -258,36 +263,10 @@ export const LabDashboard: React.FC = () => {
       </motion.div>
 
       {/* Quick Actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-        className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
-      >
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { name: 'Upload Results', icon: '📤', href: '/lab-results' },
-            { name: 'View Tests', icon: '🧪', href: '/lab-results' },
-            { name: 'Patient Samples', icon: '🩸', href: '/lab-results' },
-            { name: 'Reports', icon: '📊', href: '/lab-results' },
-          ].map((action, index) => (
-            <motion.a
-              key={action.name}
-              href={action.href}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.8 + index * 0.1 }}
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex flex-col items-center justify-center p-4 border-2 border-gray-200 rounded-xl hover:border-medical-500 hover:bg-medical-50 transition-all"
-            >
-              <span className="text-3xl mb-2">{action.icon}</span>
-              <span className="text-sm font-medium text-gray-700">{action.name}</span>
-            </motion.a>
-          ))}
-        </div>
-      </motion.div>
+      <QuickActions
+        actions={navigationService.getLabQuickActions()}
+        delay={0.7}
+      />
     </motion.div>
   );
 };

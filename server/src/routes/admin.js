@@ -9,6 +9,8 @@ import {
   registerDoctor,
   registerLabTechnician,
   registerPharmacist,
+  registerStaff,
+  getAnalytics,
   updateAllDoctorServices
 } from '../controllers/adminController.js';
 
@@ -16,7 +18,7 @@ const router = express.Router();
 
 // System statistics
 router.get('/stats', getSystemStats);
-router.get('/analytics', getSystemStats); // Alias for stats
+router.get('/analytics', getAnalytics); // Dedicated analytics endpoint
 
 // Audit logs
 router.get('/audit-logs', getAuditLogs);
@@ -25,6 +27,7 @@ router.get('/audit-logs', getAuditLogs);
 router.post('/register-doctor', registerDoctor);
 router.post('/register-lab-technician', registerLabTechnician);
 router.post('/register-pharmacist', registerPharmacist);
+router.post('/register-staff', registerStaff); // Generic staff registration endpoint
 
 // Migration / Bulk update
 router.post('/update-all-doctor-services', updateAllDoctorServices);

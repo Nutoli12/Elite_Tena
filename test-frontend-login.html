@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Frontend Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .form-group { margin: 10px 0; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .result { margin: 20px 0; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>Test Frontend Login</h1>
+    
+    <div class="form-group">
+        <label>Email:</label>
+        <input type="email" id="email" value="semir@gmail.com" />
+    </div>
+    
+    <div class="form-group">
+        <label>Password:</label>
+        <input type="password" id="password" value="123456" />
+    </div>
+    
+    <button onclick="testLogin()">Test Login</button>
+    
+    <div id="result" class="result" style="display: none;"></div>
+
+    <script>
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                console.log('Testing login with:', { email, password });
+                
+                const response = await fetch('http://localhost:3004/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.style.display = 'block';
+                
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Login Successful!</h3>
+                        <p><strong>User:</strong> ${data.data.user.email}</p>
+                        <p><strong>Role:</strong> ${data.data.user.role}</p>
+                        <p><strong>Wallet:</strong> ${data.data.user.walletAddress}</p>
+                        <p><strong>Token:</strong> ${data.data.auth.token.substring(0, 20)}...</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ Login Failed</h3>
+                        <p><strong>Error:</strong> ${data.error}</p>
+                        <p><strong>Message:</strong> ${data.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Network Error</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                `;
+                console.error('Login error:', error);
+            }
+        }
+        
+        // Test different users
+        const testUsers = [
+            { email: 'semir@gmail.com', password: '123456' },
+            { email: 'amir@gmail.com', password: 'amir12@' },
+            { email: 'admin@gmail.com', password: 'admin123' },
+            { email: 'patient@gmail.com', password: 'patient123' },
+            { email: 'dr.alemayehu@gmail.com', password: 'doctor123' },
+            { email: 'nutirese@gmail.com', password: '123456' },
+            { email: 'drabinetengida@gmail.com', password: 'doctor123' },
+            { email: 'semiryusuf@gmail.com', password: '123456' }
+        ];
+        
+        function loadUser(index) {
+            const user = testUsers[index];
+            document.getElementById('email').value = user.email;
+            document.getElementById('password').value = user.password;
+        }
+        
+        // Add user selection buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            const buttonsDiv = document.createElement('div');
+            buttonsDiv.innerHTML = '<h3>Quick Test Users:</h3>';
+            
+            testUsers.forEach((user, index) => {
+                const button = document.createElement('button');
+                button.textContent = `${user.email} (${user.password})`;
+                button.style.margin = '5px';
+                button.style.fontSize = '12px';
+                button.onclick = () => loadUser(index);
+                buttonsDiv.appendChild(button);
+            });
+            
+            document.body.insertBefore(buttonsDiv, document.getElementById('result'));
+        });
+    </script>
+</body>
+</html>

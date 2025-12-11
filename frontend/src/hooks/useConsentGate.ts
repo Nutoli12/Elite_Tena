@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { consentGate, ConsentGateResult, ConsentStatus } from '../services/consentGate';
+import { consentGate } from '../services/consentGate';
+import type { ConsentGateResult, ConsentStatus } from '../services/consentGate';
 import { useAuth } from '../contexts/AuthContext';
 
 interface UseConsentGateOptions {

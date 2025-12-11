@@ -43,6 +43,11 @@ import DoctorPaymentSettings from './DoctorPaymentSettings.js';
 import Message from './Message.js';
 import VideoCall from './VideoCall.js';
 import PrescriptionAccessGrant from './PrescriptionAccessGrant.js';
+import TimeSlot from './TimeSlot.js';
+import DoctorAvailabilityTemplate from './DoctorAvailabilityTemplate.js';
+import PatientQueue from './PatientQueue.js';
+import QueueEntry from './QueueEntry.js';
+import ConsultationSession from './ConsultationSession.js';
 
 // Initialize models with sequelize instance
 const db = {
@@ -66,7 +71,12 @@ const db = {
   DoctorPaymentSettings: DoctorPaymentSettings(sequelize, Sequelize.DataTypes),
   Message: Message(sequelize, Sequelize.DataTypes),
   VideoCall: VideoCall(sequelize, Sequelize.DataTypes),
-  PrescriptionAccessGrant: PrescriptionAccessGrant(sequelize, Sequelize.DataTypes)
+  PrescriptionAccessGrant: PrescriptionAccessGrant(sequelize, Sequelize.DataTypes),
+  TimeSlot: TimeSlot(sequelize, Sequelize.DataTypes),
+  DoctorAvailabilityTemplate: DoctorAvailabilityTemplate(sequelize, Sequelize.DataTypes),
+  PatientQueue: PatientQueue(sequelize, Sequelize.DataTypes),
+  QueueEntry: QueueEntry(sequelize, Sequelize.DataTypes),
+  ConsultationSession: ConsultationSession(sequelize, Sequelize.DataTypes)
 };
 
 // ... REST OF YOUR ASSOCIATIONS CODE REMAINS EXACTLY THE SAME ...
@@ -409,6 +419,92 @@ const initializeAssociations = () => {
       onUpdate: 'CASCADE'
     });
     db.VideoCall.belongsTo(db.Appointment, {
+      foreignKey: 'appointmentId',
+      as: 'appointment'
+    });
+
+    // 🕐 NEW: TimeSlot associations
+    db.Doctor.hasMany(db.TimeSlot, {
+      foreignKey: 'doctorWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'timeSlots',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.TimeSlot.belongsTo(db.Doctor, {
+      foreignKey: 'doctorWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'doctor'
+    });
+
+    db.Appointment.hasMany(db.TimeSlot, {
+      foreignKey: 'appointmentId',
+      as: 'timeSlots',
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    });
+    db.TimeSlot.belongsTo(db.Appointment, {
+      foreignKey: 'appointmentId',
+      as: 'appointment'
+    });
+
+    // 📅 NEW: DoctorAvailabilityTemplate associations
+    db.Doctor.hasMany(db.DoctorAvailabilityTemplate, {
+      foreignKey: 'doctorWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'availabilityTemplates',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.DoctorAvailabilityTemplate.belongsTo(db.Doctor, {
+      foreignKey: 'doctorWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'doctor'
+    });
+
+    db.DoctorAvailabilityTemplate.hasMany(db.TimeSlot, {
+      foreignKey: 'availabilityTemplateId',
+      as: 'generatedSlots',
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    });
+    db.TimeSlot.belongsTo(db.DoctorAvailabilityTemplate, {
+      foreignKey: 'availabilityTemplateId',
+      as: 'availabilityTemplate'
+    });
+
+    // 🏥 NEW: PatientQueue associations
+    db.Doctor.hasMany(db.PatientQueue, {
+      foreignKey: 'doctorWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'patientQueues',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.PatientQueue.belongsTo(db.Doctor, {
+      foreignKey: 'doctorWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'doctor'
+    });
+
+    db.PatientQueue.hasMany(db.QueueEntry, {
+      foreignKey: 'queueId',
+      as: 'entries',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.QueueEntry.belongsTo(db.PatientQueue, {
+      foreignKey: 'queueId',
+      as: 'queue'
+    });
+
+    db.Appointment.hasOne(db.QueueEntry, {
+      foreignKey: 'appointmentId',
+      as: 'queueEntry',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.QueueEntry.belongsTo(db.Appointment, {
       foreignKey: 'appointmentId',
       as: 'appointment'
     });

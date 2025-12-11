@@ -16,10 +16,9 @@ import { LandingPage } from './pages/LandingPage';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { StaffManagement } from './pages/admin/StaffManagement';
-import { UserManagement } from './pages/admin/UserManagement';
-import { Analytics } from './pages/admin/Analytics';
-import { SystemSettings } from './pages/admin/SystemSettings';
+import { AdminStaff } from './pages/admin/AdminStaff';
+import { AdminUsers } from './pages/admin/AdminUsers';
+import { AdminAnalytics } from './pages/admin/AdminAnalytics';
 import { DoctorDashboard } from './pages/doctor/DoctorDashboard';
 import { ConsultationRoom } from './pages/doctor/ConsultationRoom';
 import { ConsultationInterface } from './pages/doctor/ConsultationInterface';
@@ -157,7 +156,7 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute requiredRole="admin">
             <HealthcareLayout>
-              <StaffManagement />
+              <AdminStaff />
             </HealthcareLayout>
           </ProtectedRoute>
         }
@@ -167,7 +166,7 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute requiredRole="admin">
             <HealthcareLayout>
-              <UserManagement />
+              <AdminUsers />
             </HealthcareLayout>
           </ProtectedRoute>
         }
@@ -177,17 +176,7 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute requiredRole="admin">
             <HealthcareLayout>
-              <Analytics />
-            </HealthcareLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/settings"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <HealthcareLayout>
-              <SystemSettings />
+              <AdminAnalytics />
             </HealthcareLayout>
           </ProtectedRoute>
         }

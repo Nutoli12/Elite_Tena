@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import axios from '../../lib/axios';
 import { useNavigate } from 'react-router-dom';
+import { QuickActions } from '../../components/common/QuickActions';
+import { useNavigationService } from '../../services/navigationService';
 
 interface SystemStats {
   users: {
@@ -29,6 +31,7 @@ interface SystemStats {
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const navigationService = useNavigationService(navigate);
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -117,36 +120,7 @@ export const AdminDashboard: React.FC = () => {
     }
   ];
 
-  const quickActions = [
-    {
-      title: 'Register Staff',
-      description: 'Add doctors, lab techs, pharmacists',
-      icon: UserPlus,
-      color: 'from-blue-500 to-purple-600',
-      action: () => navigate('/admin/staff')
-    },
-    {
-      title: 'Manage Users',
-      description: 'View and manage all users',
-      icon: Users,
-      color: 'from-green-500 to-emerald-600',
-      action: () => navigate('/admin/users')
-    },
-    {
-      title: 'System Stats',
-      description: 'View detailed analytics',
-      icon: Activity,
-      color: 'from-orange-500 to-red-600',
-      action: () => navigate('/admin/analytics')
-    },
-    {
-      title: 'AdminJS Panel',
-      description: 'Database management tool',
-      icon: Shield,
-      color: 'from-purple-500 to-pink-600',
-      action: () => window.open('http://localhost:5000/admin', '_blank')
-    }
-  ];
+
 
   if (loading) {
     return (
@@ -200,29 +174,11 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Quick Actions */}
-      <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {quickActions.map((action, i) => (
-            <motion.button
-              key={i}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.1 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={action.action}
-              className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 text-left hover:shadow-xl transition-all"
-            >
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center mb-4`}>
-                <action.icon className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="font-bold text-gray-900 mb-2">{action.title}</h3>
-              <p className="text-sm text-gray-600">{action.description}</p>
-            </motion.button>
-          ))}
-        </div>
-      </div>
+      <QuickActions
+        actions={navigationService.getAdminQuickActions()}
+        columns={4}
+        delay={0.6}
+      />
 
       {/* Recent Users */}
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">

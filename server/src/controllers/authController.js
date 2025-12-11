@@ -139,8 +139,17 @@ export const login = async (req, res) => {
       }
 
       // Simple password check (in production, use bcrypt)
-      const storedPassword = user.profileData?.password;
-      if (storedPassword !== password) {
+      let storedPassword = null;
+      try {
+        const profileData = typeof user.profileData === 'string' 
+          ? JSON.parse(user.profileData) 
+          : user.profileData;
+        storedPassword = profileData?.password;
+      } catch (e) {
+        console.error('Error parsing profileData:', e);
+      }
+      
+      if (!storedPassword || storedPassword !== password) {
         return res.status(401).json({
           success: false,
           error: 'Invalid credentials',

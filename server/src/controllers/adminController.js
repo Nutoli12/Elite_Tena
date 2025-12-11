@@ -627,3 +627,101 @@ export const updateAllDoctorServices = async (req, res) => {
     });
   }
 };
+
+/**
+ * Register staff member (alias for specific registration functions)
+ */
+export const registerStaff = async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    // Route to specific registration function based on role
+    switch (role) {
+      case 'doctor':
+        return await registerDoctor(req, res);
+      case 'pharmacist':
+        return await registerPharmacist(req, res);
+      case 'lab_technician':
+        return await registerLabTechnician(req, res);
+      default:
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid role',
+          message: 'Role must be doctor, pharmacist, or lab_technician'
+        });
+    }
+  } catch (error) {
+    console.error('❌ Register staff error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to register staff member',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Get analytics data
+ */
+export const getAnalytics = async (req, res) => {
+  try {
+    const { timeRange = '7d' } = req.query;
+    
+    console.log('📊 Admin: Fetching analytics data for:', timeRange);
+
+    // Get basic user counts
+    const totalUsers = await User.count();
+    const activeUsers = await User.count({ where: { isActive: true } });
+    const patientCount = await User.count({ where: { role: 'patient' } });
+    const doctorCount = await User.count({ where: { role: 'doctor' } });
+    const pharmacistCount = await User.count({ where: { role: 'pharmacist' } });
+
+    // Mock user growth data (in production, this would be real data)
+    const userGrowth = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      userGrowth.push({
+        date: date.toISOString().split('T')[0],
+        users: Math.floor(totalUsers * (0.7 + (6 - i) * 0.05))
+      });
+    }
+
+    // Mock appointment statistics
+    const appointmentStats = {
+      total: Math.floor(totalUsers * 1.5),
+      completed: Math.floor(totalUsers * 1.2),
+      cancelled: Math.floor(totalUsers * 0.1),
+      pending: Math.floor(totalUsers * 0.2)
+    };
+
+    console.log('✅ Analytics data fetched successfully');
+
+    res.json({
+      success: true,
+      data: {
+        userGrowth,
+        appointmentStats,
+        systemUsage: {
+          dailyActiveUsers: Math.floor(activeUsers * 0.3),
+          totalSessions: Math.floor(activeUsers * 2.5),
+          averageSessionTime: 12
+        },
+        userCounts: {
+          total: totalUsers,
+          active: activeUsers,
+          patients: patientCount,
+          doctors: doctorCount,
+          pharmacists: pharmacistCount
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get analytics error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch analytics data',
+      message: error.message
+    });
+  }
+};

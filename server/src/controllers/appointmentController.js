@@ -103,13 +103,14 @@ export const getAppointments = async (req, res) => {
       where.status = status;
     }
 
+    // ENHANCED QUERY - Include names but with safe joins
     const appointments = await Appointment.findAll({
       where,
       include: [
         {
           model: Patient,
           as: 'patientDetails',
-          required: false, // LEFT JOIN - don't fail if patient record missing
+          required: false, // LEFT JOIN - don't fail if missing
           attributes: ['walletAddress'],
           include: [
             {
@@ -123,7 +124,7 @@ export const getAppointments = async (req, res) => {
         {
           model: Doctor,
           as: 'doctorDetails',
-          required: false, // LEFT JOIN - don't fail if doctor record missing
+          required: false, // LEFT JOIN - don't fail if missing
           attributes: ['walletAddress', 'specialization'],
           include: [
             {
@@ -140,10 +141,66 @@ export const getAppointments = async (req, res) => {
 
     console.log(`✅ Found ${appointments.length} appointments`);
 
+    // Format appointments with clear "appointedWith" information
+    const formattedAppointments = appointments.map(appointment => {
+      const appointmentData = appointment.toJSON();
+      
+      // Extract doctor information
+      let doctorName = 'Unknown Doctor';
+      let doctorSpecialization = 'General';
+      let doctorEmail = '';
+      
+      if (appointment.doctorDetails && appointment.doctorDetails.user) {
+        try {
+          const profileData = JSON.parse(appointment.doctorDetails.user.profileData);
+          doctorName = profileData.name || profileData.firstName || 'Unknown Doctor';
+        } catch (e) {
+          doctorName = 'Unknown Doctor';
+        }
+        doctorSpecialization = appointment.doctorDetails.specialization || 'General';
+        doctorEmail = appointment.doctorDetails.user.email || '';
+      }
+      
+      // Extract patient information
+      let patientName = 'Unknown Patient';
+      let patientEmail = '';
+      
+      if (appointment.patientDetails && appointment.patientDetails.user) {
+        try {
+          const profileData = JSON.parse(appointment.patientDetails.user.profileData);
+          patientName = profileData.name || profileData.firstName || 'Unknown Patient';
+        } catch (e) {
+          patientName = 'Unknown Patient';
+        }
+        patientEmail = appointment.patientDetails.user.email || '';
+      }
+      
+      // Add clear appointment information
+      return {
+        ...appointmentData,
+        // Clear appointment information
+        appointedWith: {
+          name: doctorName,
+          specialization: doctorSpecialization,
+          email: doctorEmail,
+          walletAddress: appointment.doctorWalletAddress
+        },
+        patientInfo: {
+          name: patientName,
+          email: patientEmail,
+          walletAddress: appointment.patientWalletAddress
+        },
+        // Formatted display strings
+        displayDoctor: `${doctorName} (${doctorSpecialization})`,
+        displayPatient: patientName,
+        appointmentSummary: `Appointment with ${doctorName} (${doctorSpecialization}) on ${new Date(appointment.appointmentDate).toLocaleDateString()}`
+      };
+    });
+
     res.json({
       success: true,
-      data: appointments,
-      count: appointments.length,
+      data: formattedAppointments,
+      count: formattedAppointments.length,
       userRole,
       userId
     });
@@ -252,6 +309,11 @@ export const createAppointment = async (req, res) => {
       });
     }
 
+    // Calculate reschedule deadline (24 hours before appointment)
+    const rescheduleDeadline = new Date(new Date(appointmentDate).getTime() - (24 * 60 * 60 * 1000));
+    const now = new Date();
+    const canReschedule = rescheduleDeadline > now;
+
     // Create appointment
     const appointment = await Appointment.create({
       patientWalletAddress: patientWalletAddress.toLowerCase(),
@@ -265,7 +327,12 @@ export const createAppointment = async (req, res) => {
       // 🆕 Save new fields
       serviceType: req.body.serviceType || 'inPerson',
       requiresApproval: req.body.requiresApproval || false,
-      approvalStatus: req.body.approvalStatus || 'pending'
+      approvalStatus: req.body.approvalStatus || 'pending',
+      // 🆕 NO-CANCEL SYSTEM: Set reschedule deadline
+      rescheduleDeadline,
+      canReschedule,
+      rescheduleCount: 0,
+      isRescheduled: false
     });
 
     // 🔔 Send notification to doctor
@@ -377,13 +444,27 @@ export const updateAppointment = async (req, res) => {
 };
 
 /**
- * Cancel an appointment
+ * 🚫 REMOVED: Cancel appointment - replaced with note system
+ * Patients can no longer cancel appointments, only leave notes
  */
-export const cancelAppointment = async (req, res) => {
+
+/**
+ * 📝 NEW: Patient leaves note (instead of canceling) - SIMPLIFIED VERSION
+ */
+export const leavePatientNote = async (req, res) => {
   try {
     const { id } = req.params;
+    const { note, patientWallet } = req.body;
 
-    console.log('❌ Cancelling appointment:', id);
+    console.log('📝 Patient leaving note for appointment:', id);
+
+    if (!note || note.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Note is required',
+        message: 'Please provide a reason for not attending'
+      });
+    }
 
     const appointment = await Appointment.findByPk(id);
 
@@ -394,20 +475,223 @@ export const cancelAppointment = async (req, res) => {
       });
     }
 
-    await appointment.update({ status: 'cancelled' });
+    // Verify patient owns this appointment
+    if (appointment.patientWalletAddress.toLowerCase() !== patientWallet.toLowerCase()) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized',
+        message: 'You can only leave notes for your own appointments'
+      });
+    }
 
-    console.log('✅ Appointment cancelled');
+    // Update appointment using existing fields - store note in 'notes' field and update status
+    const noteWithTimestamp = `[PATIENT NOTE - ${new Date().toISOString()}]: ${note.trim()}`;
+    const existingNotes = appointment.notes || '';
+    const updatedNotes = existingNotes ? `${existingNotes}\n\n${noteWithTimestamp}` : noteWithTimestamp;
+
+    await appointment.update({
+      notes: updatedNotes,
+      status: 'cancelled' // Use existing status - patient left note explaining absence
+    });
+
+    // 🔔 Notify doctor about patient note
+    try {
+      const { sendNotification } = await import('../services/socketService.js');
+      await sendNotification(
+        appointment.doctorWalletAddress,
+        'patient_note',
+        {
+          title: 'Patient Left Note',
+          message: `Patient left a note about their appointment: "${note.substring(0, 50)}${note.length > 50 ? '...' : ''}"`,
+          relatedId: appointment.id,
+          priority: 'medium'
+        }
+      );
+      console.log('🔔 Notified doctor about patient note');
+    } catch (notifError) {
+      console.error('⚠️ Failed to send notification:', notifError.message);
+    }
+
+    console.log('✅ Patient note saved');
 
     res.json({
       success: true,
-      message: 'Appointment cancelled successfully',
-      data: appointment
+      message: 'Note saved successfully. Doctor has been notified.',
+      data: {
+        id: appointment.id,
+        notes: appointment.notes,
+        status: appointment.status,
+        patientNote: note.trim(), // Return the note for frontend
+        patientNoteDate: new Date().toISOString()
+      }
     });
   } catch (error) {
-    console.error('❌ Cancel appointment error:', error);
+    console.error('❌ Leave patient note error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to cancel appointment',
+      error: 'Failed to save note',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * ⏰ NEW: Check if appointment can be rescheduled (24-hour rule)
+ */
+export const checkRescheduleEligibility = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log('⏰ Checking reschedule eligibility for appointment:', id);
+
+    const appointment = await Appointment.findByPk(id);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Appointment not found'
+      });
+    }
+
+    const now = new Date();
+    const appointmentDate = new Date(appointment.appointmentDate);
+    const hoursUntilAppointment = (appointmentDate - now) / (1000 * 60 * 60);
+
+    const canReschedule = hoursUntilAppointment > 24;
+    const rescheduleDeadline = new Date(appointmentDate.getTime() - (24 * 60 * 60 * 1000));
+
+    // Update the appointment with calculated deadline
+    await appointment.update({
+      canReschedule,
+      rescheduleDeadline
+    });
+
+    console.log(`✅ Reschedule check: ${canReschedule ? 'ALLOWED' : 'BLOCKED'} (${hoursUntilAppointment.toFixed(1)}h remaining)`);
+
+    res.json({
+      success: true,
+      data: {
+        canReschedule,
+        hoursUntilAppointment: Math.round(hoursUntilAppointment * 10) / 10,
+        rescheduleDeadline,
+        appointmentDate: appointment.appointmentDate,
+        message: canReschedule 
+          ? `You can reschedule until ${rescheduleDeadline.toLocaleString()}`
+          : 'Reschedule deadline has passed (24 hours before appointment). You can leave a note instead.'
+      }
+    });
+  } catch (error) {
+    console.error('❌ Check reschedule eligibility error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check reschedule eligibility',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * 🔄 NEW: Reschedule appointment (with 24-hour restriction)
+ */
+export const rescheduleAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newDate, reason, patientWallet } = req.body;
+
+    console.log('🔄 Attempting to reschedule appointment:', id);
+
+    if (!newDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'New appointment date is required'
+      });
+    }
+
+    const appointment = await Appointment.findByPk(id);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Appointment not found'
+      });
+    }
+
+    // Verify patient owns this appointment
+    if (appointment.patientWalletAddress.toLowerCase() !== patientWallet.toLowerCase()) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized',
+        message: 'You can only reschedule your own appointments'
+      });
+    }
+
+    // Check 24-hour rule
+    const now = new Date();
+    const appointmentDate = new Date(appointment.appointmentDate);
+    const hoursUntilAppointment = (appointmentDate - now) / (1000 * 60 * 60);
+
+    if (hoursUntilAppointment <= 24) {
+      return res.status(400).json({
+        success: false,
+        error: 'Reschedule deadline passed',
+        message: 'Appointments cannot be rescheduled within 24 hours. You can leave a note instead.',
+        canReschedule: false,
+        hoursRemaining: Math.round(hoursUntilAppointment * 10) / 10
+      });
+    }
+
+    // Store original date if this is the first reschedule
+    const originalDate = appointment.originalAppointmentDate || appointment.appointmentDate;
+
+    // Update appointment
+    await appointment.update({
+      appointmentDate: new Date(newDate),
+      originalAppointmentDate: originalDate,
+      isRescheduled: true,
+      rescheduleCount: appointment.rescheduleCount + 1,
+      lastRescheduleDate: new Date(),
+      rescheduleReason: reason || 'Patient requested reschedule',
+      rescheduleDeadline: new Date(new Date(newDate).getTime() - (24 * 60 * 60 * 1000)),
+      canReschedule: true,
+      status: 'rescheduled'
+    });
+
+    // 🔔 Notify doctor about reschedule
+    try {
+      const { sendNotification } = await import('../services/socketService.js');
+      await sendNotification(
+        appointment.doctorWalletAddress,
+        'appointment_rescheduled',
+        {
+          title: 'Appointment Rescheduled',
+          message: `Patient rescheduled appointment to ${new Date(newDate).toLocaleString()}`,
+          relatedId: appointment.id,
+          priority: 'high'
+        }
+      );
+      console.log('🔔 Notified doctor about reschedule');
+    } catch (notifError) {
+      console.error('⚠️ Failed to send notification:', notifError.message);
+    }
+
+    console.log('✅ Appointment rescheduled successfully');
+
+    res.json({
+      success: true,
+      message: 'Appointment rescheduled successfully',
+      data: {
+        id: appointment.id,
+        oldDate: originalDate,
+        newDate: appointment.appointmentDate,
+        rescheduleCount: appointment.rescheduleCount,
+        rescheduleDeadline: appointment.rescheduleDeadline
+      }
+    });
+  } catch (error) {
+    console.error('❌ Reschedule appointment error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reschedule appointment',
       message: error.message
     });
   }
@@ -794,5 +1078,45 @@ export const bookAppointmentSlot = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+/**
+ * Get patient appointments (SIMPLIFIED)
+ */
+export const getPatientAppointments = async (req, res) => {
+  try {
+    const { patientWallet } = req.params;
+    
+    console.log('🔍 Fetching appointments for patient:', patientWallet);
+    
+    const appointments = await Appointment.findAll({
+      where: {
+        patientWalletAddress: patientWallet.toLowerCase()
+      },
+      order: [['appointmentDate', 'DESC']],
+      limit: 50
+    });
+    
+    console.log(`✅ Found ${appointments.length} appointments`);
+    
+    res.json({
+      success: true,
+      appointments: appointments || [],
+      count: appointments.length
+    });
+    
+  } catch (error) {
+    console.error('❌ Get patient appointments error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch appointments',
+      message: error.message
+    });
+  }
+};
+
 
 

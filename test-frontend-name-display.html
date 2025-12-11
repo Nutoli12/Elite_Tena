@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Frontend Name Display</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        .user-info { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 3px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; margin: 5px; }
+        .result { margin: 10px 0; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Frontend Name Display Logic</h1>
+    
+    <div class="info test-case">
+        <h3>📋 Name Extraction Logic Test</h3>
+        <p>This tests the same logic that the frontend now uses to extract user names.</p>
+    </div>
+
+    <div class="test-case">
+        <h3>Test Cases</h3>
+        <button onclick="testNameExtraction()">Run Name Extraction Tests</button>
+        <div id="nameTestResults"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Live API Test</h3>
+        <button onclick="testLiveLogin()">Test Live Login & Name Display</button>
+        <div id="liveTestResults"></div>
+    </div>
+
+    <script>
+        // Simulate the frontend name extraction logic
+        function extractUserName(user) {
+            return user.profileData?.fullName || 
+                   user.profileData?.name || 
+                   (user.profileData?.firstName && user.profileData?.lastName 
+                     ? `${user.profileData.firstName} ${user.profileData.lastName}` 
+                     : 'User');
+        }
+
+        function testNameExtraction() {
+            const testCases = [
+                {
+                    name: "User with profileData.name",
+                    user: {
+                        email: "nutirese@gmail.com",
+                        profileData: {
+                            name: "Yonas Girma",
+                            firstName: "Yonas",
+                            lastName: "Girma"
+                        }
+                    },
+                    expected: "Yonas Girma"
+                },
+                {
+                    name: "Doctor with profileData.name",
+                    user: {
+                        email: "drabinetengida@gmail.com",
+                        profileData: {
+                            name: "Dr. Ahmed Hassan",
+                            firstName: "Ahmed",
+                            lastName: "Hassan"
+                        }
+                    },
+                    expected: "Dr. Ahmed Hassan"
+                },
+                {
+                    name: "User with fullName (priority)",
+                    user: {
+                        email: "test@example.com",
+                        profileData: {
+                            fullName: "Full Name Priority",
+                            name: "Regular Name",
+                            firstName: "First",
+                            lastName: "Last"
+                        }
+                    },
+                    expected: "Full Name Priority"
+                },
+                {
+                    name: "User with only firstName + lastName",
+                    user: {
+                        email: "test2@example.com",
+                        profileData: {
+                            firstName: "John",
+                            lastName: "Doe"
+                        }
+                    },
+                    expected: "John Doe"
+                },
+                {
+                    name: "User with no name data",
+                    user: {
+                        email: "test3@example.com",
+                        profileData: {}
+                    },
+                    expected: "User"
+                }
+            ];
+
+            let results = '<h4>Name Extraction Test Results:</h4>';
+            let allPassed = true;
+
+            testCases.forEach((testCase, index) => {
+                const result = extractUserName(testCase.user);
+                const passed = result === testCase.expected;
+                allPassed = allPassed && passed;
+
+                results += `
+                    <div class="result ${passed ? 'success' : 'error'}">
+                        <strong>Test ${index + 1}: ${testCase.name}</strong><br>
+                        Expected: "${testCase.expected}"<br>
+                        Got: "${result}"<br>
+                        Status: ${passed ? '✅ PASS' : '❌ FAIL'}
+                    </div>
+                `;
+            });
+
+            results += `<div class="result ${allPassed ? 'success' : 'error'}">
+                <strong>Overall Result: ${allPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'}</strong>
+            </div>`;
+
+            document.getElementById('nameTestResults').innerHTML = results;
+        }
+
+        async function testLiveLogin() {
+            const resultDiv = document.getElementById('liveTestResults');
+            resultDiv.innerHTML = '<p>🔄 Testing live login...</p>';
+
+            const testUsers = [
+                { email: 'nutirese@gmail.com', password: '123456', expectedName: 'Yonas Girma' },
+                { email: 'drabinetengida@gmail.com', password: 'doctor123', expectedName: 'Dr. Ahmed Hassan' },
+                { email: 'semiryusuf@gmail.com', password: '123456', expectedName: 'Semir Yusuf' }
+            ];
+
+            let results = '<h4>Live Login Test Results:</h4>';
+
+            for (const testUser of testUsers) {
+                try {
+                    const response = await fetch('http://localhost:3004/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: testUser.email, password: testUser.password })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        const extractedName = extractUserName(data.data.user);
+                        const nameMatches = extractedName === testUser.expectedName;
+
+                        results += `
+                            <div class="result ${nameMatches ? 'success' : 'error'}">
+                                <strong>${testUser.email}</strong><br>
+                                Login: ✅ Success<br>
+                                Expected Name: "${testUser.expectedName}"<br>
+                                Extracted Name: "${extractedName}"<br>
+                                Name Display: ${nameMatches ? '✅ CORRECT' : '❌ INCORRECT'}<br>
+                                Raw ProfileData: ${JSON.stringify(data.data.user.profileData)}
+                            </div>
+                        `;
+                    } else {
+                        results += `
+                            <div class="result error">
+                                <strong>${testUser.email}</strong><br>
+                                Login: ❌ Failed - ${data.message}
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    results += `
+                        <div class="result error">
+                            <strong>${testUser.email}</strong><br>
+                            Error: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+
+            resultDiv.innerHTML = results;
+        }
+
+        // Auto-run name extraction tests on load
+        window.onload = function() {
+            testNameExtraction();
+        };
+    </script>
+</body>
+</html>
