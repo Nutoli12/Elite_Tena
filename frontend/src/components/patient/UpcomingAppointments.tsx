@@ -32,8 +32,8 @@ export const UpcomingAppointments: React.FC = () => {
           .slice(0, 2)
           .map((apt: any) => ({
             id: apt.id,
-            doctor: apt.displayDoctor || apt.appointedWith?.name || 'Unknown Doctor',
-            specialization: apt.appointedWith?.specialization || 'General Medicine',
+            doctor: apt.doctor?.profileData?.name || apt.doctor?.profileData?.fullName || (apt.doctor?.profileData?.firstName && apt.doctor?.profileData?.lastName ? `${apt.doctor.profileData.firstName} ${apt.doctor.profileData.lastName}` : apt.displayDoctor || apt.appointedWith?.name || 'Unknown Doctor'),
+            specialization: apt.doctor?.doctorProfile?.specialization || apt.appointedWith?.specialization || 'General Medicine',
             date: apt.appointmentDate.split('T')[0],
             time: new Date(apt.appointmentDate).toLocaleTimeString('en-US', { 
               hour: 'numeric', 

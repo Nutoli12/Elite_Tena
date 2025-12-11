@@ -38,7 +38,7 @@ export const ConsultationRoom: React.FC = () => {
     : appointment?.doctorWalletAddress;
   const otherUserName = isDoctor
     ? (appointment?.patientDetails as any)?.user?.fullName || 'Patient'
-    : (appointment?.doctorDetails as any)?.user?.fullName || 'Doctor';
+    : (appointment?.doctorDetails as any)?.profileData?.name || (appointment?.doctorDetails as any)?.profileData?.fullName || ((appointment?.doctorDetails as any)?.profileData?.firstName && (appointment?.doctorDetails as any)?.profileData?.lastName ? `${(appointment?.doctorDetails as any).profileData.firstName} ${(appointment?.doctorDetails as any).profileData.lastName}` : (appointment?.doctorDetails as any)?.user?.name || (appointment?.doctorDetails as any)?.name || 'Doctor');
 
   useEffect(() => {
     if (appointmentId) {

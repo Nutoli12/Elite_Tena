@@ -39,7 +39,7 @@ export const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({
       if (paymentResponse.data.success) {
         setPaymentDetails({
           ...paymentResponse.data.data,
-          doctorName: appointment.doctorDetails?.user?.profileData?.fullName || 'Doctor',
+          doctorName: appointment.doctorDetails?.profileData?.name || appointment.doctorDetails?.profileData?.fullName || (appointment.doctorDetails?.profileData?.firstName && appointment.doctorDetails?.profileData?.lastName ? `${appointment.doctorDetails.profileData.firstName} ${appointment.doctorDetails.profileData.lastName}` : appointment.doctorDetails?.user?.name || appointment.doctorDetails?.name || 'Doctor'),
           appointmentId: appointmentId
         });
       }

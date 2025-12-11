@@ -170,7 +170,7 @@ export const PendingConsentRequests: React.FC = () => {
                     </div>
                     <p className="text-gray-600">
                       <User className="w-4 h-4 inline mr-1" />
-                      {request.doctor?.user?.name || request.doctor?.name || request.doctor?.user?.email?.split('@')[0] || 'Doctor'} ({request.doctor?.specialty || request.doctor?.specialization || 'Specialist'})
+                      {request.doctor?.profileData?.name || request.doctor?.profileData?.fullName || (request.doctor?.profileData?.firstName && request.doctor?.profileData?.lastName ? `${request.doctor.profileData.firstName} ${request.doctor.profileData.lastName}` : request.doctor?.user?.name || request.doctor?.name || 'Doctor') || request.doctor?.user?.email?.split('@')[0]} ({request.doctor?.specialty || request.doctor?.specialization || 'Specialist'})
                     </p>
                   </div>
                 </div>

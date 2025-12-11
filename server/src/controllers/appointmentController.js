@@ -111,29 +111,25 @@ export const getAppointments = async (req, res) => {
           model: Patient,
           as: 'patientDetails',
           required: false, // LEFT JOIN - don't fail if missing
-          attributes: ['walletAddress'],
-          include: [
-            {
-              model: db.User,
-              as: 'user',
-              required: false,
-              attributes: ['email', 'profileData']
-            }
-          ]
+          attributes: ['walletAddress']
         },
         {
           model: Doctor,
           as: 'doctorDetails',
           required: false, // LEFT JOIN - don't fail if missing
-          attributes: ['walletAddress', 'specialization'],
-          include: [
-            {
-              model: db.User,
-              as: 'user',
-              required: false,
-              attributes: ['email', 'profileData']
-            }
-          ]
+          attributes: ['walletAddress', 'specialization']
+        },
+        {
+          model: User,
+          as: 'patient',
+          required: false,
+          attributes: ['email', 'profileData']
+        },
+        {
+          model: User,
+          as: 'doctor',
+          required: false,
+          attributes: ['email', 'profileData']
         }
       ],
       order: [['appointmentDate', 'ASC']]
@@ -150,29 +146,44 @@ export const getAppointments = async (req, res) => {
       let doctorSpecialization = 'General';
       let doctorEmail = '';
       
-      if (appointment.doctorDetails && appointment.doctorDetails.user) {
+      if (appointment.doctor) {
         try {
-          const profileData = JSON.parse(appointment.doctorDetails.user.profileData);
-          doctorName = profileData.name || profileData.firstName || 'Unknown Doctor';
+          // profileData is already an object, no need to parse
+          const profileData = appointment.doctor.profileData;
+          doctorName = profileData?.name || 
+                      profileData?.fullName || 
+                      (profileData?.firstName && profileData?.lastName 
+                        ? `${profileData.firstName} ${profileData.lastName}` 
+                        : profileData?.firstName || 'Unknown Doctor');
         } catch (e) {
+          console.error('Error extracting doctor name:', e);
           doctorName = 'Unknown Doctor';
         }
+        doctorEmail = appointment.doctor.email || '';
+      }
+      
+      if (appointment.doctorDetails) {
         doctorSpecialization = appointment.doctorDetails.specialization || 'General';
-        doctorEmail = appointment.doctorDetails.user.email || '';
       }
       
       // Extract patient information
       let patientName = 'Unknown Patient';
       let patientEmail = '';
       
-      if (appointment.patientDetails && appointment.patientDetails.user) {
+      if (appointment.patient) {
         try {
-          const profileData = JSON.parse(appointment.patientDetails.user.profileData);
-          patientName = profileData.name || profileData.firstName || 'Unknown Patient';
+          // profileData is already an object, no need to parse
+          const profileData = appointment.patient.profileData;
+          patientName = profileData?.name || 
+                       profileData?.fullName || 
+                       (profileData?.firstName && profileData?.lastName 
+                         ? `${profileData.firstName} ${profileData.lastName}` 
+                         : profileData?.firstName || 'Unknown Patient');
         } catch (e) {
+          console.error('Error extracting patient name:', e);
           patientName = 'Unknown Patient';
         }
-        patientEmail = appointment.patientDetails.user.email || '';
+        patientEmail = appointment.patient.email || '';
       }
       
       // Add clear appointment information

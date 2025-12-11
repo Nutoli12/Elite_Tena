@@ -144,11 +144,11 @@ export const ActiveConsentsList: React.FC = () => {
                       whileHover={{ scale: 1.1, rotate: 5 }}
                       className="w-14 h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center text-white text-xl font-bold"
                     >
-                      {(consent.doctor?.user?.name || consent.doctor?.name || 'D').charAt(0)}
+                      {(consent.doctor?.profileData?.name || consent.doctor?.profileData?.fullName || (consent.doctor?.profileData?.firstName && consent.doctor?.profileData?.lastName ? `${consent.doctor.profileData.firstName} ${consent.doctor.profileData.lastName}` : consent.doctor?.user?.name || consent.doctor?.name || 'Doctor') || 'D').charAt(0)}
                     </motion.div>
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        👨‍⚕️ {consent.doctor?.user?.name || consent.doctor?.name || consent.doctor?.user?.email?.split('@')[0] || 'Doctor'}
+                        👨‍⚕️ {consent.doctor?.profileData?.name || consent.doctor?.profileData?.fullName || (consent.doctor?.profileData?.firstName && consent.doctor?.profileData?.lastName ? `${consent.doctor.profileData.firstName} ${consent.doctor.profileData.lastName}` : consent.doctor?.user?.name || consent.doctor?.name || 'Doctor') || consent.doctor?.user?.email?.split('@')[0]}
                         <motion.span
                           animate={{ scale: [1, 1.1, 1] }}
                           transition={{ duration: 2, repeat: Infinity }}

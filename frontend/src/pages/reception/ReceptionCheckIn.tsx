@@ -203,7 +203,7 @@ export const ReceptionCheckIn: React.FC = () => {
                                 minute: '2-digit'
                               })}
                             </span>
-                            <span>Dr. {apt.doctorDetails?.user?.fullName || 'Doctor'}</span>
+                            <span>Dr. {apt.doctorDetails?.profileData?.name || apt.doctorDetails?.profileData?.fullName || (apt.doctorDetails?.profileData?.firstName && apt.doctorDetails?.profileData?.lastName ? `${apt.doctorDetails.profileData.firstName} ${apt.doctorDetails.profileData.lastName}` : apt.doctorDetails?.user?.name || apt.doctorDetails?.name || 'Doctor')}</span>
                           </div>
                         </div>
                         {apt.checkInStatus === 'not_checked_in' ? (

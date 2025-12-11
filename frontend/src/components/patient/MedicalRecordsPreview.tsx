@@ -25,7 +25,7 @@ export const MedicalRecordsPreview: React.FC = () => {
         const backendRecords = response.data.data.slice(0, 3).map((record: any) => ({
           id: record.id,
           title: `${record.recordType} - ${new Date(record.createdAt).toLocaleDateString()}`,
-          doctor: record.doctor?.user?.name || record.doctor?.name || `Dr. ${record.doctorWalletAddress?.substring(0, 8)}...` || 'Unknown Doctor',
+          doctor: record.doctor?.profileData?.name || record.doctor?.profileData?.fullName || (record.doctor?.profileData?.firstName && record.doctor?.profileData?.lastName ? `${record.doctor.profileData.firstName} ${record.doctor.profileData.lastName}` : record.doctor?.user?.name || record.doctor?.name || `Dr. ${record.doctorWalletAddress?.substring(0, 8)}...` || 'Unknown Doctor'),
           date: record.createdAt.split('T')[0],
           type: record.recordType || 'Medical Record',
           diagnosis: record.diagnosis || 'No diagnosis provided',

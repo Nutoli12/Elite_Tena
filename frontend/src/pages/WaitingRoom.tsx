@@ -105,7 +105,7 @@ export const WaitingRoom: React.FC = () => {
                     Queue #{currentPatient.queueNumber}
                   </h2>
                   <p className="text-2xl opacity-90">
-                    Dr. {currentPatient.doctorDetails?.user?.fullName || 'Doctor'}
+                    Dr. {currentPatient.doctorDetails?.profileData?.name || currentPatient.doctorDetails?.profileData?.fullName || (currentPatient.doctorDetails?.profileData?.firstName && currentPatient.doctorDetails?.profileData?.lastName ? `${currentPatient.doctorDetails.profileData.firstName} ${currentPatient.doctorDetails.profileData.lastName}` : currentPatient.doctorDetails?.user?.name || currentPatient.doctorDetails?.name || 'Doctor')}
                   </p>
                 </div>
               </div>
@@ -172,7 +172,7 @@ export const WaitingRoom: React.FC = () => {
                     <div className="space-y-2">
                       <p className="text-sm text-gray-600">Doctor</p>
                       <p className="font-semibold text-gray-900">
-                        Dr. {patient.doctorDetails?.user?.fullName || 'Doctor'}
+                        Dr. {patient.doctorDetails?.profileData?.name || patient.doctorDetails?.profileData?.fullName || (patient.doctorDetails?.profileData?.firstName && patient.doctorDetails?.profileData?.lastName ? `${patient.doctorDetails.profileData.firstName} ${patient.doctorDetails.profileData.lastName}` : patient.doctorDetails?.user?.name || patient.doctorDetails?.name || 'Doctor')}
                       </p>
                       
                       {patient.estimatedWaitTime && (

@@ -28,7 +28,7 @@ export const DoctorApprovalModal: React.FC<DoctorApprovalModalProps> = ({
         paymentDetails: {
           method: 'telebirr',
           accountNumber: '0912345678',
-          accountName: 'Dr. ' + appointment.doctorDetails?.user?.profileData?.fullName || 'Doctor',
+          accountName: 'Dr. ' + appointment.doctorDetails?.profileData?.name || appointment.doctorDetails?.profileData?.fullName || (appointment.doctorDetails?.profileData?.firstName && appointment.doctorDetails?.profileData?.lastName ? `${appointment.doctorDetails.profileData.firstName} ${appointment.doctorDetails.profileData.lastName}` : appointment.doctorDetails?.user?.name || appointment.doctorDetails?.name || 'Doctor'),
           amount: appointment.fee
         }
       });
