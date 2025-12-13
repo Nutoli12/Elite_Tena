@@ -82,5 +82,12 @@ export default (sequelize, DataTypes) => {
     tableName: 'doctors'
   });
 
+  Doctor.associate = function(models) {
+    Doctor.belongsTo(models.User, {
+      foreignKey: 'walletAddress',
+      as: 'user'
+    });
+  };
+
   return Doctor;
 };

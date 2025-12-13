@@ -1,5 +1,5 @@
 import db from '../models/index.js';
-const { Appointment, Patient, Doctor, User } = db;
+const { Appointment, Patient, Doctor, User, Sequelize } = db;
 
 /**
  * Get appointments for a specific doctor (Doctor Dashboard)
@@ -9,10 +9,21 @@ export const getDoctorAppointments = async (req, res) => {
         const { doctorWallet } = req.params;
         const { status, date, serviceType } = req.query;
 
-        console.log('🔍 Fetching appointments for doctor:', doctorWallet);
+        // 🔧 SANITIZE: Remove any :1, :2, etc. suffixes that might be added by browser tools
+        const sanitizeWallet = (wallet) => {
+            if (!wallet) return wallet;
+            return wallet.split(':')[0]; // Remove everything after first colon
+        };
+
+        const sanitizedDoctorWallet = sanitizeWallet(doctorWallet);
+
+        console.log('🔍 Fetching appointments for doctor:', {
+            original: doctorWallet,
+            sanitized: sanitizedDoctorWallet
+        });
 
         const whereClause = {
-            doctorWalletAddress: doctorWallet.toLowerCase()
+            doctorWalletAddress: sanitizedDoctorWallet.toLowerCase()
         };
 
         // Filter by status if provided
@@ -33,7 +44,7 @@ export const getDoctorAppointments = async (req, res) => {
             endOfDay.setHours(23, 59, 59, 999);
 
             whereClause.appointmentDate = {
-                [db.Sequelize.Op.between]: [startOfDay, endOfDay]
+                [Sequelize.Op.between]: [startOfDay, endOfDay]
             };
         }
 
@@ -47,7 +58,7 @@ export const getDoctorAppointments = async (req, res) => {
                 },
                 {
                     model: User,
-                    as: 'patientUser',
+                    as: 'patient',
                     attributes: ['walletAddress', 'email', 'profileData']
                 }
             ],
@@ -79,10 +90,21 @@ export const getPatientAppointments = async (req, res) => {
         const { patientWallet } = req.params;
         const { status, upcoming } = req.query;
 
-        console.log('🔍 Fetching appointments for patient:', patientWallet);
+        // 🔧 SANITIZE: Remove any :1, :2, etc. suffixes that might be added by browser tools
+        const sanitizeWallet = (wallet) => {
+            if (!wallet) return wallet;
+            return wallet.split(':')[0]; // Remove everything after first colon
+        };
+
+        const sanitizedPatientWallet = sanitizeWallet(patientWallet);
+
+        console.log('🔍 Fetching appointments for patient:', {
+            original: patientWallet,
+            sanitized: sanitizedPatientWallet
+        });
 
         const whereClause = {
-            patientWalletAddress: patientWallet.toLowerCase()
+            patientWalletAddress: sanitizedPatientWallet.toLowerCase()
         };
 
         // Filter by status if provided
@@ -93,10 +115,10 @@ export const getPatientAppointments = async (req, res) => {
         // Filter for upcoming appointments
         if (upcoming === 'true') {
             whereClause.appointmentDate = {
-                [db.Sequelize.Op.gte]: new Date()
+                [Sequelize.Op.gte]: new Date()
             };
             whereClause.status = {
-                [db.Sequelize.Op.notIn]: ['cancelled', 'completed']
+                [Sequelize.Op.notIn]: ['cancelled', 'completed']
             };
         }
 
@@ -110,7 +132,7 @@ export const getPatientAppointments = async (req, res) => {
                 },
                 {
                     model: User,
-                    as: 'doctorUser',
+                    as: 'doctor',
                     attributes: ['walletAddress', 'email', 'profileData']
                 }
             ],
@@ -141,6 +163,14 @@ export const getTodayAppointments = async (req, res) => {
     try {
         const { doctorWallet } = req.params;
 
+        // 🔧 SANITIZE: Remove any :1, :2, etc. suffixes that might be added by browser tools
+        const sanitizeWallet = (wallet) => {
+            if (!wallet) return wallet;
+            return wallet.split(':')[0]; // Remove everything after first colon
+        };
+
+        const sanitizedDoctorWallet = sanitizeWallet(doctorWallet);
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
@@ -148,12 +178,12 @@ export const getTodayAppointments = async (req, res) => {
 
         const appointments = await Appointment.findAll({
             where: {
-                doctorWalletAddress: doctorWallet.toLowerCase(),
+                doctorWalletAddress: sanitizedDoctorWallet.toLowerCase(),
                 appointmentDate: {
-                    [db.Sequelize.Op.between]: [today, tomorrow]
+                    [Sequelize.Op.between]: [today, tomorrow]
                 },
                 status: {
-                    [db.Sequelize.Op.notIn]: ['cancelled']
+                    [Sequelize.Op.notIn]: ['cancelled']
                 }
             },
             include: [
@@ -163,7 +193,7 @@ export const getTodayAppointments = async (req, res) => {
                 },
                 {
                     model: User,
-                    as: 'patientUser',
+                    as: 'patient',
                     attributes: ['walletAddress', 'profileData']
                 }
             ],
@@ -192,6 +222,14 @@ export const getDoctorStats = async (req, res) => {
     try {
         const { doctorWallet } = req.params;
 
+        // 🔧 SANITIZE: Remove any :1, :2, etc. suffixes that might be added by browser tools
+        const sanitizeWallet = (wallet) => {
+            if (!wallet) return wallet;
+            return wallet.split(':')[0]; // Remove everything after first colon
+        };
+
+        const sanitizedDoctorWallet = sanitizeWallet(doctorWallet);
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
@@ -200,18 +238,18 @@ export const getDoctorStats = async (req, res) => {
         // Today's stats
         const todayAppointments = await Appointment.count({
             where: {
-                doctorWalletAddress: doctorWallet.toLowerCase(),
+                doctorWalletAddress: sanitizedDoctorWallet.toLowerCase(),
                 appointmentDate: {
-                    [db.Sequelize.Op.between]: [today, tomorrow]
+                    [Sequelize.Op.between]: [today, tomorrow]
                 }
             }
         });
 
         const completedToday = await Appointment.count({
             where: {
-                doctorWalletAddress: doctorWallet.toLowerCase(),
+                doctorWalletAddress: sanitizedDoctorWallet.toLowerCase(),
                 appointmentDate: {
-                    [db.Sequelize.Op.between]: [today, tomorrow]
+                    [Sequelize.Op.between]: [today, tomorrow]
                 },
                 status: 'completed'
             }
@@ -219,7 +257,7 @@ export const getDoctorStats = async (req, res) => {
 
         const pendingApprovals = await Appointment.count({
             where: {
-                doctorWalletAddress: doctorWallet.toLowerCase(),
+                doctorWalletAddress: sanitizedDoctorWallet.toLowerCase(),
                 requiresApproval: true,
                 approvalStatus: 'pending'
             }
@@ -227,18 +265,18 @@ export const getDoctorStats = async (req, res) => {
 
         const checkedInPatients = await Appointment.count({
             where: {
-                doctorWalletAddress: doctorWallet.toLowerCase(),
+                doctorWalletAddress: sanitizedDoctorWallet.toLowerCase(),
                 appointmentDate: {
-                    [db.Sequelize.Op.between]: [today, tomorrow]
+                    [Sequelize.Op.between]: [today, tomorrow]
                 },
                 checkInStatus: {
-                    [db.Sequelize.Op.in]: ['checked_in', 'waiting']
+                    [Sequelize.Op.in]: ['checked_in', 'waiting']
                 }
             }
         });
 
         console.log('📊 Doctor Stats:', {
-            doctor: doctorWallet,
+            doctor: sanitizedDoctorWallet,
             todayTotal: todayAppointments,
             pendingApprovals,
             checkedInPatients

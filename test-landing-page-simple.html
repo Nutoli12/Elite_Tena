@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Landing Page Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>Landing Page Test</h1>
+    
+    <div class="test">
+        <h3>Test 1: Frontend Server Status</h3>
+        <p>Frontend should be running on: <a href="http://localhost:5174" target="_blank">http://localhost:5174</a></p>
+        <button onclick="testFrontend()">Test Frontend</button>
+        <div id="frontend-result"></div>
+    </div>
+
+    <div class="test">
+        <h3>Test 2: Landing Page Content</h3>
+        <p>Expected content: "The Future of Healthcare" title</p>
+        <button onclick="testLandingContent()">Test Landing Page Content</button>
+        <div id="content-result"></div>
+    </div>
+
+    <div class="test">
+        <h3>Test 3: Manual Check</h3>
+        <p>Open <a href="http://localhost:5174" target="_blank">http://localhost:5174</a> in a new tab</p>
+        <p>You should see:</p>
+        <ul>
+            <li>✅ "Elite Tena" logo with heart icon</li>
+            <li>✅ "The Future of Healthcare" as main title</li>
+            <li>✅ Blue gradient background</li>
+            <li>✅ "Sign In" and "Get Started" buttons</li>
+        </ul>
+    </div>
+
+    <script>
+        async function testFrontend() {
+            const result = document.getElementById('frontend-result');
+            try {
+                const response = await fetch('http://localhost:5174');
+                if (response.ok) {
+                    result.innerHTML = '<div class="success">✅ Frontend is accessible (Status: ' + response.status + ')</div>';
+                    return true;
+                } else {
+                    result.innerHTML = '<div class="error">❌ Frontend error: ' + response.status + '</div>';
+                    return false;
+                }
+            } catch (error) {
+                result.innerHTML = '<div class="error">❌ Cannot reach frontend: ' + error.message + '</div>';
+                return false;
+            }
+        }
+
+        async function testLandingContent() {
+            const result = document.getElementById('content-result');
+            try {
+                const response = await fetch('http://localhost:5174');
+                if (response.ok) {
+                    const html = await response.text();
+                    
+                    // Check for key landing page elements
+                    const checks = [
+                        { name: 'React App Root', test: html.includes('<div id="root">') },
+                        { name: 'Vite Script', test: html.includes('type="module"') },
+                        { name: 'Title Tag', test: html.includes('<title>') }
+                    ];
+                    
+                    let allPassed = true;
+                    let resultHtml = '<div class="success">✅ Frontend HTML loaded</div>';
+                    
+                    checks.forEach(check => {
+                        if (check.test) {
+                            resultHtml += '<div class="success">✅ ' + check.name + ' found</div>';
+                        } else {
+                            resultHtml += '<div class="error">❌ ' + check.name + ' missing</div>';
+                            allPassed = false;
+                        }
+                    });
+                    
+                    if (allPassed) {
+                        resultHtml += '<div class="success">✅ Basic HTML structure looks good. If landing page not showing, check browser console for React/JS errors.</div>';
+                    }
+                    
+                    result.innerHTML = resultHtml;
+                } else {
+                    result.innerHTML = '<div class="error">❌ Cannot fetch HTML: ' + response.status + '</div>';
+                }
+            } catch (error) {
+                result.innerHTML = '<div class="error">❌ Error testing content: ' + error.message + '</div>';
+            }
+        }
+
+        // Auto-run tests
+        window.onload = function() {
+            testFrontend();
+        };
+    </script>
+</body>
+</html>

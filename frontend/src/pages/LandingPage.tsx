@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 import { ParticleBackground } from '../components/ui/ParticleBackground';
+import { clearAuthData } from '../utils/authUtils';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -212,7 +213,11 @@ export const LandingPage: React.FC = () => {
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(59, 130, 246, 0.3)' }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/login')}
+                onClick={() => {
+                  // 🔧 FIX: Clear any stale auth data before going to login
+                  clearAuthData();
+                  navigate('/login');
+                }}
                 className={`group px-8 py-4 rounded-2xl font-semibold text-lg flex items-center gap-3 ${
                   darkMode
                     ? 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700'
@@ -227,7 +232,11 @@ export const LandingPage: React.FC = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/register')}
+                onClick={() => {
+                  // 🔧 FIX: Clear any stale auth data before going to register
+                  clearAuthData();
+                  navigate('/register');
+                }}
                 className={`px-8 py-4 rounded-2xl font-semibold text-lg border-2 transition-all ${
                   darkMode
                     ? 'border-slate-700 hover:border-slate-600 hover:bg-slate-800'
@@ -420,7 +429,11 @@ export const LandingPage: React.FC = () => {
           <motion.button
             whileHover={{ scale: 1.05, boxShadow: '0 25px 50px rgba(59, 130, 246, 0.4)' }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/login')}
+            onClick={() => {
+              // 🔧 FIX: Clear any stale auth data before going to login
+              clearAuthData();
+              navigate('/login');
+            }}
             className={`px-12 py-5 rounded-2xl font-bold text-xl ${
               darkMode
                 ? 'bg-gradient-to-r from-blue-500 to-purple-600'

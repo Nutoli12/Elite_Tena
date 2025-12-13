@@ -1,5 +1,6 @@
 import db from '../models/index.js';
-const { Appointment, Patient, Doctor, User } = db;
+import { calculateAge, formatAge } from '../utils/ageCalculator.js';
+const { Appointment, Patient, Doctor, User, Consent, Sequelize } = db;
 
 /**
  * Helper: Ensure patient record exists, auto-create if missing
@@ -76,26 +77,46 @@ export const getAppointments = async (req, res) => {
     const finalPatientWallet = patientWalletFromPath || patientWallet;
     const finalDoctorWallet = doctorWalletFromPath || doctorWallet;
 
-    console.log('🔍 Fetching appointments...', { userRole, userId });
+    // 🔧 SANITIZE: Remove any :1, :2, etc. suffixes that might be added by browser tools
+    const sanitizeWallet = (wallet) => {
+      if (!wallet) return wallet;
+      return wallet.split(':')[0]; // Remove everything after first colon
+    };
+
+    const sanitizedUserId = sanitizeWallet(userId);
+    const sanitizedPatientWallet = sanitizeWallet(finalPatientWallet);
+    const sanitizedDoctorWallet = sanitizeWallet(finalDoctorWallet);
+
+    console.log('🔍 Fetching appointments...', { 
+      userRole, 
+      originalUserId: userId, 
+      sanitizedUserId,
+      originalPatientWallet: finalPatientWallet,
+      sanitizedPatientWallet,
+      originalDoctorWallet: finalDoctorWallet,
+      sanitizedDoctorWallet
+    });
 
     const where = {};
 
-    // 👨‍⚕️ FIXED: Separate doctor vs patient views
-    if (userRole && userId) {
+    // 👨‍⚕️ FIXED: Use correct field names based on model mapping
+    if (userRole && sanitizedUserId) {
       if (userRole === 'doctor') {
-        where.doctorWalletAddress = userId.toLowerCase();
-        console.log('📋 Fetching doctor schedule for:', userId);
+        // Model maps doctorWalletAddress to 'doctorWallet' field
+        where.doctorWalletAddress = sanitizedUserId.toLowerCase();
+        console.log('📋 Fetching doctor schedule for:', sanitizedUserId);
       } else if (userRole === 'patient') {
-        where.patientWalletAddress = userId.toLowerCase();
-        console.log('👤 Fetching patient appointments for:', userId);
+        // Model maps patientWalletAddress to 'patientWallet' field  
+        where.patientWalletAddress = sanitizedUserId.toLowerCase();
+        console.log('👤 Fetching patient appointments for:', sanitizedUserId);
       }
     } else {
       // Legacy filtering
-      if (finalPatientWallet) {
-        where.patientWalletAddress = finalPatientWallet.toLowerCase();
+      if (sanitizedPatientWallet) {
+        where.patientWalletAddress = sanitizedPatientWallet.toLowerCase();
       }
-      if (finalDoctorWallet) {
-        where.doctorWalletAddress = finalDoctorWallet.toLowerCase();
+      if (sanitizedDoctorWallet) {
+        where.doctorWalletAddress = sanitizedDoctorWallet.toLowerCase();
       }
     }
 
@@ -103,53 +124,100 @@ export const getAppointments = async (req, res) => {
       where.status = status;
     }
 
-    // ENHANCED QUERY - Include names but with safe joins
+    // 🔍 DEBUG: Log the where clause
+    console.log('🔍 Query WHERE clause:', JSON.stringify(where, null, 2));
+
+    // ENHANCED QUERY - Include user data through separate queries to avoid conflicts
     const appointments = await Appointment.findAll({
       where,
       include: [
         {
           model: Patient,
           as: 'patientDetails',
-          required: false, // LEFT JOIN - don't fail if missing
-          attributes: ['walletAddress']
+          required: false,
+          attributes: ['walletAddress', 'name', 'dateOfBirth', 'bloodType', 'allergies', 'currentMedications', 'medicalHistory']
         },
         {
           model: Doctor,
           as: 'doctorDetails',
-          required: false, // LEFT JOIN - don't fail if missing
-          attributes: ['walletAddress', 'specialization']
-        },
-        {
-          model: User,
-          as: 'patient',
           required: false,
-          attributes: ['email', 'profileData']
-        },
-        {
-          model: User,
-          as: 'doctor',
-          required: false,
-          attributes: ['email', 'profileData']
+          attributes: ['walletAddress', 'specialization', 'name']
         }
       ],
       order: [['appointmentDate', 'ASC']]
     });
 
+    // Manually fetch user data to avoid association conflicts
+    for (let appointment of appointments) {
+      if (appointment.patientWalletAddress) {
+        const patientUser = await User.findOne({
+          where: { walletAddress: appointment.patientWalletAddress },
+          attributes: ['email', 'profileData', 'role']
+        });
+        appointment.dataValues.patientUser = patientUser;
+
+      }
+      
+      if (appointment.doctorWalletAddress) {
+        const doctorUser = await User.findOne({
+          where: { walletAddress: appointment.doctorWalletAddress },
+          attributes: ['email', 'profileData', 'role']
+        });
+        appointment.dataValues.doctorUser = doctorUser;
+      }
+    }
+
     console.log(`✅ Found ${appointments.length} appointments`);
+    
+    // 🔍 DEBUG: Log first appointment if found
+    if (appointments.length > 0) {
+      console.log('🔍 First appointment sample:', {
+        id: appointments[0].id,
+        patientWallet: appointments[0].patientWalletAddress || appointments[0].patientWallet,
+        doctorWallet: appointments[0].doctorWalletAddress || appointments[0].doctorWallet,
+        date: appointments[0].appointmentDate,
+        status: appointments[0].status
+      });
+    } else {
+      console.log('⚠️  No appointments found with current query');
+      
+      // Try a broader query to see if any appointments exist at all
+      const totalAppointments = await Appointment.count();
+      console.log(`📊 Total appointments in database: ${totalAppointments}`);
+      
+      if (totalAppointments > 0) {
+        console.log('⚠️  Appointments exist but query filters are not matching');
+        // Sample a few appointments to see their structure
+        const sampleAppointments = await Appointment.findAll({ limit: 3 });
+        console.log('📋 Sample appointments:');
+        sampleAppointments.forEach((apt, index) => {
+          console.log(`   ${index + 1}. Patient: ${apt.patientWalletAddress || apt.patientWallet}`);
+          console.log(`      Doctor: ${apt.doctorWalletAddress || apt.doctorWallet}`);
+          console.log(`      Date: ${apt.appointmentDate}`);
+        });
+      }
+    }
 
     // Format appointments with clear "appointedWith" information
     const formattedAppointments = appointments.map(appointment => {
       const appointmentData = appointment.toJSON();
       
-      // Extract doctor information
+      // Extract doctor information - FIXED: Use doctor table name first
       let doctorName = 'Unknown Doctor';
       let doctorSpecialization = 'General';
       let doctorEmail = '';
       
-      if (appointment.doctor) {
+      // 🔧 PRIORITY 1: Use doctor table name if available (we just fixed this!)
+      if (appointment.doctorDetails && appointment.doctorDetails.name) {
+        doctorName = appointment.doctorDetails.name;
+        doctorSpecialization = appointment.doctorDetails.specialization || 'General';
+      }
+      
+      // 🔧 PRIORITY 2: Fallback to user profileData if doctor table name is missing
+      if (doctorName === 'Unknown Doctor' && appointment.doctorUser) {
         try {
           // profileData is already an object, no need to parse
-          const profileData = appointment.doctor.profileData;
+          const profileData = appointment.doctorUser.profileData;
           doctorName = profileData?.name || 
                       profileData?.fullName || 
                       (profileData?.firstName && profileData?.lastName 
@@ -159,31 +227,77 @@ export const getAppointments = async (req, res) => {
           console.error('Error extracting doctor name:', e);
           doctorName = 'Unknown Doctor';
         }
-        doctorEmail = appointment.doctor.email || '';
+        doctorEmail = appointment.doctorUser.email || '';
       }
       
+      // 🔧 PRIORITY 3: Get specialization from doctor details
       if (appointment.doctorDetails) {
         doctorSpecialization = appointment.doctorDetails.specialization || 'General';
+        doctorEmail = appointment.doctorUser?.email || '';
       }
       
       // Extract patient information
       let patientName = 'Unknown Patient';
       let patientEmail = '';
+      let patientAge = null;
+      let patientAgeFormatted = 'Age unknown';
+      let patientDateOfBirth = null;
       
-      if (appointment.patient) {
+      // 🔧 PRIORITY 1: Use Patient table name first (from enhanced registration)
+
+      
+      if (appointment.patientDetails && appointment.patientDetails.name) {
+        patientName = appointment.patientDetails.name;
+
+      }
+      
+      // 🔧 PRIORITY 2: Fallback to User profileData if Patient table name is missing
+      if (patientName === 'Unknown Patient' && appointment.dataValues.patientUser) {
         try {
           // profileData is already an object, no need to parse
-          const profileData = appointment.patient.profileData;
+          const profileData = appointment.dataValues.patientUser.profileData;
           patientName = profileData?.name || 
                        profileData?.fullName || 
                        (profileData?.firstName && profileData?.lastName 
                          ? `${profileData.firstName} ${profileData.lastName}` 
                          : profileData?.firstName || 'Unknown Patient');
+
         } catch (e) {
-          console.error('Error extracting patient name:', e);
+          console.error('Error extracting patient name from User profileData:', e);
           patientName = 'Unknown Patient';
         }
-        patientEmail = appointment.patient.email || '';
+      }
+      
+      // Get patient email
+      if (appointment.dataValues.patientUser) {
+        patientEmail = appointment.dataValues.patientUser.email || '';
+      }
+      
+      // 🔧 PRIORITY 3: Try patientDetails.user if both above methods fail
+      if (patientName === 'Unknown Patient' && appointment.patientDetails?.user) {
+        try {
+          const profileData = appointment.patientDetails.user.profileData;
+          patientName = profileData?.name || 
+                       profileData?.fullName || 
+                       (profileData?.firstName && profileData?.lastName 
+                         ? `${profileData.firstName} ${profileData.lastName}` 
+                         : profileData?.firstName || 'Unknown Patient');
+          patientEmail = appointment.patientDetails.user.email || '';
+
+        } catch (e) {
+          console.error('Error extracting patient name from patientDetails.user:', e);
+        }
+      }
+      
+      // 🎂 CALCULATE AGE from date of birth
+      if (appointment.patientDetails?.dateOfBirth) {
+        patientDateOfBirth = appointment.patientDetails.dateOfBirth;
+        patientAge = calculateAge(patientDateOfBirth);
+        patientAgeFormatted = formatAge(patientDateOfBirth);
+      } else if (appointment.dataValues.patientUser?.profileData?.dateOfBirth) {
+        patientDateOfBirth = appointment.dataValues.patientUser.profileData.dateOfBirth;
+        patientAge = calculateAge(patientDateOfBirth);
+        patientAgeFormatted = formatAge(patientDateOfBirth);
       }
       
       // Add clear appointment information
@@ -199,7 +313,10 @@ export const getAppointments = async (req, res) => {
         patientInfo: {
           name: patientName,
           email: patientEmail,
-          walletAddress: appointment.patientWalletAddress
+          walletAddress: appointment.patientWalletAddress,
+          age: patientAge,
+          ageFormatted: patientAgeFormatted,
+          dateOfBirth: patientDateOfBirth
         },
         // Formatted display strings
         displayDoctor: `${doctorName} (${doctorSpecialization})`,
@@ -213,7 +330,7 @@ export const getAppointments = async (req, res) => {
       data: formattedAppointments,
       count: formattedAppointments.length,
       userRole,
-      userId
+      userId: sanitizedUserId || userId
     });
   } catch (error) {
     console.error('❌ Get appointments error:', error);
@@ -764,7 +881,7 @@ export const getDoctorSchedule = async (req, res) => {
       endDate.setDate(endDate.getDate() + 1);
 
       where.appointmentDate = {
-        [db.Sequelize.Op.between]: [startDate, endDate]
+        [Sequelize.Op.between]: [startDate, endDate]
       };
     }
 
@@ -779,15 +896,13 @@ export const getDoctorSchedule = async (req, res) => {
           model: Patient,
           as: 'patientDetails',
           required: false,
-          attributes: ['walletAddress'],
-          include: [
-            {
-              model: db.User,
-              as: 'user',
-              required: false,
-              attributes: ['email', 'profileData']
-            }
-          ]
+          attributes: ['walletAddress']
+        },
+        {
+          model: User,
+          as: 'patientUser',
+          required: false,
+          attributes: ['email', 'profileData']
         }
       ],
       order: [['appointmentDate', 'ASC']]
@@ -894,7 +1009,7 @@ export const getAvailableSlots = async (req, res) => {
       endDate.setDate(endDate.getDate() + 1);
 
       where.appointmentDate = {
-        [db.Sequelize.Op.between]: [startDate, endDate]
+        [Sequelize.Op.between]: [startDate, endDate]
       };
     }
 
@@ -905,15 +1020,13 @@ export const getAvailableSlots = async (req, res) => {
           model: Doctor,
           as: 'doctorDetails',
           required: false,
-          attributes: ['walletAddress', 'specialization'],
-          include: [
-            {
-              model: db.User,
-              as: 'user',
-              required: false,
-              attributes: ['email', 'profileData']
-            }
-          ]
+          attributes: ['walletAddress', 'specialization']
+        },
+        {
+          model: User,
+          as: 'doctorUser',
+          required: false,
+          attributes: ['email', 'profileData']
         }
       ],
       order: [['appointmentDate', 'ASC']]
@@ -1124,6 +1237,513 @@ export const getPatientAppointments = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch appointments',
+      message: error.message
+    });
+  }
+};
+
+// ========== CONSENT-FIRST CONSULTATION WORKFLOW ENDPOINTS ==========
+
+/**
+ * 👨‍⚕️ Doctor requests consent from patient for consultation
+ * POST /api/appointments/:id/request-consent
+ */
+export const requestConsent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      doctorWallet, 
+      permissions = {
+        canVideoCall: false,
+        canChat: false,
+        canViewHistory: true,
+        canWritePrescriptions: false,
+        canOrderTests: false
+      },
+      purpose = 'Medical consultation access',
+      durationType = 'appointment_only'
+    } = req.body;
+
+    console.log('🔒 Doctor requesting consent for appointment:', id);
+
+    // Get appointment
+    const appointment = await Appointment.findByPk(id, {
+      include: [
+        {
+          model: Patient,
+          as: 'patientDetails',
+          attributes: ['walletAddress', 'name']
+        },
+        {
+          model: Doctor,
+          as: 'doctorDetails',
+          attributes: ['walletAddress', 'name', 'specialization']
+        },
+        {
+          model: User,
+          as: 'patientUser',
+          attributes: ['email', 'profileData']
+        },
+        {
+          model: User,
+          as: 'doctorUser',
+          attributes: ['email', 'profileData']
+        }
+      ]
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Appointment not found'
+      });
+    }
+
+    // Verify doctor owns this appointment
+    if (appointment.doctorWalletAddress.toLowerCase() !== doctorWallet.toLowerCase()) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized',
+        message: 'You can only request consent for your own appointments'
+      });
+    }
+
+    // Check if appointment is paid (for premium services)
+    if (appointment.paymentStatus !== 'paid' && appointment.fee > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment required',
+        message: 'Appointment payment must be confirmed before requesting consent'
+      });
+    }
+
+    // Check if consent already exists
+    const existingConsent = await Consent.findOne({
+      where: {
+        appointmentId: appointment.id,
+        status: ['active', 'pending']
+      }
+    });
+
+    if (existingConsent) {
+      return res.status(400).json({
+        success: false,
+        error: 'Consent already exists',
+        message: 'Consent request already exists for this appointment',
+        consent: existingConsent
+      });
+    }
+
+    // Create consent request
+    const consent = await Consent.create({
+      patientWalletAddress: appointment.patientWalletAddress,
+      doctorWalletAddress: appointment.doctorWalletAddress,
+      appointmentId: appointment.id,
+      permissions,
+      purpose,
+      status: 'pending',
+      scope: durationType,
+      requestedAt: new Date(),
+      durationType,
+      durationValue: durationType === 'appointment_only' ? 1 : 24
+    });
+
+    // Update appointment workflow state
+    await appointment.update({
+      workflowState: 'awaiting_consent'
+    });
+
+    // 🔔 Send notification to patient
+    try {
+      const { sendNotification } = await import('../services/socketService.js');
+      await sendNotification(
+        appointment.patientWalletAddress,
+        'consent_request',
+        {
+          title: 'Doctor Requests Consultation Access',
+          message: `Dr. ${appointment.doctorDetails?.user?.profileData?.name || 'Unknown'} is requesting access for your consultation`,
+          relatedId: appointment.id,
+          consentId: consent.id,
+          priority: 'high'
+        }
+      );
+      console.log('🔔 Sent consent request notification to patient');
+    } catch (notifError) {
+      console.error('⚠️ Failed to send notification:', notifError.message);
+    }
+
+    console.log('✅ Consent request created');
+
+    res.json({
+      success: true,
+      message: 'Consent request sent to patient',
+      data: {
+        consent,
+        appointment: {
+          id: appointment.id,
+          workflowState: appointment.workflowState
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Request consent error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to request consent',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * 👤 Patient grants consent for consultation
+ * POST /api/appointments/:id/grant-consent
+ */
+export const grantConsent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      patientWallet, 
+      consentId,
+      permissions = null // Patient can modify permissions
+    } = req.body;
+
+    console.log('✅ Patient granting consent for appointment:', id);
+
+    // Get appointment
+    const appointment = await Appointment.findByPk(id);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Appointment not found'
+      });
+    }
+
+    // Verify patient owns this appointment
+    if (appointment.patientWalletAddress.toLowerCase() !== patientWallet.toLowerCase()) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized',
+        message: 'You can only grant consent for your own appointments'
+      });
+    }
+
+    // Get consent request
+    const consent = await Consent.findOne({
+      where: {
+        id: consentId,
+        appointmentId: appointment.id,
+        patientWalletAddress: patientWallet.toLowerCase(),
+        status: 'pending'
+      }
+    });
+
+    if (!consent) {
+      return res.status(404).json({
+        success: false,
+        error: 'Consent request not found',
+        message: 'No pending consent request found for this appointment'
+      });
+    }
+
+    // Update consent with patient's permissions (if provided)
+    const finalPermissions = permissions || consent.permissions;
+
+    await consent.update({
+      status: 'active',
+      grantedAt: new Date(),
+      permissions: finalPermissions,
+      // Set expiration based on scope
+      expiresAt: consent.scope === 'appointment_only' 
+        ? new Date(appointment.appointmentDate.getTime() + (2 * 60 * 60 * 1000)) // 2 hours after appointment
+        : new Date(Date.now() + (consent.durationValue * 60 * 60 * 1000)) // Hours from now
+    });
+
+    // Update appointment workflow state
+    await appointment.update({
+      workflowState: 'consent_granted'
+    });
+
+    // 🔔 Send notification to doctor
+    try {
+      const { sendNotification } = await import('../services/socketService.js');
+      await sendNotification(
+        appointment.doctorWalletAddress,
+        'consent_granted',
+        {
+          title: 'Patient Granted Consultation Access',
+          message: 'Patient has granted consent. Consultation can now begin.',
+          relatedId: appointment.id,
+          consentId: consent.id,
+          priority: 'high'
+        }
+      );
+      console.log('🔔 Sent consent granted notification to doctor');
+    } catch (notifError) {
+      console.error('⚠️ Failed to send notification:', notifError.message);
+    }
+
+    console.log('✅ Consent granted successfully');
+
+    res.json({
+      success: true,
+      message: 'Consent granted successfully. Doctor can now start consultation.',
+      data: {
+        consent,
+        appointment: {
+          id: appointment.id,
+          workflowState: appointment.workflowState
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Grant consent error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to grant consent',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * 🔍 Get consent status for appointment
+ * GET /api/appointments/:id/consent-status
+ */
+export const getConsentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log('🔍 Checking consent status for appointment:', id);
+
+    const appointment = await Appointment.findByPk(id, {
+      include: [{
+        model: Consent,
+        as: 'consent',
+        required: false
+      }]
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Appointment not found'
+      });
+    }
+
+    const consentStatus = {
+      appointmentId: appointment.id,
+      workflowState: appointment.workflowState,
+      requiresConsent: appointment.requiresConsent,
+      hasConsent: !!appointment.consent,
+      consent: appointment.consent ? {
+        id: appointment.consent.id,
+        status: appointment.consent.status,
+        permissions: appointment.consent.permissions,
+        grantedAt: appointment.consent.grantedAt,
+        expiresAt: appointment.consent.expiresAt,
+        isExpired: appointment.consent.isExpired()
+      } : null
+    };
+
+    console.log('✅ Consent status retrieved');
+
+    res.json({
+      success: true,
+      data: consentStatus
+    });
+  } catch (error) {
+    console.error('❌ Get consent status error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get consent status',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * 🚫 Revoke consent (patient or doctor can revoke)
+ * POST /api/appointments/:id/revoke-consent
+ */
+export const revokeConsent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userWallet, reason = 'User requested revocation' } = req.body;
+
+    console.log('🚫 Revoking consent for appointment:', id);
+
+    const appointment = await Appointment.findByPk(id, {
+      include: [{
+        model: Consent,
+        as: 'consent',
+        where: { status: 'active' },
+        required: false
+      }]
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Appointment not found'
+      });
+    }
+
+    if (!appointment.consent) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active consent found',
+        message: 'No active consent exists for this appointment'
+      });
+    }
+
+    // Verify user can revoke (patient or doctor)
+    const canRevoke = 
+      appointment.patientWalletAddress.toLowerCase() === userWallet.toLowerCase() ||
+      appointment.doctorWalletAddress.toLowerCase() === userWallet.toLowerCase();
+
+    if (!canRevoke) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized',
+        message: 'Only the patient or doctor can revoke consent'
+      });
+    }
+
+    // Revoke consent
+    await appointment.consent.update({
+      status: appointment.patientWalletAddress.toLowerCase() === userWallet.toLowerCase() 
+        ? 'patient_revoked' 
+        : 'doctor_revoked',
+      revokedAt: new Date(),
+      revocationReason: reason,
+      revokedBy: userWallet
+    });
+
+    // Update appointment workflow state
+    await appointment.update({
+      workflowState: 'scheduled' // Reset to scheduled state
+    });
+
+    // 🔔 Send notification to other party
+    const notifyWallet = appointment.patientWalletAddress.toLowerCase() === userWallet.toLowerCase()
+      ? appointment.doctorWalletAddress
+      : appointment.patientWalletAddress;
+
+    try {
+      const { sendNotification } = await import('../services/socketService.js');
+      await sendNotification(
+        notifyWallet,
+        'consent_revoked',
+        {
+          title: 'Consultation Access Revoked',
+          message: 'Consent for consultation has been revoked',
+          relatedId: appointment.id,
+          priority: 'high'
+        }
+      );
+      console.log('🔔 Sent consent revocation notification');
+    } catch (notifError) {
+      console.error('⚠️ Failed to send notification:', notifError.message);
+    }
+
+    console.log('✅ Consent revoked successfully');
+
+    res.json({
+      success: true,
+      message: 'Consent revoked successfully. Consultation access has been terminated.',
+      data: {
+        appointmentId: appointment.id,
+        workflowState: appointment.workflowState,
+        revokedAt: appointment.consent.revokedAt
+      }
+    });
+  } catch (error) {
+    console.error('❌ Revoke consent error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to revoke consent',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * 🏥 Start consultation (checks consent first)
+ * POST /api/appointments/:id/start-consultation
+ */
+export const startConsultation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { doctorWallet } = req.body;
+
+    console.log('🏥 Starting consultation for appointment:', id);
+
+    const appointment = await Appointment.findByPk(id, {
+      include: [{
+        model: Consent,
+        as: 'consent',
+        where: { 
+          status: 'active',
+          expiresAt: {
+            [Sequelize.Op.gt]: new Date()
+          }
+        },
+        required: false
+      }]
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Appointment not found'
+      });
+    }
+
+    // Verify doctor owns this appointment
+    if (appointment.doctorWalletAddress.toLowerCase() !== doctorWallet.toLowerCase()) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized',
+        message: 'You can only start consultations for your own appointments'
+      });
+    }
+
+    // Check consent requirement
+    if (appointment.requiresConsent && appointment.workflowState !== 'consent_granted') {
+      return res.status(403).json({
+        success: false,
+        error: 'Consent required',
+        message: 'Patient consent is required before starting consultation',
+        workflowState: appointment.workflowState,
+        action: 'request_consent'
+      });
+    }
+
+    // Update appointment to consultation started
+    await appointment.update({
+      workflowState: 'consultation_started',
+      consultationStartedAt: new Date()
+    });
+
+    console.log('✅ Consultation started successfully');
+
+    res.json({
+      success: true,
+      message: 'Consultation started successfully',
+      data: {
+        appointmentId: appointment.id,
+        workflowState: appointment.workflowState,
+        consultationStartedAt: appointment.consultationStartedAt,
+        permissions: appointment.consent?.permissions || {}
+      }
+    });
+  } catch (error) {
+    console.error('❌ Start consultation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to start consultation',
       message: error.message
     });
   }

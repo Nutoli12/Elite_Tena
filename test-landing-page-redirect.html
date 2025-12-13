@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landing Page Redirect Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Landing Page Redirect Test</h1>
+    
+    <div class="test-container">
+        <h2>Test Configuration</h2>
+        <div class="info">
+            <strong>Frontend URL:</strong> http://localhost:5174<br>
+            <strong>Backend URL:</strong> http://localhost:3004<br>
+            <strong>Expected Behavior:</strong> Refresh should redirect to landing page (/) for unauthenticated users
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Manual Test Instructions</h2>
+        <ol>
+            <li><strong>Test 1 - Unauthenticated User:</strong>
+                <ul>
+                    <li>Open <a href="http://localhost:5174" target="_blank">http://localhost:5174</a></li>
+                    <li>You should see the landing page with "The Future of Healthcare" title</li>
+                    <li>Refresh the page (F5 or Ctrl+R)</li>
+                    <li>✅ PASS: Should stay on landing page</li>
+                    <li>❌ FAIL: If redirected elsewhere</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test 2 - Try to access protected route:</strong>
+                <ul>
+                    <li>Navigate to <a href="http://localhost:5174/dashboard" target="_blank">http://localhost:5174/dashboard</a></li>
+                    <li>✅ PASS: Should redirect to landing page (/)</li>
+                    <li>❌ FAIL: If shows dashboard or redirects to /login</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test 3 - Login and then refresh:</strong>
+                <ul>
+                    <li>From landing page, click "Sign In" or go to <a href="http://localhost:5174/login" target="_blank">http://localhost:5174/login</a></li>
+                    <li>Login with valid credentials</li>
+                    <li>Should be redirected to /dashboard</li>
+                    <li>Refresh the page (F5 or Ctrl+R)</li>
+                    <li>✅ PASS: Should stay on dashboard (authenticated user)</li>
+                    <li>❌ FAIL: If redirected to landing page or login</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test 4 - Logout behavior:</strong>
+                <ul>
+                    <li>While logged in, click logout</li>
+                    <li>✅ PASS: Should redirect to landing page (/)</li>
+                    <li>❌ FAIL: If redirected to /login</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <div class="test-container">
+        <h2>Automated Frontend Check</h2>
+        <button onclick="checkFrontend()">Test Frontend Connection</button>
+        <button onclick="checkBackend()">Test Backend Connection</button>
+        <div id="results"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>Expected Landing Page Features</h2>
+        <div class="test-result">
+            <strong>Landing Page Should Include:</strong>
+            <ul>
+                <li>✅ "Elite Tena" branding with heart icon</li>
+                <li>✅ "The Future of Healthcare" hero title</li>
+                <li>✅ "Sign In" and "Get Started" buttons in header</li>
+                <li>✅ Features section with 4 cards (Healthcare, Security, Scheduling, Care)</li>
+                <li>✅ Benefits section with checkmarks</li>
+                <li>✅ Call-to-action section</li>
+                <li>✅ Footer with Elite Tena branding</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        async function checkFrontend() {
+            const results = document.getElementById('results');
+            try {
+                const response = await fetch('http://localhost:5174');
+                if (response.ok) {
+                    results.innerHTML = '<div class="success">✅ Frontend is running on port 5174</div>';
+                } else {
+                    results.innerHTML = '<div class="error">❌ Frontend responded with error: ' + response.status + '</div>';
+                }
+            } catch (error) {
+                results.innerHTML = '<div class="error">❌ Cannot connect to frontend: ' + error.message + '</div>';
+            }
+        }
+
+        async function checkBackend() {
+            const results = document.getElementById('results');
+            try {
+                const response = await fetch('http://localhost:3004/api/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    results.innerHTML += '<div class="success">✅ Backend is running: ' + JSON.stringify(data) + '</div>';
+                } else {
+                    results.innerHTML += '<div class="error">❌ Backend responded with error: ' + response.status + '</div>';
+                }
+            } catch (error) {
+                results.innerHTML += '<div class="error">❌ Cannot connect to backend: ' + error.message + '</div>';
+            }
+        }
+
+        // Auto-check on page load
+        window.onload = function() {
+            checkFrontend();
+            setTimeout(checkBackend, 1000);
+        };
+    </script>
+</body>
+</html>

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
+import { hasStaleAuthData, clearAuthData } from '../../utils/authUtils';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -17,6 +18,14 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
+  // 🔧 FIX: Clear stale auth data on public pages
+  useEffect(() => {
+    if (!requireAuth && !isAuthenticated && hasStaleAuthData()) {
+      console.log('🧹 Clearing stale auth data on public page');
+      clearAuthData();
+    }
+  }, [requireAuth, isAuthenticated]);
+
   // Show loading spinner while checking authentication
   if (isLoading) {
     return (
@@ -31,7 +40,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
             className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"
           />
-          <p className="text-gray-700 font-medium">Redirecting to login...</p>
+          <p className="text-gray-700 font-medium">Loading...</p>
           <p className="text-gray-500 text-sm mt-1">Please wait</p>
         </motion.div>
       </div>
@@ -43,8 +52,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // If authentication is not required but user is authenticated (e.g., login page)
-  if (!requireAuth && isAuthenticated) {
+  // If authentication is not required but user is authenticated
+  // Only redirect from login/register pages, allow landing page access
+  if (!requireAuth && isAuthenticated && (location.pathname === '/login' || location.pathname === '/register')) {
     return <Navigate to="/dashboard" replace />;
   }
 

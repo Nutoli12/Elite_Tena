@@ -28,7 +28,7 @@ export const AdminUsers: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('/api/admin/users');
+      const response = await axios.get('/admin/users');
       if (response.data.success) {
         setUsers(response.data.data);
       }
@@ -42,7 +42,7 @@ export const AdminUsers: React.FC = () => {
   const handleStatusToggle = async (walletAddress: string, currentStatus: string) => {
     try {
       const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-      const response = await axios.patch(`/api/admin/users/${walletAddress}/status`, {
+      const response = await axios.patch(`/admin/users/${walletAddress}/status`, {
         isActive: newStatus === 'active'
       });
       

@@ -57,7 +57,7 @@ export const AdminAnalytics: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
-      // Set mock data for demo
+      // Set fallback data
       setAnalytics({
         userGrowth: [
           { date: '2024-01-01', users: 10 },

@@ -127,9 +127,9 @@ export const Appointments: React.FC = () => {
           id: apt.id.toString(),
           patientId: apt.patientWalletAddress,
           doctorId: apt.doctorWalletAddress, // Keep wallet for backend calls
-          doctorName: apt.doctor?.profileData?.name || apt.doctor?.profileData?.fullName || (apt.doctor?.profileData?.firstName && apt.doctor?.profileData?.lastName ? `${apt.doctor.profileData.firstName} ${apt.doctor.profileData.lastName}` : apt.appointedWith?.name || apt.displayDoctor || 'Unknown Doctor'), // Use enhanced doctor name
-          doctorSpecialization: apt.appointedWith?.specialization || 'General',
-          displayDoctor: apt.displayDoctor || `${apt.doctor?.profileData?.name || apt.doctor?.profileData?.fullName || (apt.doctor?.profileData?.firstName && apt.doctor?.profileData?.lastName ? `${apt.doctor.profileData.firstName} ${apt.doctor.profileData.lastName}` : apt.appointedWith?.name || 'Unknown Doctor')} (${apt.doctor?.doctorProfile?.specialization || apt.appointedWith?.specialization || 'General'})`,
+          doctorName: apt.appointedWith?.name || apt.displayDoctor?.split(' (')[0] || 'Unknown Doctor', // Extract name from displayDoctor
+          doctorSpecialization: apt.appointedWith?.specialization || apt.displayDoctor?.match(/\(([^)]+)\)/)?.[1] || 'General', // Extract specialty from displayDoctor
+          displayDoctor: apt.displayDoctor || 'Unknown Doctor (General)', // Use the formatted displayDoctor from API
           date: apt.appointmentDate.split('T')[0],
           time: new Date(apt.appointmentDate).toLocaleTimeString('en-US', {
             hour: '2-digit',

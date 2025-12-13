@@ -60,9 +60,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (token && walletAddress) {
           console.log('🔄 Page refreshed - restoring session for:', walletAddress);
           
-          // Verify token is still valid by making a test request
+          // 🔧 ENHANCED: Verify token is still valid and user data is current
           const response = await axios.get('/auth/me');
+          
+          if (!response.data.success || !response.data.data) {
+            throw new Error('Invalid session response');
+          }
+          
           const user = response.data.data;
+          
+          // 🔧 VALIDATION: Ensure the restored user matches the stored wallet
+          if (user.walletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+            console.log('⚠️  Wallet mismatch - clearing session');
+            throw new Error('Wallet address mismatch');
+          }
+          
+          // 🔧 VALIDATION: Ensure user has required fields
+          if (!user.walletAddress || !user.role) {
+            console.log('⚠️  Incomplete user data - clearing session');
+            throw new Error('Incomplete user data');
+          }
 
           const userProfile: UserProfile = {
             id: user.walletAddress,
@@ -80,15 +97,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
 
           dispatch({ type: 'SET_USER', payload: userProfile });
-          console.log('✅ Session restored successfully');
+          console.log('✅ Session restored successfully for:', userProfile.fullName);
         } else {
           console.log('🔄 No saved session found');
           dispatch({ type: 'LOGOUT' });
         }
       } catch (error) {
-        console.log('❌ Session restore failed - clearing invalid session');
+        console.log('❌ Session restore failed - clearing invalid session:', error.message);
+        // 🔧 ENHANCED: Clear all auth-related localStorage items
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_wallet');
+        localStorage.removeItem('user_role');
+        localStorage.removeItem('user_email');
         dispatch({ type: 'LOGOUT' });
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
@@ -103,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleLogout = () => {
       console.log('🚪 Logout event received from axios interceptor');
       dispatch({ type: 'LOGOUT' });
-      // Redirect to login page
+      // Redirect to landing page
       window.location.href = '/';
     };
 
@@ -153,8 +173,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const { user, auth } = response.data.data;
 
+      // 🔧 ENHANCED: Store consistent user data
       localStorage.setItem('auth_token', auth.token);
-      localStorage.setItem('user_wallet', walletAddress);
+      localStorage.setItem('user_wallet', user.walletAddress);
+      localStorage.setItem('user_role', user.role);
+      localStorage.setItem('user_email', user.email || '');
 
       dispatch({ type: 'SET_USER', payload: user });
     } catch (error) {
@@ -179,8 +202,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data } = response.data;
       const { user, auth } = data;
 
+      // 🔧 ENHANCED: Store consistent user data
       localStorage.setItem('auth_token', auth.token);
       localStorage.setItem('user_wallet', user.walletAddress);
+      localStorage.setItem('user_role', user.role);
+      localStorage.setItem('user_email', user.email || '');
 
       const userProfile: UserProfile = {
         id: user.walletAddress,
@@ -219,8 +245,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const { user, auth } = response.data.data;
 
+      // 🔧 ENHANCED: Store consistent user data
       localStorage.setItem('auth_token', auth.token);
       localStorage.setItem('user_wallet', user.walletAddress);
+      localStorage.setItem('user_role', user.role);
+      localStorage.setItem('user_email', user.email || '');
 
       const userProfile: UserProfile = {
         id: user.walletAddress,
@@ -302,10 +331,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = (): void => {
+    console.log('🚪 Logging out - clearing all session data');
+    // 🔧 ENHANCED: Clear all possible auth-related localStorage items
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_wallet');
+    localStorage.removeItem('user_role');
+    localStorage.removeItem('user_email');
+    localStorage.removeItem('user_name');
+    // Clear any other potential stale data
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('auth_') || key.startsWith('user_')) {
+        localStorage.removeItem(key);
+      }
+    });
+    
     dispatch({ type: 'LOGOUT' });
-    // Redirect to login page
+    // Redirect to landing page
     window.location.href = '/';
   };
 

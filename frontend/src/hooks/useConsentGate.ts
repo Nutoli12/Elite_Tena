@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface UseConsentGateOptions {
   patientWallet?: string;
+  appointmentId?: string; // 🆕 For appointment-specific consent
   autoCheck?: boolean;
   onConsentGranted?: (status: ConsentStatus) => void;
   onConsentRevoked?: (status: ConsentStatus) => void;
@@ -16,14 +17,15 @@ export const useConsentGate = (options: UseConsentGateOptions = {}) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { patientWallet, autoCheck = true, onConsentGranted, onConsentRevoked } = options;
+  const { patientWallet, appointmentId, autoCheck = true, onConsentGranted, onConsentRevoked } = options;
 
   /**
    * Check if doctor can perform specific action on patient
    */
   const checkConsent = useCallback(async (
-    action: 'viewRecords' | 'createRecord' | 'prescribe' | 'orderLab' | 'consultation',
-    targetPatientWallet?: string
+    action: 'viewRecords' | 'createRecord' | 'prescribe' | 'orderLab' | 'consultation' | 'videoCall' | 'chat',
+    targetPatientWallet?: string,
+    targetAppointmentId?: string
   ): Promise<ConsentGateResult> => {
     if (!user?.walletAddress) {
       return {
@@ -49,7 +51,8 @@ export const useConsentGate = (options: UseConsentGateOptions = {}) => {
       const result = await consentGate.checkConsent(
         patientAddr,
         user.walletAddress,
-        action
+        action,
+        targetAppointmentId || appointmentId // 🆕 Pass appointment ID
       );
 
       if (result.consentStatus) {

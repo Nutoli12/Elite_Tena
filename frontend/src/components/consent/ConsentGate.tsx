@@ -6,7 +6,8 @@ import { useConsentGate } from '../../hooks/useConsentGate';
 interface ConsentGateProps {
   patientWallet: string;
   patientName?: string;
-  action: 'viewRecords' | 'createRecord' | 'prescribe' | 'orderLab' | 'consultation';
+  appointmentId?: string; // 🆕 For appointment-specific consent
+  action: 'viewRecords' | 'createRecord' | 'prescribe' | 'orderLab' | 'consultation' | 'videoCall' | 'chat';
   children: React.ReactNode;
   fallback?: React.ReactNode;
   showEmergencyOption?: boolean;
@@ -15,6 +16,7 @@ interface ConsentGateProps {
 export const ConsentGate: React.FC<ConsentGateProps> = ({
   patientWallet,
   patientName,
+  appointmentId,
   action,
   children,
   fallback,
@@ -34,6 +36,7 @@ export const ConsentGate: React.FC<ConsentGateProps> = ({
     hasAccess
   } = useConsentGate({
     patientWallet,
+    appointmentId, // 🆕 Pass appointment ID for appointment-specific consent
     autoCheck: true
   });
 
@@ -230,18 +233,22 @@ function getActionDescription(action: string): string {
     createRecord: 'create new medical records',
     prescribe: 'prescribe medications',
     orderLab: 'order lab tests',
-    consultation: 'start a consultation'
+    consultation: 'start a consultation',
+    videoCall: 'start a video call consultation',
+    chat: 'start a chat consultation'
   };
   return descriptions[action as keyof typeof descriptions] || 'perform this action';
 }
 
 function getPermissionsForAction(action: string): string[] {
   const permissionMap = {
-    viewRecords: ['viewMedicalHistory'],
-    createRecord: ['createRecords', 'viewMedicalHistory'],
-    prescribe: ['prescribeMedications', 'viewMedicalHistory'],
-    orderLab: ['orderLabTests', 'viewMedicalHistory'],
-    consultation: ['viewMedicalHistory', 'createRecords']
+    viewRecords: ['canViewHistory'],
+    createRecord: ['canViewHistory'],
+    prescribe: ['canWritePrescriptions', 'canViewHistory'],
+    orderLab: ['canOrderTests', 'canViewHistory'],
+    consultation: ['canViewHistory'],
+    videoCall: ['canVideoCall', 'canViewHistory'],
+    chat: ['canChat', 'canViewHistory']
   };
-  return permissionMap[action as keyof typeof permissionMap] || ['viewMedicalHistory'];
+  return permissionMap[action as keyof typeof permissionMap] || ['canViewHistory'];
 }

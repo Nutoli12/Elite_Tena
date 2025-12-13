@@ -15,8 +15,48 @@ export default (sequelize, DataTypes) => {
       comment: 'Patient display name'
     },
     dateOfBirth: DataTypes.DATE,
+    gender: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Patient gender (Male, Female)'
+    },
+    phone: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Patient phone number (Ethiopian format: +2519XXXXXXXX)'
+    },
     bloodType: DataTypes.STRING,
-    emergencyContact: DataTypes.JSONB,
+    emergencyContact: {
+      type: DataTypes.JSONB,
+      defaultValue: {},
+      comment: 'Emergency contact information'
+    },
+    location: {
+      type: DataTypes.JSONB,
+      defaultValue: {},
+      comment: 'Patient location data (region, city)'
+    },
+    preferences: {
+      type: DataTypes.JSONB,
+      defaultValue: {
+        language: 'English',
+        emailNotifications: true,
+        smsNotifications: true
+      },
+      comment: 'Patient preferences (language, notifications)'
+    },
+    registrationDate: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+      field: 'registration_date',
+      comment: 'When the patient registered'
+    },
+    registrationMethod: {
+      type: DataTypes.STRING,
+      defaultValue: 'email',
+      field: 'registration_method',
+      comment: 'How the patient registered (email, wallet)'
+    },
     medicalHistory: DataTypes.TEXT,
     allergies: DataTypes.ARRAY(DataTypes.STRING),
     currentMedications: DataTypes.ARRAY(DataTypes.STRING),
@@ -24,6 +64,13 @@ export default (sequelize, DataTypes) => {
   }, {
     tableName: 'patients'
   });
+
+  Patient.associate = function(models) {
+    Patient.belongsTo(models.User, {
+      foreignKey: 'walletAddress',
+      as: 'user'
+    });
+  };
 
   return Patient;
 };

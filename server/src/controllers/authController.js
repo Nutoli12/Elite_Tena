@@ -6,9 +6,11 @@ export const register = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   
   try {
-    const { walletAddress, email, password, role = 'patient', profileData = {} } = req.body;
+    const { walletAddress, email, password, role = 'patient', profileData = {}, ...otherFields } = req.body;
 
     console.log('📝 Register request:', { walletAddress, email, role });
+    console.log('📋 Profile data received:', profileData);
+    console.log('📋 Other fields received:', otherFields);
 
     // Validate required fields - either wallet or email+password
     if (!email) {
@@ -40,17 +42,39 @@ export const register = async (req, res) => {
       });
     }
 
-    // Create user
+    // 🔧 ENHANCED: Create user with comprehensive profile data
     const user = await User.create({
       walletAddress: finalWallet.toLowerCase(),
       email: email.toLowerCase(),
       role,
       isActive: true,
       profileData: {
-        fullName: profileData.fullName || 'User',
-        phone: profileData.phone || '',
+        // Basic Information - use otherFields if profileData is empty
+        firstName: profileData.firstName || otherFields.firstName || '',
+        lastName: profileData.lastName || otherFields.lastName || '',
+        fullName: profileData.fullName || otherFields.fullName || `${otherFields.firstName || ''} ${otherFields.lastName || ''}`.trim() || 'User',
+        phone: profileData.phoneNumber || profileData.phone || otherFields.phoneNumber || otherFields.phone || '',
+        dateOfBirth: profileData.dateOfBirth || otherFields.dateOfBirth || '',
+        gender: profileData.gender || otherFields.gender || '',
         password: password || '', // Store password (in production, use bcrypt)
-        ...profileData
+        
+        // Emergency Contact
+        emergencyContact: profileData.emergencyContact || otherFields.emergencyContact || {},
+        
+        // Location & Preferences
+        location: profileData.location || otherFields.location || {},
+        preferences: profileData.preferences || otherFields.preferences || {
+          language: 'English',
+          emailNotifications: true,
+          smsNotifications: true
+        },
+        
+        // Registration metadata
+        registrationDate: new Date().toISOString(),
+        registrationMethod: password ? 'email' : 'wallet',
+        
+        ...profileData,
+        ...otherFields
       }
     }, { transaction });
 
@@ -60,7 +84,19 @@ export const register = async (req, res) => {
       switch (role) {
         case 'patient':
           profile = await Patient.create({
-            walletAddress: finalWallet.toLowerCase()
+            walletAddress: finalWallet.toLowerCase(),
+            name: otherFields.fullName || `${otherFields.firstName || ''} ${otherFields.lastName || ''}`.trim() || 'Patient',
+            dateOfBirth: otherFields.dateOfBirth ? new Date(otherFields.dateOfBirth) : null,
+            gender: otherFields.gender || null,
+            phone: otherFields.phoneNumber || otherFields.phone || null,
+            emergencyContact: otherFields.emergencyContact || {},
+            location: otherFields.location || {},
+            preferences: otherFields.preferences || {
+              language: 'English',
+              emailNotifications: true,
+              smsNotifications: true
+            },
+            registrationMethod: password ? 'email' : 'wallet'
           }, { transaction });
           console.log('✅ Patient profile created:', profile.walletAddress);
           break;

@@ -199,21 +199,24 @@ const Appointment = (sequelize) => {
       comment: 'Doctor notes during consultation'
     },
 
-    // 🆕 WORKFLOW STATE TRACKING
+    // 🆕 CONSENT-FIRST WORKFLOW STATE TRACKING
     workflowState: {
       type: DataTypes.ENUM(
         'scheduled',
-        'patient_checked_in', 
-        'ready_for_consultation',
+        'awaiting_consent',
+        'consent_granted',
         'consultation_started',
-        'video_call_active',
-        'consultation_completed',
-        'follow_up_scheduled',
         'completed'
       ),
       defaultValue: 'scheduled',
       field: 'workflow_state',
-      comment: 'Current state in the appointment workflow process'
+      comment: 'Current state in the consent-first consultation workflow'
+    },
+    requiresConsent: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+      field: 'requires_consent',
+      comment: 'Whether this appointment requires patient consent before consultation'
     },
     videoCallId: {
       type: DataTypes.UUID,
@@ -342,15 +345,21 @@ const Appointment = (sequelize) => {
       foreignKey: 'doctorWalletAddress',
       as: 'doctorDetails'
     });
-    AppointmentModel.belongsTo(models.User, {
-      foreignKey: 'patientWalletAddress',
-      targetKey: 'walletAddress',
-      as: 'patientUser'
-    });
-    AppointmentModel.belongsTo(models.User, {
-      foreignKey: 'doctorWalletAddress',
-      targetKey: 'walletAddress',
-      as: 'doctorUser'
+    // TEMPORARILY REMOVED: Direct User associations to fix conflict
+    // AppointmentModel.belongsTo(models.User, {
+    //   foreignKey: 'patientWalletAddress',
+    //   targetKey: 'walletAddress',
+    //   as: 'patientUser'
+    // });
+    // AppointmentModel.belongsTo(models.User, {
+    //   foreignKey: 'doctorWalletAddress',
+    //   targetKey: 'walletAddress',
+    //   as: 'doctorUser'
+    // });
+    // 🆕 CONSENT-FIRST: Association with consent
+    AppointmentModel.hasOne(models.Consent, {
+      foreignKey: 'appointmentId',
+      as: 'consent'
     });
   };
 

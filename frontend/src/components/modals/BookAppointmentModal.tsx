@@ -229,7 +229,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
                             <div className="flex items-start justify-between">
                               <div>
                                 <p className="font-semibold text-gray-900">
-                                  {doctor?.profileData?.name || doctor?.profileData?.fullName || (doctor?.profileData?.firstName && doctor?.profileData?.lastName ? `${doctor.profileData.firstName} ${doctor.profileData.lastName}` : doctor?.user?.name || doctor?.name || 'Doctor')}
+                                  {doctor?.user?.profileData?.name || doctor?.user?.profileData?.fullName || (doctor?.user?.profileData?.firstName && doctor?.user?.profileData?.lastName ? `${doctor.user.profileData.firstName} ${doctor.user.profileData.lastName}` : doctor?.name || 'Doctor')}
                                 </p>
                                 <p className="text-sm text-gray-600">{doctor.specialization}</p>
                               </div>
@@ -410,7 +410,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
                     <h4 className="font-semibold text-gray-900 mb-2">Appointment Summary</h4>
                     <div className="space-y-1 text-sm">
                       <p><strong>Department:</strong> {selectedDepartment}</p>
-                      <p><strong>Doctor:</strong> {selectedDoctor?.profileData?.name || selectedDoctor?.profileData?.fullName || (selectedDoctor?.profileData?.firstName && selectedDoctor?.profileData?.lastName ? `${selectedDoctor.profileData.firstName} ${selectedDoctor.profileData.lastName}` : selectedDoctor?.user?.name || selectedDoctor?.name || 'Doctor')}</p>
+                      <p><strong>Doctor:</strong> {selectedDoctor?.user?.profileData?.name || selectedDoctor?.user?.profileData?.fullName || (selectedDoctor?.user?.profileData?.firstName && selectedDoctor?.user?.profileData?.lastName ? `${selectedDoctor.user.profileData.firstName} ${selectedDoctor.user.profileData.lastName}` : selectedDoctor?.name || 'Doctor')}</p>
                       <p><strong>Service:</strong> {selectedServiceType === 'inPerson' ? 'Free In-Person' : selectedServiceType === 'videoCall' ? 'Video Call' : 'Chat'}</p>
                       {selectedServiceType !== 'inPerson' && (
                         <p><strong>Fee:</strong> {selectedDoctor?.availableServices?.[selectedServiceType]?.fee} Birr</p>

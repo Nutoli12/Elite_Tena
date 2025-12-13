@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import { Web3Provider } from './contexts/Web3Context';
 import { SocketProvider } from './contexts/SocketContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { HealthcareLayout } from './components/layout/HealthcareLayout';
@@ -12,6 +13,7 @@ import { Appointments } from './pages/Appointments';
 import { LabResults } from './pages/LabResults';
 import { ConsentManagement } from './pages/Consent';
 import { Payments } from './pages/Payments';
+
 import { LandingPage } from './pages/LandingPage';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -291,9 +293,11 @@ function App() {
     <Web3Provider>
       <AuthProvider>
         <SocketProvider>
-          <Router>
-            <AppRoutes />
-          </Router>
+          <NotificationProvider>
+            <Router>
+              <AppRoutes />
+            </Router>
+          </NotificationProvider>
         </SocketProvider>
       </AuthProvider>
     </Web3Provider>

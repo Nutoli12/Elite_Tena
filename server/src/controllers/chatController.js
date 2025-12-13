@@ -2,7 +2,7 @@ import db from '../models/index.js';
 import { getIO } from '../services/socketService.js';
 import EnhancedNotificationService from '../services/enhancedNotificationService.js';
 
-const { Message, User, Appointment } = db;
+const { Message, User, Appointment, Consent } = db;
 
 /**
  * 💬 CHAT CONTROLLER
@@ -10,18 +10,54 @@ const { Message, User, Appointment } = db;
  */
 
 /**
- * Get chat messages for an appointment
+ * Get chat messages for an appointment (with consent check)
  */
 export const getAppointmentMessages = async (req, res) => {
   try {
     const { appointmentId } = req.params;
-    const { limit = 50, before } = req.query;
+    const { limit = 50, before, userWallet } = req.query;
 
     console.log('💬 Fetching messages for appointment:', appointmentId);
 
+    // 🔒 CONSENT CHECK: Verify user has chat permission
+    const appointment = await Appointment.findByPk(appointmentId, {
+      include: [{
+        model: Consent,
+        as: 'consent',
+        where: { 
+          status: 'active',
+          expiresAt: {
+            [Sequelize.Op.gt]: new Date()
+          }
+        },
+        required: false
+      }]
+    });
+
+    if (appointment) {
+      // Check if consultation requires consent
+      if (appointment.requiresConsent && appointment.workflowState !== 'consent_granted') {
+        return res.status(403).json({
+          success: false,
+          error: 'Consent required for chat consultation',
+          message: 'Patient consent is required before chat can begin',
+          workflowState: appointment.workflowState
+        });
+      }
+
+      // Check chat permission
+      if (appointment.consent && !appointment.consent.permissions?.canChat) {
+        return res.status(403).json({
+          success: false,
+          error: 'Chat permission not granted',
+          message: 'Patient has not granted permission for chat consultations'
+        });
+      }
+    }
+
     const where = { appointmentId };
     if (before) {
-      where.createdAt = { [db.Sequelize.Op.lt]: new Date(before) };
+      where.createdAt = { [Sequelize.Op.lt]: new Date(before) };
     }
 
     const messages = await Message.findAll({
@@ -74,14 +110,14 @@ export const getDirectMessages = async (req, res) => {
     console.log('💬 Fetching direct messages between:', user1, user2);
 
     const where = {
-      [db.Sequelize.Op.or]: [
+      [Sequelize.Op.or]: [
         { senderWallet: user1.toLowerCase(), receiverWallet: user2.toLowerCase() },
         { senderWallet: user2.toLowerCase(), receiverWallet: user1.toLowerCase() }
       ]
     };
 
     if (before) {
-      where.createdAt = { [db.Sequelize.Op.lt]: new Date(before) };
+      where.createdAt = { [Sequelize.Op.lt]: new Date(before) };
     }
 
     const messages = await Message.findAll({

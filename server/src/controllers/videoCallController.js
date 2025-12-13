@@ -3,7 +3,7 @@ import { getIO } from '../services/socketService.js';
 import EnhancedNotificationService from '../services/enhancedNotificationService.js';
 import { v4 as uuidv4 } from 'uuid';
 
-const { VideoCall, User, Appointment } = db;
+const { VideoCall, User, Appointment, Consent } = db;
 
 /**
  * 📹 VIDEO CALL CONTROLLER
@@ -11,7 +11,7 @@ const { VideoCall, User, Appointment } = db;
  */
 
 /**
- * Initiate a video call
+ * Initiate a video call (with consent check)
  */
 export const initiateCall = async (req, res) => {
   try {
@@ -30,6 +30,44 @@ export const initiateCall = async (req, res) => {
         error: 'Missing required fields',
         message: 'initiatorWallet and receiverWallet are required'
       });
+    }
+
+    // 🔒 CONSENT CHECK: If appointmentId provided, check consent
+    if (appointmentId) {
+      const appointment = await Appointment.findByPk(appointmentId, {
+        include: [{
+          model: Consent,
+          as: 'consent',
+          where: { 
+            status: 'active',
+            expiresAt: {
+              [Sequelize.Op.gt]: new Date()
+            }
+          },
+          required: false
+        }]
+      });
+
+      if (appointment) {
+        // Check if consultation requires consent
+        if (appointment.requiresConsent && appointment.workflowState !== 'consent_granted') {
+          return res.status(403).json({
+            success: false,
+            error: 'Consent required for video consultation',
+            message: 'Patient consent is required before video call can begin',
+            workflowState: appointment.workflowState
+          });
+        }
+
+        // Check video call permission
+        if (appointment.consent && !appointment.consent.permissions?.canVideoCall) {
+          return res.status(403).json({
+            success: false,
+            error: 'Video call permission not granted',
+            message: 'Patient has not granted permission for video calls'
+          });
+        }
+      }
     }
 
     // Check if users exist
@@ -360,7 +398,7 @@ export const getCallHistory = async (req, res) => {
     console.log('📋 Fetching call history for:', userWallet);
 
     const where = {
-      [db.Sequelize.Op.or]: [
+      [Sequelize.Op.or]: [
         { initiatorWallet: userWallet.toLowerCase() },
         { receiverWallet: userWallet.toLowerCase() }
       ]

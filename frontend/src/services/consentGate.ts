@@ -30,7 +30,8 @@ class ConsentGateService {
   async checkConsent(
     patientWallet: string,
     doctorWallet: string,
-    action: 'viewRecords' | 'createRecord' | 'prescribe' | 'orderLab' | 'consultation'
+    action: 'viewRecords' | 'createRecord' | 'prescribe' | 'orderLab' | 'consultation' | 'videoCall' | 'chat',
+    appointmentId?: string // 🆕 For appointment-specific consent
   ): Promise<ConsentGateResult> {
     try {
       // Check cache first
@@ -42,7 +43,9 @@ class ConsentGateService {
       }
 
       // Fetch fresh consent status
-      const consentStatus = await this.fetchConsentStatus(patientWallet, doctorWallet);
+      const consentStatus = appointmentId 
+        ? await this.fetchAppointmentConsentStatus(appointmentId)
+        : await this.fetchConsentStatus(patientWallet, doctorWallet);
       
       // Cache the result
       this.cacheConsent(cacheKey, consentStatus);
@@ -217,26 +220,57 @@ class ConsentGateService {
     };
   }
 
+  // 🆕 Fetch appointment-specific consent status
+  private async fetchAppointmentConsentStatus(appointmentId: string): Promise<ConsentStatus> {
+    try {
+      const response = await axios.get(`/appointments/${appointmentId}/consent-status`);
+      
+      if (response.data.success && response.data.data) {
+        const data = response.data.data;
+        return {
+          hasAccess: data.hasConsent && data.consent?.status === 'active' && !data.consent?.isExpired,
+          consent: data.consent ? {
+            id: data.consent.id,
+            status: data.consent.status,
+            permissions: Object.keys(data.consent.permissions || {}).filter(key => data.consent.permissions[key]),
+            expiresAt: data.consent.expiresAt,
+            grantedAt: data.consent.grantedAt
+          } : undefined
+        };
+      }
+
+      return { hasAccess: false };
+      
+    } catch (error) {
+      console.error('Fetch appointment consent status error:', error);
+      return { hasAccess: false };
+    }
+  }
+
   private getActionDescription(action: string): string {
     const descriptions = {
       viewRecords: 'view medical records',
       createRecord: 'create medical records',
       prescribe: 'prescribe medications',
       orderLab: 'order lab tests',
-      consultation: 'start consultation'
+      consultation: 'start consultation',
+      videoCall: 'start video call consultation',
+      chat: 'start chat consultation'
     };
     return descriptions[action as keyof typeof descriptions] || 'perform this action';
   }
 
   private getRequiredPermissions(action: string): string[] {
     const permissionMap = {
-      viewRecords: ['viewMedicalHistory'],
-      createRecord: ['createRecords', 'viewMedicalHistory'],
-      prescribe: ['prescribeMedications', 'viewMedicalHistory'],
-      orderLab: ['orderLabTests', 'viewMedicalHistory'],
-      consultation: ['viewMedicalHistory', 'createRecords']
+      viewRecords: ['canViewHistory'],
+      createRecord: ['canViewHistory'],
+      prescribe: ['canWritePrescriptions', 'canViewHistory'],
+      orderLab: ['canOrderTests', 'canViewHistory'],
+      consultation: ['canViewHistory'],
+      videoCall: ['canVideoCall', 'canViewHistory'],
+      chat: ['canChat', 'canViewHistory']
     };
-    return permissionMap[action as keyof typeof permissionMap] || ['viewMedicalHistory'];
+    return permissionMap[action as keyof typeof permissionMap] || ['canViewHistory'];
   }
 
   private getCachedConsent(cacheKey: string): ConsentStatus | null {

@@ -21,7 +21,7 @@ export const AdminStaff: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('/api/admin/register-staff', formData);
+      const response = await axios.post('/admin/register-staff', formData);
       if (response.data.success) {
         alert('Staff member registered successfully!');
         setFormData({
