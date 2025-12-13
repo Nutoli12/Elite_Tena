@@ -48,6 +48,9 @@ import DoctorAvailabilityTemplate from './DoctorAvailabilityTemplate.js';
 import PatientQueue from './PatientQueue.js';
 import QueueEntry from './QueueEntry.js';
 import ConsultationSession from './ConsultationSession.js';
+import AppointmentConsent from './AppointmentConsent.js';
+import EnhancedAppointment from './EnhancedAppointment.js';
+import DoctorServicePricing from './DoctorServicePricing.js';
 
 // Initialize models with sequelize instance
 const db = {
@@ -76,7 +79,10 @@ const db = {
   DoctorAvailabilityTemplate: DoctorAvailabilityTemplate(sequelize, Sequelize.DataTypes),
   PatientQueue: PatientQueue(sequelize, Sequelize.DataTypes),
   QueueEntry: QueueEntry(sequelize, Sequelize.DataTypes),
-  ConsultationSession: ConsultationSession(sequelize, Sequelize.DataTypes)
+  ConsultationSession: ConsultationSession(sequelize, Sequelize.DataTypes),
+  AppointmentConsent: AppointmentConsent(sequelize, Sequelize.DataTypes),
+  EnhancedAppointment: EnhancedAppointment(sequelize, Sequelize.DataTypes),
+  DoctorServicePricing: DoctorServicePricing(sequelize, Sequelize.DataTypes)
 };
 
 // ... REST OF YOUR ASSOCIATIONS CODE REMAINS EXACTLY THE SAME ...
@@ -507,6 +513,55 @@ const initializeAssociations = () => {
     db.QueueEntry.belongsTo(db.Appointment, {
       foreignKey: 'appointmentId',
       as: 'appointment'
+    });
+
+    // 🔐 NEW: AppointmentConsent associations
+    db.Appointment.hasOne(db.AppointmentConsent, {
+      foreignKey: 'appointmentId',
+      as: 'appointmentConsent',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.AppointmentConsent.belongsTo(db.Appointment, {
+      foreignKey: 'appointmentId',
+      as: 'appointment'
+    });
+
+    db.Consent.hasMany(db.AppointmentConsent, {
+      foreignKey: 'consentId',
+      as: 'appointmentConsents',
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    });
+    db.AppointmentConsent.belongsTo(db.Consent, {
+      foreignKey: 'consentId',
+      as: 'generalConsent'
+    });
+
+    db.Patient.hasMany(db.AppointmentConsent, {
+      foreignKey: 'patientWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'appointmentConsents',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.AppointmentConsent.belongsTo(db.Patient, {
+      foreignKey: 'patientWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'patient'
+    });
+
+    db.Doctor.hasMany(db.AppointmentConsent, {
+      foreignKey: 'doctorWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'appointmentConsents',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.AppointmentConsent.belongsTo(db.Doctor, {
+      foreignKey: 'doctorWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'doctor'
     });
 
     console.log('✅ Database associations initialized successfully');

@@ -8,17 +8,18 @@ import {
   Pill, Calendar, BookOpen, Award, Shield
 } from 'lucide-react';
 import axios from '../../lib/axios';
+import { ConsultationGate } from '../../components/appointment/ConsultationGate';
 
 // Import phase components
-import { PatientInfoPhase } from '../../components/consultation/PatientInfoPhase.tsx';
-import { HistoryTakingPhase } from '../../components/consultation/HistoryTakingPhase.tsx';
-import { PhysicalExamPhase } from '../../components/consultation/PhysicalExamPhase.tsx';
-import { DiagnosticTestsPhase } from '../../components/consultation/DiagnosticTestsPhase.tsx';
-import { DiagnosisPhase } from '../../components/consultation/DiagnosisPhase.tsx';
-import { TreatmentPlanPhase } from '../../components/consultation/TreatmentPlanPhase.tsx';
-import { AdmissionReferralPhase } from '../../components/consultation/AdmissionReferralPhase.tsx';
-import { FollowUpEducationPhase } from '../../components/consultation/FollowUpEducationPhase.tsx';
-import { FinalDocumentationPhase } from '../../components/consultation/FinalDocumentationPhase.tsx';
+import { PatientInfoPhase } from '../../components/consultation/PatientInfoPhase';
+import { HistoryTakingPhase } from '../../components/consultation/HistoryTakingPhase';
+import { PhysicalExamPhase } from '../../components/consultation/PhysicalExamPhase';
+import { DiagnosticTestsPhase } from '../../components/consultation/DiagnosticTestsPhase';
+import { DiagnosisPhase } from '../../components/consultation/DiagnosisPhase';
+import { TreatmentPlanPhase } from '../../components/consultation/TreatmentPlanPhase';
+import { AdmissionReferralPhase } from '../../components/consultation/AdmissionReferralPhase';
+import { FollowUpEducationPhase } from '../../components/consultation/FollowUpEducationPhase';
+import { FinalDocumentationPhase } from '../../components/consultation/FinalDocumentationPhase';
 
 const PHASES = [
   { id: 'patient_info', name: 'Patient Info', icon: User },
@@ -44,6 +45,7 @@ export const ComprehensiveConsultation: React.FC = () => {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [hasConsent, setHasConsent] = useState(false);
 
   // Consultation data state
   const [consultationData, setConsultationData] = useState({
@@ -117,9 +119,10 @@ export const ComprehensiveConsultation: React.FC = () => {
     fetchConsultationDetails();
   }, [appointmentId]);
 
-  // Timer effect
+  // Timer effect - Only for premium services (video call and chat)
   useEffect(() => {
-    if (startTime && !isCompleted) {
+    const isPremiumService = appointment?.serviceType === 'videoCall' || appointment?.serviceType === 'chat';
+    if (startTime && !isCompleted && isPremiumService) {
       const interval = setInterval(() => {
         const now = new Date();
         const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
@@ -128,7 +131,7 @@ export const ComprehensiveConsultation: React.FC = () => {
 
       return () => clearInterval(interval);
     }
-  }, [startTime, isCompleted]);
+  }, [startTime, isCompleted, appointment?.serviceType]);
 
   // Auto-save effect
   useEffect(() => {
@@ -238,9 +241,18 @@ export const ComprehensiveConsultation: React.FC = () => {
         setStartTime(new Date());
         console.log('✅ Consultation started');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Failed to start consultation:', error);
-      alert('Failed to start consultation');
+      // Handle consent-related errors gracefully
+      if (error.response?.status === 403) {
+        const errorData = error.response?.data;
+        if (errorData?.error === 'CONSENT_REQUIRED' || errorData?.error === 'CONSENT_NOT_GRANTED') {
+          // This is expected - ConsultationGate will handle showing the consent UI
+          console.log('ℹ️ Consent required before starting consultation');
+          return;
+        }
+      }
+      alert(error.response?.data?.message || 'Failed to start consultation');
     }
   };
 
@@ -346,6 +358,18 @@ export const ComprehensiveConsultation: React.FC = () => {
   const patientName = appointment.patientDetails?.user?.profileData?.fullName || 
                       appointment.patientWalletAddress?.substring(0, 10) + '...';
 
+  if (!appointmentId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Invalid Appointment</h2>
+          <p className="text-gray-600">No appointment ID provided.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -368,8 +392,8 @@ export const ComprehensiveConsultation: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Timer */}
-              {startTime && (
+              {/* Timer - Only show for premium services (video call and chat) */}
+              {startTime && (appointment?.serviceType === 'videoCall' || appointment?.serviceType === 'chat') && (
                 <div className="flex items-center gap-2 bg-medical-50 px-4 py-2 rounded-lg">
                   <Clock className="w-5 h-5 text-medical-600" />
                   <span className="text-lg font-mono font-bold text-medical-600">
@@ -386,8 +410,8 @@ export const ComprehensiveConsultation: React.FC = () => {
                 </div>
               )}
 
-              {/* Start button */}
-              {!startTime && (
+              {/* Start button - only show when consent is granted */}
+              {!startTime && hasConsent && (
                 <button
                   onClick={handleStartConsultation}
                   className="healthcare-button flex items-center gap-2"
@@ -429,16 +453,22 @@ export const ComprehensiveConsultation: React.FC = () => {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentPhase}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
+      {/* Consent-Protected Content */}
+      <ConsultationGate
+        appointmentId={appointmentId}
+        appointment={appointment}
+        requiredPermission="allow_consultation"
+        onConsentChange={setHasConsent}
+      >
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentPhase}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
             {currentPhase === 0 && (
               <PatientInfoPhase
                 data={consultationData}
@@ -534,7 +564,8 @@ export const ComprehensiveConsultation: React.FC = () => {
             )}
           </div>
         )}
-      </div>
+        </div>
+      </ConsultationGate>
     </div>
   );
 };

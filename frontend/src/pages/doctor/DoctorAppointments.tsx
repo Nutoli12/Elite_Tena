@@ -8,6 +8,7 @@ import axios from '../../lib/axios';
 import { PatientInfoCard } from '../../components/doctor/PatientInfoCard';
 import { DoctorQueue } from '../../components/doctor/DoctorQueue';
 import { AppointmentActions } from '../../components/doctor/AppointmentActions';
+import { ConsentRequestButton } from '../../components/appointment/ConsentRequestButton';
 
 export const DoctorAppointments: React.FC = () => {
   const { user } = useAuth();
@@ -312,6 +313,16 @@ export const DoctorAppointments: React.FC = () => {
                         appointment={appointment} 
                         showVitals={true}
                       />
+
+                      {/* Consent Management */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 className="font-semibold text-blue-900 mb-2">Patient Consent</h4>
+                        <ConsentRequestButton
+                          appointment={appointment}
+                          onConsentRequested={fetchDoctorSchedule}
+                          className="w-full"
+                        />
+                      </div>
 
                       {/* Enhanced Action Buttons */}
                       <AppointmentActions 

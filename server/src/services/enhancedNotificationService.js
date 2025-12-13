@@ -362,4 +362,9 @@ class EnhancedNotificationService {
   }
 }
 
+// Export both the class and a convenience function
+export const createNotification = (data) => {
+  return EnhancedNotificationService.sendToUser(data.userId, data.type, data);
+};
+
 export default EnhancedNotificationService;

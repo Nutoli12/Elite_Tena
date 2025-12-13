@@ -17,7 +17,7 @@ class ChapaService {
   async initializePayment(data) {
     try {
       // Validate secret key
-      if (!this.secretKey) {
+      if (!this.secretKey || this.secretKey === 'CHASECK_TEST-your-actual-chapa-secret-key-here') {
         throw new Error('Chapa secret key not configured. Please add CHAPA_SECRET_KEY to your .env file. Get one from https://dashboard.chapa.co/');
       }
 
@@ -351,6 +351,50 @@ class PaymentService {
         enabled: !!process.env.TELEBIRR_APP_ID,
       },
     ];
+  }
+
+  /**
+   * Enhanced error handling for Chapa API
+   */
+  handleChapaError(error) {
+    const errorMap = {
+      401: 'Invalid API credentials - check your secret key',
+      400: 'Invalid request data - check payment parameters',
+      422: 'Validation error - check required fields',
+      429: 'Rate limit exceeded - try again later',
+      500: 'Chapa server error - try again later'
+    };
+    
+    const status = error.response?.status;
+    const message = errorMap[status] || error.message;
+    
+    return {
+      success: false,
+      error: message,
+      status: status,
+      details: error.response?.data,
+      troubleshooting: this.getTroubleshootingSteps(status)
+    };
+  }
+  
+  getTroubleshootingSteps(status) {
+    switch(status) {
+      case 401:
+        return [
+          'Verify CHAPA_SECRET_KEY in .env file',
+          'Check if key is from correct environment (test/live)',
+          'Ensure key is not expired'
+        ];
+      case 400:
+        return [
+          'Check all required fields are provided',
+          'Verify email format is valid',
+          'Ensure amount is positive number',
+          'Check phone number format (+251...)'
+        ];
+      default:
+        return ['Check Chapa status page', 'Try again in a few minutes'];
+    }
   }
 }
 

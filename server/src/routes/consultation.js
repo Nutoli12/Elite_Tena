@@ -7,6 +7,7 @@ import {
   updateComprehensiveConsultation,
   finalizeComprehensiveConsultation
 } from '../controllers/consultationController.js';
+import { requireAppointmentConsent } from '../../middleware/requireAppointmentConsent.js';
 
 const router = express.Router();
 
@@ -15,20 +16,20 @@ const router = express.Router();
  * Handles doctor consultation workflow
  */
 
-// Get consultation details (patient history, current appointment)
+// Get consultation details (patient history, current appointment) - allow for initial setup
 router.get('/:appointmentId', getConsultationDetails);
 
-// Start consultation
-router.post('/:appointmentId/start', startConsultation);
+// Start consultation - requires consent
+router.post('/:appointmentId/start', requireAppointmentConsent, startConsultation);
 
-// Update consultation notes (auto-save)
-router.put('/:appointmentId/notes', updateConsultationNotes);
+// Update consultation notes (auto-save) - requires consent
+router.put('/:appointmentId/notes', requireAppointmentConsent, updateConsultationNotes);
 
-// Complete consultation
-router.post('/:appointmentId/complete', completeConsultation);
+// Complete consultation - requires consent
+router.post('/:appointmentId/complete', requireAppointmentConsent, completeConsultation);
 
-// Comprehensive consultation routes
-router.put('/:appointmentId/comprehensive', updateComprehensiveConsultation);
-router.post('/:appointmentId/finalize', finalizeComprehensiveConsultation);
+// Comprehensive consultation routes - require consent
+router.put('/:appointmentId/comprehensive', requireAppointmentConsent, updateComprehensiveConsultation);
+router.post('/:appointmentId/finalize', requireAppointmentConsent, finalizeComprehensiveConsultation);
 
 export default router;

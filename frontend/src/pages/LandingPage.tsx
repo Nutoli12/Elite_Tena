@@ -225,7 +225,7 @@ export const LandingPage: React.FC = () => {
                 } text-white shadow-xl transition-all`}
               >
                 <Wallet className="w-5 h-5" />
-                Connect Wallet
+                Get Started
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </motion.button>
 

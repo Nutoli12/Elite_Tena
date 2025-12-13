@@ -22,6 +22,7 @@ import adminRoutes from './routes/admin.js';
 import prescriptionRoutes from './routes/prescriptions.js';
 import labResultRoutes from './routes/labResults.js';
 import appointmentRoutes from './routes/appointment.js';
+import enhancedAppointmentsRoutes from './routes/enhancedAppointments.js';
 import paymentRoutes from './routes/payment.js';
 import fileUploadRoutes from './routes/fileUpload.js';
 import notificationRoutes from './routes/notifications.js';
@@ -35,6 +36,10 @@ import blockchainSyncRoutes from './routes/blockchain-sync.js';
 import legacyMigrationRoutes from './routes/legacy-migration.js';
 import smartSchedulingRoutes from './routes/smartScheduling.js';
 import appointmentWorkflowRoutes from './routes/appointmentWorkflow.js';
+import twoTierPricingRoutes from './routes/twoTierPricingMinimal.js';
+import appointmentConsentRoutes from './routes/appointmentConsent.js';
+import appointmentPaymentRoutes from './routes/appointmentPayment.js';
+import chapaPaymentRoutes from './routes/chapaPayment.js';
 import { initializeSocket } from './services/socketService.js';
 
 // ... (imports)
@@ -134,9 +139,13 @@ app.use('/health', healthRouter);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/consent', consentRoutes);
+app.use('/api/appointment-consent', appointmentConsentRoutes); // Appointment-specific consent workflow
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/enhanced-appointments', enhancedAppointmentsRoutes);
+app.use('/api/appointment-payment', appointmentPaymentRoutes); // Phase 2: Approval & Payment workflow
+app.use('/api/chapa-payment', chapaPaymentRoutes); // Chapa payment integration
 app.use('/api/medical-records', medicalRecordRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/prescriptions', prescriptionAccessRoutes); // Prescription access control
@@ -156,6 +165,7 @@ app.use('/api/chat', chatRoutes); // Chat routes
 app.use('/api/video-calls', videoCallRoutes); // Video call routes
 app.use('/api/smart-scheduling', smartSchedulingRoutes); // Smart scheduling routes
 app.use('/api/appointment-workflow', appointmentWorkflowRoutes); // Complete appointment workflow
+app.use('/api/two-tier-pricing', twoTierPricingRoutes); // Enhanced two-tier pricing system - UPDATED
 
 // Database viewer route
 app.get('/database', (req, res) => {

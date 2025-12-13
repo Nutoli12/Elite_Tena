@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Plus, MapPin, Clock, Video, MoreVertical, DollarSign, Upload, QrCode, MessageSquare } from 'lucide-react';
+import { Calendar, Plus, MapPin, Clock, Video, MoreVertical, DollarSign, Upload, QrCode, MessageSquare, Shield } from 'lucide-react';
 import axios from '../lib/axios';
 import type { Appointment } from '../types/healthcare';
 import { BookAppointmentModal } from '../components/modals/BookAppointmentModal';
@@ -13,6 +13,8 @@ import { PaymentStatus } from '../components/payment/PaymentStatus';
 import { QRCodeDisplay } from '../components/QRCodeDisplay';
 import { PatientNoteModal } from '../components/appointment/PatientNoteModal';
 import { RescheduleModal } from '../components/appointment/RescheduleModal';
+import { ConsentReviewModal } from '../components/appointment/ConsentReviewModal';
+import { appointmentConsentAPI } from '../services/appointmentConsentAPI';
 
 export const Appointments: React.FC = () => {
   const { user } = useAuth();
@@ -27,6 +29,8 @@ export const Appointments: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showPatientNoteModal, setShowPatientNoteModal] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [consentStatus, setConsentStatus] = useState<{[key: string]: any}>({});
   const [actionLoading] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,8 +39,17 @@ export const Appointments: React.FC = () => {
 
   const handleBookAppointment = async (appointmentData: any) => {
     try {
-      console.log('📅 Booking appointment:', appointmentData);
+      console.log('📅 Booking appointment callback:', appointmentData);
 
+      // If this is a payment completion callback, just refresh the list
+      if (appointmentData.paymentCompleted) {
+        console.log('✅ Payment completed, refreshing appointments list...');
+        await fetchAppointments(); // Refresh the list
+        setShowBookModal(false);
+        return;
+      }
+
+      // Otherwise, create a new appointment (legacy flow)
       const response = await axios.post('/appointments', {
         patientWalletAddress: user?.walletAddress,
         doctorWalletAddress: appointmentData.doctorId,
@@ -58,7 +71,10 @@ export const Appointments: React.FC = () => {
       }
     } catch (error) {
       console.error('❌ Failed to book appointment:', error);
-      alert('Failed to book appointment. Please try again.');
+      // Don't show error for payment completion callbacks
+      if (!appointmentData.paymentCompleted) {
+        alert('Failed to book appointment. Please try again.');
+      }
     }
   };
 
@@ -105,6 +121,25 @@ export const Appointments: React.FC = () => {
     alert('Appointment rescheduled successfully');
   };
 
+  // Check consent status for appointments
+  const checkConsentStatus = async (appointmentId: string) => {
+    try {
+      const result = await appointmentConsentAPI.checkConsent(appointmentId);
+      setConsentStatus(prev => ({
+        ...prev,
+        [appointmentId]: result
+      }));
+    } catch (error) {
+      console.error('Failed to check consent status:', error);
+    }
+  };
+
+  const handleConsentDecision = () => {
+    fetchAppointments();
+    setShowConsentModal(false);
+    setSelectedAppointment(null);
+  };
+
   const fetchAppointments = async () => {
     if (!user?.walletAddress) {
       setLoading(false);
@@ -148,6 +183,13 @@ export const Appointments: React.FC = () => {
 
         setAppointments(backendAppointments);
         console.log('✅ Loaded', backendAppointments.length, 'patient appointments');
+        
+        // Check consent status for each appointment
+        backendAppointments.forEach(apt => {
+          if (apt.paymentStatus === 'confirmed' || apt.paymentStatus === 'paid') {
+            checkConsentStatus(apt.id);
+          }
+        });
       } else {
         console.log('📝 No appointments found');
         setAppointments([]);
@@ -313,6 +355,57 @@ export const Appointments: React.FC = () => {
                         onPaymentRequired={(amount) => handlePaymentRequired(appointment.id, amount)}
                       />
                     </div>
+
+                    {/* Consent Status */}
+                    {(appointment.paymentStatus === 'confirmed' || appointment.paymentStatus === 'paid') && (
+                      <div className="mt-3">
+                        {consentStatus[appointment.id] ? (
+                          <div className={`p-3 rounded-lg border ${
+                            consentStatus[appointment.id].hasConsent 
+                              ? 'bg-green-50 border-green-200' 
+                              : consentStatus[appointment.id].status === 'requested'
+                              ? 'bg-yellow-50 border-yellow-200'
+                              : 'bg-gray-50 border-gray-200'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <Shield className="w-4 h-4" />
+                                <span className="text-sm font-medium">
+                                  {consentStatus[appointment.id].hasConsent 
+                                    ? '✅ Consent Granted' 
+                                    : consentStatus[appointment.id].status === 'requested'
+                                    ? '⏳ Consent Requested'
+                                    : '🔒 Consent Required'}
+                                </span>
+                              </div>
+                              {consentStatus[appointment.id].status === 'requested' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedAppointment(appointment);
+                                    setShowConsentModal(true);
+                                  }}
+                                  className="text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
+                                >
+                                  Review
+                                </button>
+                              )}
+                            </div>
+                            {consentStatus[appointment.id].reason && (
+                              <p className="text-xs text-gray-600 mt-1">
+                                {consentStatus[appointment.id].reason}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg">
+                            <div className="flex items-center space-x-2">
+                              <Shield className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm text-gray-600">Checking consent status...</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Action Buttons */}
                     <div className="flex flex-wrap gap-2 mt-4">
@@ -572,6 +665,20 @@ export const Appointments: React.FC = () => {
           amount={paymentAmount}
           description={`Healthcare consultation payment for appointment with ${selectedAppointment.displayDoctor || selectedAppointment.doctorName || 'Doctor'}`}
           onPaymentSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {/* Consent Review Modal */}
+      {selectedAppointment && (
+        <ConsentReviewModal
+          isOpen={showConsentModal}
+          onClose={() => {
+            setShowConsentModal(false);
+            setSelectedAppointment(null);
+          }}
+          appointmentId={selectedAppointment.id}
+          patientWalletAddress={user?.walletAddress || ''}
+          onConsentDecision={handleConsentDecision}
         />
       )}
     </motion.div>

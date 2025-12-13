@@ -18,22 +18,51 @@ export const getDoctorPaymentSettings = async (req, res) => {
 
     console.log('🔍 Fetching payment settings for doctor:', doctorWallet);
 
+    // Try to find with exact match first, then lowercase
     let settings = await DoctorPaymentSettings.findOne({
-      where: { doctorWalletAddress: doctorWallet.toLowerCase() }
+      where: { doctorWalletAddress: doctorWallet }
     });
+
+    if (!settings) {
+      settings = await DoctorPaymentSettings.findOne({
+        where: { doctorWalletAddress: doctorWallet.toLowerCase() }
+      });
+    }
 
     // Create default settings if none exist
     if (!settings) {
-      settings = await DoctorPaymentSettings.create({
-        doctorWalletAddress: doctorWallet.toLowerCase(),
-        telebirrEnabled: false,
-        cbeBirrEnabled: false,
-        bankTransferEnabled: false,
-        cashEnabled: true,
-        videoCallFee: 50.00,
-        chatFee: 30.00
-      });
-      console.log('✅ Created default payment settings');
+      try {
+        settings = await DoctorPaymentSettings.create({
+          doctorWalletAddress: doctorWallet.toLowerCase(),
+          telebirrEnabled: false,
+          cbeBirrEnabled: false,
+          bankTransferEnabled: false,
+          cashEnabled: true,
+          videoCallFee: 50.00,
+          chatFee: 30.00
+        });
+        console.log('✅ Created default payment settings');
+      } catch (createError) {
+        console.error('❌ Failed to create default settings:', createError.message);
+        // Return default settings without saving if creation fails
+        return res.json({
+          success: true,
+          data: {
+            doctorWalletAddress: doctorWallet,
+            telebirrEnabled: false,
+            telebirrNumber: '',
+            cbeBirrEnabled: false,
+            cbeBirrAccount: '',
+            bankTransferEnabled: false,
+            bankName: '',
+            bankAccountNumber: '',
+            bankAccountName: '',
+            cashEnabled: true,
+            videoCallFee: 50.00,
+            chatFee: 30.00
+          }
+        });
+      }
     }
 
     res.json({

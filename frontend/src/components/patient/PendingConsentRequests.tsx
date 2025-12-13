@@ -62,7 +62,7 @@ export const PendingConsentRequests: React.FC = () => {
     setActionLoading(true);
     try {
       const walletAddress = user?.walletAddress || localStorage.getItem('user_wallet');
-      await axios.post(`/consent/${request.id}/grant`, {
+      await axios.post(`/consent/grant/${request.id}`, {
         patientWalletAddress: walletAddress,
         customDuration: durationType ? {
           type: durationType === 'appointment' ? 'appointment_only' : 'hours',
@@ -84,7 +84,7 @@ export const PendingConsentRequests: React.FC = () => {
     setActionLoading(true);
     try {
       const walletAddress = user?.walletAddress || localStorage.getItem('user_wallet');
-      await axios.post(`/consent/${request.id}/deny`, {
+      await axios.post(`/consent/deny/${request.id}`, {
         patientWalletAddress: walletAddress,
         reason: reason || 'Patient denied access'
       });
@@ -304,6 +304,127 @@ export const PendingConsentRequests: React.FC = () => {
             </div>
           </motion.div>
         ))}
+      </AnimatePresence>
+
+      {/* Detail Modal */}
+      <AnimatePresence>
+        {selectedRequest && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setSelectedRequest(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-gray-900">Consent Request Details</h3>
+                  <button
+                    onClick={() => setSelectedRequest(null)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <XCircle className="w-6 h-6 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-1">Doctor</h4>
+                  <p className="text-gray-900">
+                    {selectedRequest.doctor?.user?.name || selectedRequest.doctor?.name || 'Unknown Doctor'}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {selectedRequest.doctor?.specialty || 'Specialist'}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-1">Purpose</h4>
+                  <p className="text-gray-900">{selectedRequest.purpose}</p>
+                </div>
+
+                {selectedRequest.requestReason && (
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-1">Reason</h4>
+                    <p className="text-gray-900">{selectedRequest.requestReason}</p>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-1">Duration</h4>
+                  <p className="text-gray-900">
+                    {getDurationText(selectedRequest.durationType, selectedRequest.durationValue)}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-1">Requested At</h4>
+                  <p className="text-gray-900">
+                    {new Date(selectedRequest.requestedAt).toLocaleString()}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-2">Permissions Requested</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(selectedRequest.permissions).map(([key, value]) => (
+                      <div
+                        key={key}
+                        className={`flex items-center gap-2 p-2 rounded-lg ${
+                          value ? 'bg-green-50 text-green-800' : 'bg-gray-50 text-gray-500'
+                        }`}
+                      >
+                        {value ? (
+                          <CheckCircle className="w-4 h-4" />
+                        ) : (
+                          <XCircle className="w-4 h-4" />
+                        )}
+                        <span className="text-sm">
+                          {key.replace(/([A-Z])/g, ' $1').trim()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 flex gap-3">
+                <button
+                  onClick={() => {
+                    handleGrant(selectedRequest);
+                  }}
+                  disabled={actionLoading}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                >
+                  Grant Access
+                </button>
+                <button
+                  onClick={() => {
+                    handleDeny(selectedRequest);
+                  }}
+                  disabled={actionLoading}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50"
+                >
+                  Deny Access
+                </button>
+                <button
+                  onClick={() => setSelectedRequest(null)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

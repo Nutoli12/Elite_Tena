@@ -7,6 +7,7 @@
 import express from 'express';
 import AppointmentWorkflowManager from '../services/AppointmentWorkflowManager.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { requireAppointmentConsent, requireAppointmentVideoCallConsent } from '../../middleware/requireAppointmentConsent.js';
 import db from '../models/index.js';
 
 const router = express.Router();
@@ -59,7 +60,7 @@ router.post('/:appointmentId/check-in', async (req, res) => {
  * POST /api/appointment-workflow/:appointmentId/start-consultation
  * Doctor starts consultation after patient consent
  */
-router.post('/:appointmentId/start-consultation', async (req, res) => {
+router.post('/:appointmentId/start-consultation', requireAppointmentConsent, async (req, res) => {
   try {
     const { appointmentId } = req.params;
     const doctorWalletAddress = req.user.walletAddress;
@@ -100,7 +101,7 @@ router.post('/:appointmentId/start-consultation', async (req, res) => {
  * POST /api/appointment-workflow/:appointmentId/video-call
  * Initiate video call during consultation
  */
-router.post('/:appointmentId/video-call', async (req, res) => {
+router.post('/:appointmentId/video-call', requireAppointmentVideoCallConsent, async (req, res) => {
   try {
     const { appointmentId } = req.params;
     const initiatorWallet = req.user.walletAddress;
@@ -144,7 +145,7 @@ router.post('/:appointmentId/video-call', async (req, res) => {
  * POST /api/appointment-workflow/:appointmentId/complete
  * Complete consultation with medical records, prescriptions, follow-up
  */
-router.post('/:appointmentId/complete', async (req, res) => {
+router.post('/:appointmentId/complete', requireAppointmentConsent, async (req, res) => {
   try {
     const { appointmentId } = req.params;
     const completionData = req.body;

@@ -1,10 +1,5 @@
 import { DataTypes } from 'sequelize';
 
-/**
- * 💰 DOCTOR PAYMENT SETTINGS MODEL
- * Stores doctor's payment details for peer-to-peer payments
- * System DOES NOT process payments - only stores details for patient reference
- */
 const DoctorPaymentSettings = (sequelize) => {
   const DoctorPaymentSettingsModel = sequelize.define('DoctorPaymentSettings', {
     id: {
@@ -15,129 +10,112 @@ const DoctorPaymentSettings = (sequelize) => {
     doctorWalletAddress: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true,
-      references: {
-        model: 'doctors',
-        key: 'walletAddress'
-      }
+      unique: true
     },
     
-    // Telebirr Payment Details
+    // Telebirr settings
     telebirrEnabled: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      comment: 'Whether doctor accepts Telebirr'
+      defaultValue: false
     },
     telebirrNumber: {
       type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Doctor Telebirr phone number'
+      allowNull: true
     },
     telebirrName: {
       type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Name registered on Telebirr'
+      allowNull: true
     },
     
-    // CBE Birr Payment Details
+    // CBE Birr settings
     cbeBirrEnabled: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      comment: 'Whether doctor accepts CBE Birr'
+      defaultValue: false
     },
     cbeBirrAccount: {
       type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'CBE Birr account number'
+      allowNull: true
     },
     cbeBirrName: {
       type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Name on CBE account'
+      allowNull: true
     },
     cbeBirrBank: {
       type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Bank name (e.g., Commercial Bank of Ethiopia)'
+      allowNull: true
     },
     cbeBirrBranch: {
       type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Bank branch'
+      allowNull: true
     },
     
-    // Bank Transfer Details
+    // Bank transfer settings
     bankTransferEnabled: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      comment: 'Whether doctor accepts bank transfer'
+      defaultValue: false
     },
     bankName: {
       type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Bank name for transfers'
+      allowNull: true
     },
     bankAccountNumber: {
       type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Bank account number'
+      allowNull: true
     },
     bankAccountName: {
       type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Account holder name'
+      allowNull: true
     },
     bankBranch: {
       type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Bank branch'
+      allowNull: true
     },
     
-    // Cash Payment
+    // Cash settings
     cashEnabled: {
       type: DataTypes.BOOLEAN,
-      defaultValue: true,
-      comment: 'Whether doctor accepts cash payment'
+      defaultValue: true
     },
     
-    // Service Pricing
+    // Service fees
     videoCallFee: {
       type: DataTypes.DECIMAL(10, 2),
-      defaultValue: 0.00,
-      comment: 'Fee for video call consultation (ETB)'
+      defaultValue: 50.00
     },
     chatFee: {
       type: DataTypes.DECIMAL(10, 2),
-      defaultValue: 0.00,
-      comment: 'Fee for chat consultation (ETB)'
+      defaultValue: 30.00
     },
     
-    // Default Instructions
+    // Payment instructions
     defaultPaymentInstructions: {
       type: DataTypes.TEXT,
-      allowNull: true,
-      comment: 'Default instructions sent to patients'
+      allowNull: true
     },
     
     // Auto-approval settings
     autoApproveVideoCall: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      comment: 'Auto-approve video call requests'
+      defaultValue: false
     },
     autoApproveChat: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      comment: 'Auto-approve chat requests'
+      defaultValue: false
     }
   }, {
     tableName: 'doctor_payment_settings',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+      {
+        fields: ['doctorWalletAddress']
+      }
+    ]
   });
 
-  DoctorPaymentSettingsModel.associate = function(models) {
+  DoctorPaymentSettingsModel.associate = function (models) {
     DoctorPaymentSettingsModel.belongsTo(models.Doctor, {
       foreignKey: 'doctorWalletAddress',
+      targetKey: 'walletAddress',
       as: 'doctor'
     });
   };

@@ -55,6 +55,12 @@ export const authenticateToken = async (req, res, next) => {
 
 export const requireRole = (roles) => {
   return (req, res, next) => {
+    console.log('🔍 Role check:', {
+      user: req.user?.walletAddress,
+      userRole: req.user?.role,
+      requiredRoles: roles
+    });
+    
     if (!req.user) {
       return res.status(401).json({
         error: 'Authentication required',

@@ -124,6 +124,23 @@ export const getAppointments = async (req, res) => {
       where.status = status;
     }
 
+    // 🔒 PAYMENT-FIRST POLICY: Filter out payment_pending appointments unless specifically requested
+    if (!status || status !== 'payment_pending') {
+      // Only show confirmed appointments (exclude payment_pending)
+      where.status = where.status ? where.status : {
+        [Sequelize.Op.ne]: 'payment_pending'
+      };
+      
+      // For paid appointments, ensure payment is completed
+      where[Sequelize.Op.or] = [
+        { fee: 0 }, // Free appointments
+        { 
+          fee: { [Sequelize.Op.gt]: 0 },
+          paymentStatus: 'paid' // Only paid appointments for fee > 0
+        }
+      ];
+    }
+
     // 🔍 DEBUG: Log the where clause
     console.log('🔍 Query WHERE clause:', JSON.stringify(where, null, 2));
 
@@ -404,6 +421,17 @@ export const createAppointment = async (req, res) => {
       fee
     } = req.body;
 
+    console.log('📝 Creating appointment with data:', {
+      patientWalletAddress,
+      doctorWalletAddress,
+      appointmentDate,
+      reason,
+      duration,
+      fee,
+      serviceType: req.body.serviceType,
+      paymentStatus: req.body.paymentStatus
+    });
+
     console.log('📝 Creating appointment for patient:', patientWalletAddress);
 
     // Validate required fields
@@ -442,20 +470,77 @@ export const createAppointment = async (req, res) => {
     const now = new Date();
     const canReschedule = rescheduleDeadline > now;
 
-    // Create appointment
+    // 💳 PAYMENT-FIRST POLICY ENFORCEMENT
+    const appointmentFee = parseFloat(fee || 0);
+    const serviceType = req.body.serviceType || 'inPerson';
+    const paymentStatus = req.body.paymentStatus || 'pending';
+    
+    console.log('💳 Payment-first check:', { 
+      originalFee: fee, 
+      appointmentFee, 
+      serviceType, 
+      paymentStatus,
+      feeType: typeof fee,
+      appointmentFeeType: typeof appointmentFee
+    });
+    
+    // 🔒 PREVENT BYPASS ATTEMPTS: If fee > 0 but trying to set as paid without actual payment
+    if (appointmentFee > 0 && paymentStatus === 'paid' && !req.body.paymentConfirmedAt) {
+      console.log('🚫 Blocking bypass attempt: Fee > 0 but no payment confirmation');
+      return res.status(400).json({
+        success: false,
+        error: 'Payment required',
+        message: `This appointment requires ${appointmentFee} ETB payment. Please complete payment first.`
+      });
+    }
+    
+    // Determine initial status based on payment requirement
+    let initialStatus;
+    let requiresApproval;
+    let approvalStatus;
+    
+    console.log('💳 Checking fee condition:', { appointmentFee, condition: appointmentFee > 0 });
+    
+    if (appointmentFee > 0) {
+      console.log('💰 Fee > 0 detected, checking payment status:', paymentStatus);
+      // PAID APPOINTMENTS: Must be paid first
+      if (paymentStatus === 'paid') {
+        // Payment completed - ready for approval/scheduling
+        initialStatus = 'scheduled';
+        requiresApproval = serviceType !== 'inPerson'; // In-person auto-approved after payment
+        approvalStatus = serviceType === 'inPerson' ? 'approved' : 'pending';
+        console.log('✅ Paid appointment - creating as scheduled');
+      } else {
+        // Payment pending - appointment in holding state
+        initialStatus = 'payment_pending';
+        requiresApproval = true;
+        approvalStatus = 'pending';
+        console.log('🔒 Payment pending - creating as payment_pending');
+      }
+    } else {
+      // FREE APPOINTMENTS: Can be scheduled immediately but need approval
+      initialStatus = 'scheduled';
+      requiresApproval = true;
+      approvalStatus = 'pending';
+      console.log('🆓 Free appointment - creating as scheduled');
+    }
+    
+    console.log('💳 Final status decision:', { initialStatus, requiresApproval, approvalStatus });
+
+    // Create appointment with payment-first enforcement
     const appointment = await Appointment.create({
       patientWalletAddress: patientWalletAddress.toLowerCase(),
       doctorWalletAddress: doctorWalletAddress.toLowerCase(),
       appointmentDate,
       reason,
       duration: duration || 30,
-      fee: fee || 0,
-      status: 'scheduled',
-      paymentStatus: 'pending',
-      // 🆕 Save new fields
-      serviceType: req.body.serviceType || 'inPerson',
-      requiresApproval: req.body.requiresApproval || false,
-      approvalStatus: req.body.approvalStatus || 'pending',
+      fee: appointmentFee,
+      status: initialStatus, // 🔒 PAYMENT-FIRST: Status depends on payment
+      paymentStatus: paymentStatus,
+      serviceType: serviceType,
+      requiresApproval: requiresApproval,
+      approvalStatus: approvalStatus,
+      paymentMethod: req.body.paymentMethod || (appointmentFee > 0 ? 'chapa' : 'free'),
       // 🆕 NO-CANCEL SYSTEM: Set reschedule deadline
       rescheduleDeadline,
       canReschedule,
@@ -463,37 +548,42 @@ export const createAppointment = async (req, res) => {
       isRescheduled: false
     });
 
-    // 🔔 Send notification to doctor
+    // 🔔 Send notification based on payment-first policy
     try {
       const { sendNotification } = await import('../services/socketService.js');
       
-      if (appointment.requiresApproval) {
-        // Premium service - requires approval
-        await sendNotification(
-          appointment.doctorWalletAddress,
-          'new_appointment_request',
-          {
-            title: 'New Premium Appointment Request',
-            message: `New ${appointment.serviceType} appointment request from patient. Fee: ${appointment.fee} Birr`,
-            relatedId: appointment.id,
-            priority: 'high'
-          }
-        );
-        console.log('🔔 Sent premium appointment notification to doctor');
+      let notificationTitle, notificationMessage, notificationPriority;
+      
+      if (appointment.fee > 0) {
+        if (appointment.paymentStatus === 'paid') {
+          // Payment completed - notify doctor of confirmed appointment
+          notificationTitle = 'New Paid Appointment Confirmed';
+          notificationMessage = `Payment of ${appointment.fee} ETB confirmed. ${appointment.serviceType} appointment ready for ${appointment.approvalStatus === 'approved' ? 'consultation' : 'approval'}.`;
+          notificationPriority = 'high';
+        } else {
+          // Payment pending - notify doctor but appointment not active yet
+          notificationTitle = 'Appointment Pending Payment';
+          notificationMessage = `New ${appointment.serviceType} appointment request. Waiting for ${appointment.fee} ETB payment completion.`;
+          notificationPriority = 'medium';
+        }
       } else {
-        // Free in-person - just notify
-        await sendNotification(
-          appointment.doctorWalletAddress,
-          'new_appointment_request',
-          {
-            title: 'New Appointment Scheduled',
-            message: `New in-person appointment scheduled for ${new Date(appointment.appointmentDate).toLocaleString()}`,
-            relatedId: appointment.id,
-            priority: 'medium'
-          }
-        );
-        console.log('🔔 Sent appointment notification to doctor');
+        // Free appointment
+        notificationTitle = 'New Free Appointment Request';
+        notificationMessage = `New ${appointment.serviceType} appointment request. No payment required.`;
+        notificationPriority = 'medium';
       }
+      
+      await sendNotification(
+        appointment.doctorWalletAddress,
+        appointment.paymentStatus === 'paid' ? 'appointment_confirmed' : 'appointment_pending_payment',
+        {
+          title: notificationTitle,
+          message: notificationMessage,
+          relatedId: appointment.id,
+          priority: notificationPriority
+        }
+      );
+      console.log(`🔔 Sent ${appointment.paymentStatus === 'paid' ? 'confirmation' : 'pending payment'} notification to doctor`);
     } catch (notifError) {
       console.error('⚠️ Failed to send notification:', notifError.message);
       // Don't fail the appointment creation if notification fails
@@ -872,8 +962,23 @@ export const getDoctorSchedule = async (req, res) => {
     console.log('📋 Fetching doctor schedule for:', doctorWallet);
 
     const where = {
-      doctorWalletAddress: doctorWallet.toLowerCase()
+      doctorWalletAddress: doctorWallet.toLowerCase(),
+      // 🔒 PAYMENT-FIRST POLICY: Only show confirmed appointments
+      status: {
+        [Sequelize.Op.ne]: 'payment_pending' // Exclude payment pending appointments
+      }
     };
+
+    // For paid appointments, ensure payment is completed
+    if (!status || status !== 'payment_pending') {
+      where[Sequelize.Op.or] = [
+        { fee: 0 }, // Free appointments
+        { 
+          fee: { [Sequelize.Op.gt]: 0 },
+          paymentStatus: 'paid' // Only paid appointments for fee > 0
+        }
+      ];
+    }
 
     if (date) {
       const startDate = new Date(date);
@@ -886,6 +991,9 @@ export const getDoctorSchedule = async (req, res) => {
     }
 
     if (status) {
+      // Override the default filter if specific status requested
+      delete where.status;
+      delete where[Sequelize.Op.or];
       where.status = status;
     }
 

@@ -21,6 +21,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
   const navigation = {
     patient: [
       { name: t('dashboard'), href: '/dashboard', icon: '🏠' },
+      { name: 'Find Doctors', href: '/patient/doctor-selection', icon: '👨‍⚕️' },
       { name: t('medical_records'), href: '/medical-records', icon: '📁' },
       { name: t('appointments'), href: '/appointments', icon: '📅' },
       { name: t('prescriptions'), href: '/prescriptions', icon: '💊' },
@@ -34,6 +35,8 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
       { name: t('my_patients'), href: '/patients', icon: '👥' },
       { name: t('medical_records'), href: '/medical-records', icon: '📁' },
       { name: t('appointments'), href: '/appointments', icon: '📅' },
+      { name: 'Pricing Dashboard', href: '/doctor/pricing-dashboard', icon: '📊' },
+      { name: 'Pricing Settings', href: '/doctor/pricing-settings', icon: '💰' },
       { name: 'Payment Settings', href: '/doctor/settings', icon: '⚙️' },
       { name: 'Messages', href: '/messages', icon: '💬' },
     ],

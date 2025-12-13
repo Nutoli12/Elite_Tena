@@ -68,7 +68,7 @@ export const UserManagement: React.FC = () => {
 
   const toggleUserStatus = async (walletAddress: string, currentStatus: boolean) => {
     try {
-      await axios.patch(`/api/admin/users/${walletAddress}/status`, {
+      await axios.patch(`/admin/users/${walletAddress}/status`, {
         isActive: !currentStatus
       });
       fetchUsers();
@@ -81,7 +81,7 @@ export const UserManagement: React.FC = () => {
     if (!confirm('Are you sure you want to delete this user?')) return;
 
     try {
-      await axios.delete(`/api/admin/users/${walletAddress}`);
+      await axios.delete(`/admin/users/${walletAddress}`);
       fetchUsers();
     } catch (error) {
       console.error('Failed to delete user:', error);

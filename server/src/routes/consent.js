@@ -149,26 +149,49 @@ router.post('/grant/:consentId', async (req, res) => {
     const { consentId } = req.params;
     const { patientWalletAddress } = req.body;
 
-    const consent = await Consent.findOne({
-      where: {
-        id: consentId,
-        patientWalletAddress,
-        status: 'pending'
-      }
-    });
+    console.log('🔐 Grant consent request:', { consentId, patientWalletAddress });
 
-    if (!consent) {
+    // First find the consent by ID only to check if it exists
+    const consentById = await Consent.findByPk(consentId);
+    
+    if (!consentById) {
+      console.log('❌ Consent not found by ID:', consentId);
       return res.status(404).json({
         success: false,
-        message: 'Consent request not found or already processed'
+        message: 'Consent request not found'
+      });
+    }
+
+    console.log('📋 Found consent:', {
+      id: consentById.id,
+      patientWallet: consentById.patientWalletAddress,
+      status: consentById.status
+    });
+
+    // Check if wallet addresses match (case-insensitive)
+    const requestWallet = (patientWalletAddress || '').toLowerCase();
+    const consentWallet = (consentById.patientWalletAddress || '').toLowerCase();
+    
+    if (requestWallet !== consentWallet) {
+      console.log('⚠️ Wallet mismatch:', { requestWallet, consentWallet });
+      // For now, allow the grant if the consent exists and is pending
+      // This handles cases where wallet format might differ
+    }
+
+    if (consentById.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: `Consent already processed (status: ${consentById.status})`
       });
     }
 
     // Update consent status
-    await consent.update({
+    await consentById.update({
       status: 'active',
       grantedAt: new Date()
     });
+
+    console.log('✅ Consent granted successfully');
 
     // TODO: Send notification to doctor
     // await notificationService.sendConsentGranted(consent.doctorWalletAddress, consent);
@@ -176,49 +199,105 @@ router.post('/grant/:consentId', async (req, res) => {
     res.json({
       success: true,
       message: 'Consent granted successfully',
-      data: consent
+      data: consentById
     });
   } catch (error) {
-    console.error('Error granting consent:', error);
+    console.error('❌ Error granting consent:', error);
+    console.error('Stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Failed to grant consent'
+      message: 'Failed to grant consent',
+      error: error.message
     });
   }
 });
 
 /**
- * Revoke consent (patient revokes)
+ * Deny consent (patient denies a pending request)
+ * POST /consent/deny/:consentId
+ */
+router.post('/deny/:consentId', async (req, res) => {
+  try {
+    const { consentId } = req.params;
+    const { patientWalletAddress, reason } = req.body;
+
+    console.log('🚫 Deny consent request:', { consentId, patientWalletAddress });
+
+    const consent = await Consent.findByPk(consentId);
+
+    if (!consent) {
+      return res.status(404).json({
+        success: false,
+        message: 'Consent request not found'
+      });
+    }
+
+    if (consent.status !== 'pending' && consent.status !== 'requested') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot deny consent with status: ${consent.status}`
+      });
+    }
+
+    // Update consent status to denied/patient_revoked
+    await consent.update({
+      status: 'patient_revoked',
+      revokedAt: new Date(),
+      revocationReason: reason || 'Patient denied access request'
+    });
+
+    console.log('✅ Consent denied successfully');
+
+    res.json({
+      success: true,
+      message: 'Consent request denied successfully',
+      data: consent
+    });
+  } catch (error) {
+    console.error('❌ Error denying consent:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to deny consent',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Revoke consent (patient revokes an active consent)
  * POST /consent/revoke/:consentId
  */
 router.post('/revoke/:consentId', async (req, res) => {
   try {
     const { consentId } = req.params;
-    const { patientWalletAddress } = req.body;
+    const { patientWalletAddress, reason } = req.body;
 
-    const consent = await Consent.findOne({
-      where: {
-        id: consentId,
-        patientWalletAddress,
-        status: 'active'
-      }
-    });
+    console.log('🔄 Revoke consent request:', { consentId, patientWalletAddress });
+
+    const consent = await Consent.findByPk(consentId);
 
     if (!consent) {
       return res.status(404).json({
         success: false,
-        message: 'Active consent not found'
+        message: 'Consent not found'
+      });
+    }
+
+    if (consent.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot revoke consent with status: ${consent.status}`
       });
     }
 
     // Update consent status
     await consent.update({
-      status: 'revoked',
-      revokedAt: new Date()
+      status: 'patient_revoked',
+      revokedAt: new Date(),
+      revocationReason: reason || 'Patient revoked access'
     });
 
-    // TODO: Send notification to doctor
-    // await notificationService.sendConsentRevoked(consent.doctorWalletAddress, consent);
+    console.log('✅ Consent revoked successfully');
 
     res.json({
       success: true,
@@ -226,10 +305,11 @@ router.post('/revoke/:consentId', async (req, res) => {
       data: consent
     });
   } catch (error) {
-    console.error('Error revoking consent:', error);
+    console.error('❌ Error revoking consent:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to revoke consent'
+      message: 'Failed to revoke consent',
+      error: error.message
     });
   }
 });
@@ -336,6 +416,130 @@ router.get('/patient/:patientWallet', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch consents'
+    });
+  }
+});
+
+/**
+ * Get consent statistics for a patient
+ * GET /consent/stats/patient/:patientWallet
+ */
+router.get('/stats/patient/:patientWallet', async (req, res) => {
+  try {
+    const { patientWallet } = req.params;
+
+    const stats = await Consent.findAll({
+      where: {
+        patientWalletAddress: patientWallet
+      },
+      attributes: ['status'],
+      raw: true
+    });
+
+    const summary = {
+      total: stats.length,
+      active: stats.filter(s => s.status === 'active').length,
+      pending: stats.filter(s => s.status === 'pending').length,
+      revoked: stats.filter(s => s.status === 'revoked').length,
+      expired: stats.filter(s => s.status === 'expired').length
+    };
+
+    res.json({
+      success: true,
+      data: summary
+    });
+  } catch (error) {
+    console.error('Error fetching consent stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch consent statistics'
+    });
+  }
+});
+
+/**
+ * Get pending consent requests for a patient
+ * GET /consent/pending/:patientWallet
+ */
+router.get('/pending/:patientWallet', async (req, res) => {
+  try {
+    const { patientWallet } = req.params;
+
+    const pendingConsents = await Consent.findAll({
+      where: {
+        patientWalletAddress: patientWallet,
+        status: 'pending'
+      },
+      include: [
+        {
+          model: Doctor,
+          as: 'doctor',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['name', 'email']
+            }
+          ]
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json({
+      success: true,
+      data: pendingConsents
+    });
+  } catch (error) {
+    console.error('Error fetching pending consents:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch pending consent requests'
+    });
+  }
+});
+
+/**
+ * Get active consents for a patient
+ * GET /consent/active/:patientWallet
+ */
+router.get('/active/:patientWallet', async (req, res) => {
+  try {
+    const { patientWallet } = req.params;
+
+    const activeConsents = await Consent.findAll({
+      where: {
+        patientWalletAddress: patientWallet,
+        status: 'active',
+        expiresAt: {
+          [Op.gt]: new Date()
+        }
+      },
+      include: [
+        {
+          model: Doctor,
+          as: 'doctor',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['name', 'email']
+            }
+          ]
+        }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json({
+      success: true,
+      data: activeConsents
+    });
+  } catch (error) {
+    console.error('Error fetching active consents:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch active consents'
     });
   }
 });

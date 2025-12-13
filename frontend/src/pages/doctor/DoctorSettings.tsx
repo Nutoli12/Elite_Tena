@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { Settings, Save, DollarSign, Phone, Building, CreditCard } from 'lucide-react';
+import { Settings, Save, Phone, Building, CreditCard } from 'lucide-react';
 import axios from '../../lib/axios';
 
 export const DoctorSettings: React.FC = () => {
@@ -87,47 +87,6 @@ export const DoctorSettings: React.FC = () => {
           <Save className="w-5 h-5" />
           {saving ? 'Saving...' : 'Save Settings'}
         </motion.button>
-      </div>
-
-      {/* Premium Service Fees */}
-      <div className="medical-card p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-          <DollarSign className="w-5 h-5 text-medical-600" />
-          Premium Service Fees
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Video Call Fee (Birr)
-            </label>
-            <input
-              type="number"
-              value={settings.videoCallFee || ''}
-              onChange={(e) => setSettings({ ...settings, videoCallFee: parseFloat(e.target.value) || 0 })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500"
-              placeholder="50"
-              min="0"
-              step="0.01"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Chat Consultation Fee (Birr)
-            </label>
-            <input
-              type="number"
-              value={settings.chatFee || ''}
-              onChange={(e) => setSettings({ ...settings, chatFee: parseFloat(e.target.value) || 0 })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-medical-500"
-              placeholder="30"
-              min="0"
-              step="0.01"
-            />
-          </div>
-        </div>
-        <p className="text-sm text-gray-600 mt-2">
-          These are the fees patients will pay for premium consultation services
-        </p>
       </div>
 
       {/* Telebirr */}

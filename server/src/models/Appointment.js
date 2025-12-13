@@ -361,6 +361,12 @@ const Appointment = (sequelize) => {
       foreignKey: 'appointmentId',
       as: 'consent'
     });
+    
+    // 🆕 APPOINTMENT-SPECIFIC CONSENT: Association with appointment consent
+    AppointmentModel.hasOne(models.AppointmentConsent, {
+      foreignKey: 'appointmentId',
+      as: 'appointmentConsent'
+    });
   };
 
   return AppointmentModel;

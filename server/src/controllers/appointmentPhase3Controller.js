@@ -243,12 +243,9 @@ export const uploadPaymentReceipt = async (req, res) => {
       });
     }
 
-    if (appointment.approvalStatus !== 'approved') {
-      return res.status(400).json({
-        success: false,
-        error: 'Appointment must be approved before payment'
-      });
-    }
+    // PAYMENT-FIRST FLOW: Allow payment for pending appointments
+    // Skip approval check for payment-first workflow
+    console.log('💳 Payment-first flow: Allowing payment for appointment status:', appointment.status);
 
     // Update appointment with receipt
     await appointment.update({

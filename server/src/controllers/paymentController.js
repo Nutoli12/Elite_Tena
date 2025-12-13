@@ -14,6 +14,10 @@ const { Payment, Appointment } = db;
  */
 export const initializePayment = async (req, res) => {
   try {
+    console.log('🔍 DEBUG: paymentController.initializePayment called - THIS SHOULD NOT HAPPEN FOR CHAPA PAYMENTS!');
+    console.log('🔍 DEBUG: Request URL:', req.originalUrl);
+    console.log('🔍 DEBUG: Request body:', JSON.stringify(req.body, null, 2));
+    
     const {
       appointmentId,
       patientWallet,
@@ -81,7 +85,8 @@ export const initializePayment = async (req, res) => {
       console.error('❌ Payment service error:', result);
       
       // For demo purposes, if Chapa is not properly configured, create a mock payment
-      if (provider === 'chapa' && result.error.includes('secret key')) {
+      const errorMessage = typeof result.error === 'string' ? result.error : JSON.stringify(result.error);
+      if (provider === 'chapa' && errorMessage.includes('secret key')) {
         console.log('🔧 Using demo mode for payment');
         
         // Create payment record in database

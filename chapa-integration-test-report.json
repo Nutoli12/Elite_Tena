@@ -1,0 +1,64 @@
+{
+  "timestamp": "2025-12-13T07:29:47.225Z",
+  "summary": {
+    "successes": 4,
+    "errors": 4,
+    "warnings": 2,
+    "total": 10
+  },
+  "results": [
+    {
+      "type": "error",
+      "message": "Health check error: Error"
+    },
+    {
+      "type": "error",
+      "message": "Payment methods error: Error"
+    },
+    {
+      "type": "success",
+      "message": "Appointment created: test-appointment-1765610987191"
+    },
+    {
+      "type": "success",
+      "message": "Doctor approval simulated (would require actual appointment)"
+    },
+    {
+      "type": "error",
+      "message": "Chapa initialization error: Error"
+    },
+    {
+      "type": "warning",
+      "message": "Skipping payment verification (no txRef from initialization)"
+    },
+    {
+      "type": "success",
+      "message": "Consent workflow integration ready (requires actual payment completion)"
+    },
+    {
+      "type": "success",
+      "message": "Consultation access control ready (requires payment + consent)"
+    },
+    {
+      "type": "warning",
+      "message": "Webhook test failed (expected): Error"
+    },
+    {
+      "type": "error",
+      "message": "Payment analytics error: Error"
+    }
+  ],
+  "errors": [
+    "Health check error: Error",
+    "Payment methods error: Error",
+    "Chapa initialization error: Error",
+    "Payment analytics error: Error"
+  ],
+  "testData": {
+    "patientWallet": "0x1234567890123456789012345678901234567890",
+    "doctorWallet": "0x0987654321098765432109876543210987654321",
+    "appointmentId": "test-appointment-1765610987191",
+    "paymentAmount": 150,
+    "serviceType": "videoCall"
+  }
+}

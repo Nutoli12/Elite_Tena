@@ -9,7 +9,7 @@ import { AuthGuard } from './components/auth/AuthGuard';
 import { HealthcareLayout } from './components/layout/HealthcareLayout';
 import { MedicalRecords } from './pages/MedicalRecords';
 import { Prescriptions } from './pages/Prescriptions';
-import { Appointments } from './pages/Appointments';
+
 import { LabResults } from './pages/LabResults';
 import { ConsentManagement } from './pages/Consent';
 import { Payments } from './pages/Payments';
@@ -27,6 +27,11 @@ import { ConsultationInterface } from './pages/doctor/ConsultationInterface';
 import { ComprehensiveConsultation } from './pages/doctor/ComprehensiveConsultation';
 import { DoctorSettings } from './pages/doctor/DoctorSettings';
 import { DoctorConsent } from './pages/doctor/DoctorConsent';
+import DoctorPricingDashboard from './components/doctor/DoctorPricingDashboard';
+import PremiumPricingSettings from './components/doctor/PremiumPricingSettings';
+import DoctorSelection from './pages/patient/DoctorSelection';
+import EnhancedAppointmentBooking from './components/appointment/EnhancedAppointmentBooking';
+import TestEnhancedBooking from './pages/TestEnhancedBooking';
 import { LabDashboard } from './pages/lab/LabDashboard';
 import { PharmacyDashboard } from './pages/pharmacy/PharmacyDashboard';
 import { ReceptionCheckIn } from './pages/reception/ReceptionCheckIn';
@@ -266,6 +271,54 @@ const AppRoutes: React.FC = () => {
             <HealthcareLayout>
               <DoctorConsent />
             </HealthcareLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doctor/pricing-dashboard"
+        element={
+          <ProtectedRoute requiredRole="doctor">
+            <HealthcareLayout>
+              <DoctorPricingDashboard />
+            </HealthcareLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doctor/pricing-settings"
+        element={
+          <ProtectedRoute requiredRole="doctor">
+            <HealthcareLayout>
+              <PremiumPricingSettings />
+            </HealthcareLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/patient/doctor-selection"
+        element={
+          <ProtectedRoute requiredRole="patient">
+            <HealthcareLayout>
+              <DoctorSelection />
+            </HealthcareLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/book-appointment"
+        element={
+          <ProtectedRoute requiredRole="patient">
+            <HealthcareLayout>
+              <EnhancedAppointmentBooking />
+            </HealthcareLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/test-enhanced-booking"
+        element={
+          <ProtectedRoute requiredRole="patient">
+            <TestEnhancedBooking />
           </ProtectedRoute>
         }
       />
