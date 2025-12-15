@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: elite-tena-backend
+    env: node
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        value: elite-tena-super-secure-jwt-secret-2024
+      - key: CHAPA_SECRET_KEY
+        value: CHASECK_TEST-your-test-secret-key
+      - key: CHAPA_PUBLIC_KEY
+        value: CHASECK_TEST-your-test-public-key
+      - key: CORS_ORIGINS
+        value: https://elite-tena-healthcare.netlify.app
+      - key: SESSION_SECRET
+        value: elite-tena-session-secret-2024
+      - key: ADMIN_EMAIL
+        value: admin@elitetena.com
+      - key: ADMIN_PASSWORD
+        value: admin123
+
+databases:
+  - name: elite-tena-db
+    plan: free
