@@ -75,5 +75,5 @@ export const trackHealthcareEvent = {
   videoCallStarted: (participantCount: number) => trackEvent('video_call_started', 'communication', 'jitsi', participantCount),
   
   // Error tracking
-  error: (errorType: string, errorMessage: string) => trackEvent('error', 'system', errorType),
+  error: (errorType: string) => trackEvent('error', 'system', errorType),
 };

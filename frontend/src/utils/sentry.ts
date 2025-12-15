@@ -1,23 +1,10 @@
 import * as Sentry from '@sentry/react';
-import { BrowserTracing } from '@sentry/tracing';
 
 export const initSentry = () => {
   if (import.meta.env.VITE_ENVIRONMENT !== 'production') return;
   
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN || 'https://your-sentry-dsn@sentry.io/project-id',
-    integrations: [
-      new BrowserTracing({
-        // Set up automatic route change tracking for React Router
-        routingInstrumentation: Sentry.reactRouterV6Instrumentation(
-          React.useEffect,
-          useLocation,
-          useNavigationType,
-          createRoutesFromChildren,
-          matchRoutes
-        ),
-      }),
-    ],
     environment: import.meta.env.VITE_ENVIRONMENT || 'development',
     tracesSampleRate: 0.1, // Capture 10% of transactions for performance monitoring
     beforeSend(event) {
@@ -52,15 +39,18 @@ export const captureHealthcareError = (error: Error, context: {
 };
 
 // Performance monitoring for critical healthcare actions
-export const trackPerformance = (transactionName: string, operation: () => Promise<any>) => {
-  const transaction = Sentry.startTransaction({
-    name: transactionName,
-    op: 'healthcare.operation',
-  });
+export const trackPerformance = async (transactionName: string, operation: () => Promise<any>) => {
+  console.log(`Starting performance tracking for: ${transactionName}`);
+  const startTime = Date.now();
   
-  Sentry.getCurrentHub().configureScope(scope => scope.setSpan(transaction));
-  
-  return operation().finally(() => {
-    transaction.finish();
-  });
+  try {
+    const result = await operation();
+    const duration = Date.now() - startTime;
+    console.log(`Performance: ${transactionName} completed in ${duration}ms`);
+    return result;
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error(`Performance: ${transactionName} failed after ${duration}ms`, error);
+    throw error;
+  }
 };
