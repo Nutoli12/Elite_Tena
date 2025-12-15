@@ -1,13 +1,11 @@
-# Render.com Infrastructure as Code
+# Render.com Infrastructure as Code - FIXED VERSION
 services:
   # PostgreSQL Database
   - type: pserv
     name: elite-tena-database
-    env: node
     plan: free
-    databases:
-      - name: elite_tena_db
-        user: elite_tena_user
+    databaseName: elite_tena_db
+    databaseUser: elite_tena_user
 
   # Web Service (Backend)
   - type: web
