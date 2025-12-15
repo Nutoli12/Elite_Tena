@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Backend server for Elite Tena healthcare system",
   "main": "src/server.js",
-  "type": "module",
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
@@ -59,5 +58,9 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
+  }
 }

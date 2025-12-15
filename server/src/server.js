@@ -7,7 +7,7 @@ import session from 'express-session';
 import path from 'path';
 
 // Load environment variables FIRST before any other imports
-dotenv.config({ path: path.join(process.cwd(), 'server', '.env') });
+dotenv.config();
 
 // AdminJS imports
 import { admin, adminRouter } from './admin.js';
