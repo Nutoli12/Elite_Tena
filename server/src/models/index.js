@@ -51,6 +51,19 @@ import ConsultationSession from './ConsultationSession.js';
 import AppointmentConsent from './AppointmentConsent.js';
 import EnhancedAppointment from './EnhancedAppointment.js';
 import DoctorServicePricing from './DoctorServicePricing.js';
+// Premium Consultation System
+import PremiumConsultation from './PremiumConsultation.js';
+import ConsultationMessage from './ConsultationMessage.js';
+import VideoCallSession from './VideoCallSession.js';
+import ConsultationAvailability from './ConsultationAvailability.js';
+// Lab Workflow System
+import LabOrder from './LabOrder.js';
+import LabTestCatalog from './LabTestCatalog.js';
+import LabAccessLog from './LabAccessLog.js';
+// Lab Worksheet System
+import LabWorksheet from './LabWorksheet.js';
+import SampleCollection from './SampleCollection.js';
+import ProcessingRecord from './ProcessingRecord.js';
 
 // Initialize models with sequelize instance
 const db = {
@@ -82,7 +95,21 @@ const db = {
   ConsultationSession: ConsultationSession(sequelize, Sequelize.DataTypes),
   AppointmentConsent: AppointmentConsent(sequelize, Sequelize.DataTypes),
   EnhancedAppointment: EnhancedAppointment(sequelize, Sequelize.DataTypes),
-  DoctorServicePricing: DoctorServicePricing(sequelize, Sequelize.DataTypes)
+  DoctorServicePricing: DoctorServicePricing(sequelize, Sequelize.DataTypes),
+  // Premium Consultation System
+  PremiumConsultation: PremiumConsultation(sequelize, Sequelize.DataTypes),
+  ConsultationMessage: ConsultationMessage(sequelize, Sequelize.DataTypes),
+  VideoCallSession: VideoCallSession(sequelize, Sequelize.DataTypes),
+  ConsultationAvailability: ConsultationAvailability(sequelize, Sequelize.DataTypes),
+  // Lab Workflow System
+  LabWorkflowOrder: LabOrder(sequelize, Sequelize.DataTypes),
+  LabWorkflowResult: LabResult(sequelize, Sequelize.DataTypes),
+  LabWorkflowTestCatalog: LabTestCatalog(sequelize, Sequelize.DataTypes),
+  LabWorkflowAccessLog: LabAccessLog(sequelize, Sequelize.DataTypes),
+  // Lab Worksheet System
+  LabWorksheet: LabWorksheet(sequelize, Sequelize.DataTypes),
+  SampleCollection: SampleCollection(sequelize, Sequelize.DataTypes),
+  ProcessingRecord: ProcessingRecord(sequelize, Sequelize.DataTypes)
 };
 
 // ... REST OF YOUR ASSOCIATIONS CODE REMAINS EXACTLY THE SAME ...
@@ -366,54 +393,54 @@ const initializeAssociations = () => {
 
     // 💬 NEW: Message associations
     db.User.hasMany(db.Message, {
-      foreignKey: 'senderWalletAddress',
+      foreignKey: 'senderWallet',
       sourceKey: 'walletAddress',
       as: 'sentMessages',
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
     });
     db.Message.belongsTo(db.User, {
-      foreignKey: 'senderWalletAddress',
+      foreignKey: 'senderWallet',
       targetKey: 'walletAddress',
       as: 'sender'
     });
 
     db.User.hasMany(db.Message, {
-      foreignKey: 'receiverWalletAddress',
+      foreignKey: 'receiverWallet',
       sourceKey: 'walletAddress',
       as: 'receivedMessages',
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
     });
     db.Message.belongsTo(db.User, {
-      foreignKey: 'receiverWalletAddress',
+      foreignKey: 'receiverWallet',
       targetKey: 'walletAddress',
       as: 'receiver'
     });
 
-    // 📹 NEW: VideoCall associations
+    // 📹 NEW: VideoCall associations (FIXED column names)
     db.User.hasMany(db.VideoCall, {
-      foreignKey: 'initiatorWalletAddress',
+      foreignKey: 'initiatorWallet',
       sourceKey: 'walletAddress',
       as: 'initiatedCalls',
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
     });
     db.VideoCall.belongsTo(db.User, {
-      foreignKey: 'initiatorWalletAddress',
+      foreignKey: 'initiatorWallet',
       targetKey: 'walletAddress',
       as: 'initiator'
     });
 
     db.User.hasMany(db.VideoCall, {
-      foreignKey: 'receiverWalletAddress',
+      foreignKey: 'receiverWallet',
       sourceKey: 'walletAddress',
       as: 'receivedCalls',
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
     });
     db.VideoCall.belongsTo(db.User, {
-      foreignKey: 'receiverWalletAddress',
+      foreignKey: 'receiverWallet',
       targetKey: 'walletAddress',
       as: 'receiver'
     });
@@ -562,6 +589,248 @@ const initializeAssociations = () => {
       foreignKey: 'doctorWalletAddress',
       targetKey: 'walletAddress',
       as: 'doctor'
+    });
+
+    // 💬🎥 NEW: Premium Consultation associations
+    db.User.hasMany(db.PremiumConsultation, {
+      foreignKey: 'patientWallet',
+      sourceKey: 'walletAddress',
+      as: 'patientConsultations',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.PremiumConsultation.belongsTo(db.User, {
+      foreignKey: 'patientWallet',
+      targetKey: 'walletAddress',
+      as: 'patient'
+    });
+
+    db.User.hasMany(db.PremiumConsultation, {
+      foreignKey: 'doctorWallet',
+      sourceKey: 'walletAddress',
+      as: 'doctorConsultations',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.PremiumConsultation.belongsTo(db.User, {
+      foreignKey: 'doctorWallet',
+      targetKey: 'walletAddress',
+      as: 'doctor'
+    });
+
+    db.PremiumConsultation.hasMany(db.ConsultationMessage, {
+      foreignKey: 'consultationId',
+      as: 'messages',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.ConsultationMessage.belongsTo(db.PremiumConsultation, {
+      foreignKey: 'consultationId',
+      as: 'consultation'
+    });
+
+    // ConsultationMessage -> User (sender)
+    db.ConsultationMessage.belongsTo(db.User, {
+      foreignKey: 'senderWallet',
+      targetKey: 'walletAddress',
+      as: 'sender'
+    });
+
+    db.PremiumConsultation.hasMany(db.VideoCallSession, {
+      foreignKey: 'consultationId',
+      as: 'videoSessions',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.VideoCallSession.belongsTo(db.PremiumConsultation, {
+      foreignKey: 'consultationId',
+      as: 'consultation'
+    });
+
+    db.User.hasMany(db.ConsultationAvailability, {
+      foreignKey: 'doctorWallet',
+      sourceKey: 'walletAddress',
+      as: 'consultationAvailability',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.ConsultationAvailability.belongsTo(db.User, {
+      foreignKey: 'doctorWallet',
+      targetKey: 'walletAddress',
+      as: 'doctor'
+    });
+
+    // 🧪 LAB WORKFLOW ASSOCIATIONS
+
+    // User -> Lab Orders (Patient & Doctor)
+    db.User.hasMany(db.LabWorkflowOrder, {
+      foreignKey: 'patientWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'patientLabWorkflowOrders',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.LabWorkflowOrder.belongsTo(db.User, {
+      foreignKey: 'patientWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'patient'
+    });
+
+    db.User.hasMany(db.LabWorkflowOrder, {
+      foreignKey: 'doctorWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'doctorLabWorkflowOrders',
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    });
+    db.LabWorkflowOrder.belongsTo(db.User, {
+      foreignKey: 'doctorWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'doctor'
+    });
+
+    // Lab Order -> Lab Results (One-to-Many)
+    db.LabWorkflowOrder.hasMany(db.LabWorkflowResult, {
+      foreignKey: 'labOrderId',
+      as: 'labResults',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.LabWorkflowResult.belongsTo(db.LabWorkflowOrder, {
+      foreignKey: 'labOrderId',
+      as: 'labOrder'
+    });
+
+    // User -> Lab Results (Technician)
+    db.User.hasMany(db.LabWorkflowResult, {
+      foreignKey: 'technicianWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'technicianLabWorkflowResults',
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    });
+    db.LabWorkflowResult.belongsTo(db.User, {
+      foreignKey: 'technicianWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'technician'
+    });
+
+    // Lab Result -> Medical Record Links (Many-to-Many through junction)
+    db.LabWorkflowResult.belongsToMany(db.MedicalRecord, {
+      through: 'medical_record_lab_workflow_links',
+      foreignKey: 'lab_result_id',
+      otherKey: 'medical_record_id',
+      as: 'linkedMedicalRecords'
+    });
+    db.MedicalRecord.belongsToMany(db.LabWorkflowResult, {
+      through: 'medical_record_lab_workflow_links',
+      foreignKey: 'medical_record_id',
+      otherKey: 'lab_result_id',
+      as: 'linkedLabWorkflowResults'
+    });
+
+    // User -> Lab Access Logs (Audit Trail)
+    db.User.hasMany(db.LabWorkflowAccessLog, {
+      foreignKey: 'userWalletAddress',
+      sourceKey: 'walletAddress',
+      as: 'labWorkflowAccessLogs',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.LabWorkflowAccessLog.belongsTo(db.User, {
+      foreignKey: 'userWalletAddress',
+      targetKey: 'walletAddress',
+      as: 'user'
+    });
+
+    // Lab Result -> Access Logs
+    db.LabWorkflowResult.hasMany(db.LabWorkflowAccessLog, {
+      foreignKey: 'labResultId',
+      as: 'accessLogs',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.LabWorkflowAccessLog.belongsTo(db.LabWorkflowResult, {
+      foreignKey: 'labResultId',
+      as: 'labResult'
+    });
+
+    // Lab Order -> Access Logs
+    db.LabWorkflowOrder.hasMany(db.LabWorkflowAccessLog, {
+      foreignKey: 'labOrderId',
+      as: 'accessLogs',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.LabWorkflowAccessLog.belongsTo(db.LabWorkflowOrder, {
+      foreignKey: 'labOrderId',
+      as: 'labOrder'
+    });
+
+    // 🧪 LAB WORKSHEET SYSTEM ASSOCIATIONS
+
+    // Lab Order -> Lab Worksheets (One-to-Many)
+    db.LabWorkflowOrder.hasMany(db.LabWorksheet, {
+      foreignKey: 'labOrderId',
+      as: 'worksheets',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.LabWorksheet.belongsTo(db.LabWorkflowOrder, {
+      foreignKey: 'labOrderId',
+      as: 'labOrder'
+    });
+
+    // User -> Lab Worksheets (Technician)
+    db.User.hasMany(db.LabWorksheet, {
+      foreignKey: 'technicianId',
+      sourceKey: 'walletAddress',
+      as: 'assignedWorksheets',
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    });
+    db.LabWorksheet.belongsTo(db.User, {
+      foreignKey: 'technicianId',
+      targetKey: 'walletAddress',
+      as: 'technician'
+    });
+
+    // Lab Worksheet -> Sample Collections (One-to-Many)
+    db.LabWorksheet.hasMany(db.SampleCollection, {
+      foreignKey: 'worksheetId',
+      as: 'sampleCollections',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.SampleCollection.belongsTo(db.LabWorksheet, {
+      foreignKey: 'worksheetId',
+      as: 'worksheet'
+    });
+
+    // Lab Worksheet -> Processing Records (One-to-Many)
+    db.LabWorksheet.hasMany(db.ProcessingRecord, {
+      foreignKey: 'worksheetId',
+      as: 'processingRecords',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+    db.ProcessingRecord.belongsTo(db.LabWorksheet, {
+      foreignKey: 'worksheetId',
+      as: 'worksheet'
+    });
+
+    // User -> Processing Records (Operator)
+    db.User.hasMany(db.ProcessingRecord, {
+      foreignKey: 'operatorId',
+      sourceKey: 'walletAddress',
+      as: 'operatedProcessing',
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
+    });
+    db.ProcessingRecord.belongsTo(db.User, {
+      foreignKey: 'operatorId',
+      targetKey: 'walletAddress',
+      as: 'operator'
     });
 
     console.log('✅ Database associations initialized successfully');

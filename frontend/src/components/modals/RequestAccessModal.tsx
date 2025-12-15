@@ -4,6 +4,7 @@ import { X, Shield, Loader2, User, Clock, FileText } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import axios from '../../lib/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { Modal } from '../../services/modalService';
 
 interface RequestAccessModalProps {
   isOpen: boolean;
@@ -50,7 +51,7 @@ export const RequestAccessModal: React.FC<RequestAccessModalProps> = ({
       
       if (!doctorWallet) {
         console.error('Doctor wallet address not found');
-        alert('Please log in again to continue');
+        Modal.error('Please log in again to continue', 'Alert');
         return;
       }
       

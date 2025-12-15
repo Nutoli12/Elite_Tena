@@ -10,4 +10,24 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    outDir: 'dist',
+    sourcemap: false, // Disable for production
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+          charts: ['chart.js', 'react-chartjs-2', 'recharts'],
+          web3: ['ethers', 'socket.io-client']
+        }
+      }
+    }
+  },
+  server: {
+    port: 5174
+  },
+  preview: {
+    port: 5174
+  }
 })

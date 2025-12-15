@@ -1,4 +1,5 @@
 import db from '../models/index.js';
+import { Op } from 'sequelize';
 import { getIO } from '../services/socketService.js';
 import EnhancedNotificationService from '../services/enhancedNotificationService.js';
 
@@ -27,7 +28,7 @@ export const getAppointmentMessages = async (req, res) => {
         where: { 
           status: 'active',
           expiresAt: {
-            [Sequelize.Op.gt]: new Date()
+            [Op.gt]: new Date()
           }
         },
         required: false
@@ -57,7 +58,7 @@ export const getAppointmentMessages = async (req, res) => {
 
     const where = { appointmentId };
     if (before) {
-      where.createdAt = { [Sequelize.Op.lt]: new Date(before) };
+      where.createdAt = { [Op.lt]: new Date(before) };
     }
 
     const messages = await Message.findAll({
@@ -110,14 +111,14 @@ export const getDirectMessages = async (req, res) => {
     console.log('💬 Fetching direct messages between:', user1, user2);
 
     const where = {
-      [Sequelize.Op.or]: [
+      [Op.or]: [
         { senderWallet: user1.toLowerCase(), receiverWallet: user2.toLowerCase() },
         { senderWallet: user2.toLowerCase(), receiverWallet: user1.toLowerCase() }
       ]
     };
 
     if (before) {
-      where.createdAt = { [Sequelize.Op.lt]: new Date(before) };
+      where.createdAt = { [Op.lt]: new Date(before) };
     }
 
     const messages = await Message.findAll({
@@ -446,7 +447,7 @@ export const getConversations = async (req, res) => {
       ORDER BY other_user, last_message_time DESC
     `, {
       replacements: { userId: userId.toLowerCase() },
-      type: db.Sequelize.QueryTypes.SELECT
+      type: db.sequelize.QueryTypes.SELECT
     });
 
     console.log(`✅ Found ${conversations.length} conversations`);

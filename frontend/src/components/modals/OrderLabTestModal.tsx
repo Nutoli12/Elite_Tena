@@ -4,6 +4,7 @@ import { X, Beaker, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../lib/axios';
+import { Modal } from '../../services/modalService';
 
 interface OrderLabTestModalProps {
   isOpen: boolean;
@@ -74,14 +75,14 @@ export const OrderLabTestModal: React.FC<OrderLabTestModalProps> = ({
       });
 
       if (response.data.success) {
-        alert('Lab test ordered successfully!');
+        Modal.error('Lab test ordered successfully!', 'Alert');
         reset();
         onSuccess?.();
         onClose();
       }
     } catch (error: any) {
       console.error('Failed to order lab test:', error);
-      alert(error.response?.data?.message || 'Failed to order lab test');
+      Modal.error(error.response?.data?.message || 'Failed to order lab test', 'Alert');
     } finally {
       setLoading(false);
     }

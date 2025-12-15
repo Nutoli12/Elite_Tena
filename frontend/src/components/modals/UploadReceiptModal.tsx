@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, CheckCircle, Image as ImageIcon } from 'lucide-react';
 import axios from '../../lib/axios';
+import { Modal } from '../../services/modalService';
 
 interface UploadReceiptModalProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      alert('Please select a receipt image');
+      Modal.error('Please select a receipt image', 'Alert');
       return;
     }
 
@@ -51,14 +52,14 @@ export const UploadReceiptModal: React.FC<UploadReceiptModalProps> = ({
       });
 
       if (response.data.success) {
-        alert('Receipt uploaded successfully! Doctor will verify your payment.');
+        Modal.error('Receipt uploaded successfully! Doctor will verify your payment.', 'Alert');
         onUploaded();
         onClose();
         resetForm();
       }
     } catch (error) {
       console.error('Failed to upload receipt:', error);
-      alert('Failed to upload receipt. Please try again.');
+      Modal.error('Failed to upload receipt. Please try again.', 'Alert');
     } finally {
       setUploading(false);
     }

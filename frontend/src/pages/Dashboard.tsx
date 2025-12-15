@@ -113,7 +113,7 @@ export const Dashboard: React.FC = () => {
               damping: 15
             }}
             whileHover={{ y: -5, scale: 1.02 }}
-            className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all p-6 cursor-pointer"
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md dark:hover:shadow-lg transition-all p-6 cursor-pointer"
           >
             <div className="flex items-center justify-between mb-4">
               <motion.div
@@ -128,12 +128,12 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-1">{stat.name}</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-slate-300 mb-1">{stat.name}</p>
               <motion.p
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: index * 0.1 + 0.2, type: "spring", stiffness: 200 }}
-                className="text-3xl font-bold text-gray-900"
+                className="text-3xl font-bold text-gray-900 dark:text-slate-100"
               >
                 {stat.value}
               </motion.p>

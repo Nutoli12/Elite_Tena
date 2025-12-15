@@ -95,6 +95,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
       // Initialize Socket.io
       const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3003');
+import { Modal } from '../services/modalService';
       socketRef.current = socket;
 
       socket.emit('identify', user?.walletAddress);
@@ -115,7 +116,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
     } catch (error) {
       console.error('Failed to initialize call:', error);
-      alert('Failed to access camera/microphone. Please check permissions.');
+      Modal.error('Failed to access camera/microphone. Please check permissions.', 'Alert');
     }
   };
 

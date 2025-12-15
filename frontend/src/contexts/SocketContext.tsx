@@ -26,6 +26,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // Only connect if user is logged in
         if (!user?.walletAddress) {
             if (socket) {
+                console.log('🔌 Disconnecting socket - user logged out');
                 socket.disconnect();
                 setSocket(null);
                 setIsConnected(false);
@@ -33,9 +34,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             return;
         }
 
+        // Try to connect with fallback options
         const socketInstance = io(import.meta.env.VITE_API_URL || 'http://localhost:3003', {
             withCredentials: true,
-            transports: ['websocket', 'polling']
+            transports: ['websocket', 'polling'],
+            timeout: 5000,
+            reconnection: true,
+            reconnectionAttempts: 3,
+            reconnectionDelay: 1000
         });
 
         socketInstance.on('connect', () => {
@@ -46,14 +52,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             socketInstance.emit('identify', user.walletAddress);
         });
 
-        socketInstance.on('disconnect', () => {
-            console.log('🔌 Socket disconnected');
+        socketInstance.on('disconnect', (reason) => {
+            console.log('🔌 Socket disconnected:', reason);
             setIsConnected(false);
         });
 
         socketInstance.on('connect_error', (err) => {
-            console.error('❌ Socket connection error:', err);
+            console.warn('⚠️ Socket connection failed (chat features disabled):', err.message);
             setIsConnected(false);
+            // Don't throw error - let app continue without real-time features
         });
 
         setSocket(socketInstance);

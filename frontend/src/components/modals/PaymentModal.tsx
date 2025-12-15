@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, CreditCard, Smartphone, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import axios from '../../lib/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { Modal } from '../../services/modalService';
 
 interface PaymentMethod {
   id: string;
@@ -406,10 +407,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                             setStep('success');
                             onPaymentSuccess?.(verifyResponse.data.data);
                           } else {
-                            alert('Payment not yet completed. Please complete the payment first.');
+                            Modal.error('Payment not yet completed. Please complete the payment first.', 'Alert');
                           }
                         } catch (error) {
-                          alert('Unable to verify payment. Please try again.');
+                          Modal.error('Unable to verify payment. Please try again.', 'Alert');
                         }
                       }}
                       className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"

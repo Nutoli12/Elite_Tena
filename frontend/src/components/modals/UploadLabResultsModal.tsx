@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../lib/axios';
 import { ipfsService } from '../../services/ipfs';
+import { Modal } from '../../services/modalService';
 
 interface UploadLabResultsModalProps {
   isOpen: boolean;
@@ -70,7 +71,7 @@ export const UploadLabResultsModal: React.FC<UploadLabResultsModalProps> = ({
       });
 
       if (response.data.success) {
-        alert('Lab results uploaded successfully!');
+        Modal.error('Lab results uploaded successfully!', 'Alert');
         reset();
         setFiles([]);
         onSuccess?.();
@@ -78,7 +79,7 @@ export const UploadLabResultsModal: React.FC<UploadLabResultsModalProps> = ({
       }
     } catch (error: any) {
       console.error('Failed to upload lab results:', error);
-      alert(error.response?.data?.message || 'Failed to upload lab results');
+      Modal.error(error.response?.data?.message || 'Failed to upload lab results', 'Alert');
     } finally {
       setLoading(false);
       setUploadingFiles(false);

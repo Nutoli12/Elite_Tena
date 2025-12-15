@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Receipt, DollarSign, Clock, User, CheckCircle, XCircle, Eye, X, ExternalLink } from 'lucide-react';
 import axios from '../../lib/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { Modal } from '../../services/modalService';
 
 export const PaymentReceiptsReview: React.FC = () => {
   const { user } = useAuth();
@@ -55,13 +56,13 @@ export const PaymentReceiptsReview: React.FC = () => {
       });
 
       if (response.data.success) {
-        alert('Payment confirmed! Patient can now chat with you.');
+        Modal.error('Payment confirmed! Patient can now chat with you.', 'Alert');
         fetchPendingReceipts(); // Refresh list
         setShowReceiptModal(false);
       }
     } catch (error) {
       console.error('Failed to confirm payment:', error);
-      alert('Failed to confirm payment');
+      Modal.error('Failed to confirm payment', 'Alert');
     } finally {
       setActionLoading(false);
     }
@@ -79,13 +80,13 @@ export const PaymentReceiptsReview: React.FC = () => {
       });
 
       if (response.data.success) {
-        alert('Payment rejected. Patient has been notified.');
+        Modal.error('Payment rejected. Patient has been notified.', 'Alert');
         fetchPendingReceipts(); // Refresh list
         setShowReceiptModal(false);
       }
     } catch (error) {
       console.error('Failed to reject payment:', error);
-      alert('Failed to reject payment');
+      Modal.error('Failed to reject payment', 'Alert');
     } finally {
       setActionLoading(false);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import axios from '@/lib/axios';
 import { useNotification } from '@/contexts/NotificationContext';
+import { useAuth } from '@/contexts/AuthContext';
+import videoCallService from '@/services/videoCallService';
 
 interface Doctor {
   doctor_id: string;
@@ -93,6 +95,9 @@ const DoctorSelection: React.FC = () => {
   
   const navigate = useNavigate();
   const { showNotification } = useNotification();
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const isVideoCallMode = searchParams.get('mode') === 'video-call';
 
   useEffect(() => {
     fetchDoctors();
@@ -192,14 +197,71 @@ const DoctorSelection: React.FC = () => {
   };
 
   const handleBookAppointment = (doctorId: string, serviceType: string, fee: number) => {
-    navigate('/book-appointment', {
-      state: {
-        doctorId,
-        serviceType,
-        fee,
-        twoTierPricing: true
+    if (isVideoCallMode && serviceType === 'video_call') {
+      handleStartVideoCall(doctorId);
+    } else {
+      navigate('/book-appointment', {
+        state: {
+          doctorId,
+          serviceType,
+          fee,
+          twoTierPricing: true
+        }
+      });
+    }
+  };
+
+  const handleStartVideoCall = async (doctorId: string) => {
+    if (!user?.walletAddress) {
+      showNotification('Please log in to start a video call', 'error');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Find the doctor's wallet address
+      const doctor = doctors.find(d => d.doctor_id === doctorId);
+      if (!doctor) {
+        showNotification('Doctor not found', 'error');
+        return;
       }
-    });
+
+      // For now, we'll use the doctor_id as wallet address
+      // In a real system, you'd need to fetch the actual wallet address
+      const doctorWallet = doctor.doctor_id;
+
+      // Initiate the video call
+      const response = await videoCallService.initiateCall({
+        initiatorWallet: user.walletAddress,
+        receiverWallet: doctorWallet,
+        scheduledTime: new Date().toISOString(),
+        durationMinutes: 30
+      });
+
+      if (response.success) {
+        showNotification('Video call initiated! Waiting for doctor to answer...', 'success');
+        
+        // Navigate to video call interface or waiting room
+        navigate(`/video-call/${response.data.id}`, {
+          state: {
+            callId: response.data.id,
+            doctorName: doctor.doctor_name,
+            isInitiator: true
+          }
+        });
+      } else {
+        showNotification(response.error || 'Failed to start video call', 'error');
+      }
+    } catch (error: any) {
+      console.error('Video call error:', error);
+      showNotification(
+        error.response?.data?.message || 'Failed to start video call', 
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getUniqueSpecializations = () => {
@@ -473,8 +535,12 @@ const DoctorSelection: React.FC = () => {
                         onClick={() => onBookAppointment(doctor.doctor_id, serviceType, service.fee)}
                         className="w-full mt-2"
                         size="sm"
+                        disabled={isVideoCallMode && serviceType !== 'video_call'}
                       >
-                        Book {service.auto_approve ? 'Instantly' : 'Appointment'}
+                        {isVideoCallMode && serviceType === 'video_call' 
+                          ? 'Start Video Call' 
+                          : `Book ${service.auto_approve ? 'Instantly' : 'Appointment'}`
+                        }
                       </Button>
                     </div>
                   </div>
@@ -499,11 +565,15 @@ const DoctorSelection: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Choose Your Doctor
+        <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+          {isVideoCallMode && <Video className="w-8 h-8 text-blue-600" />}
+          {isVideoCallMode ? 'Start Video Call' : 'Choose Your Doctor'}
         </h1>
         <p className="text-gray-600">
-          Select from our two-tier pricing system: Standard (400 ETB) or Premium (Doctor-set pricing)
+          {isVideoCallMode 
+            ? 'Select a doctor to start an instant video consultation'
+            : 'Select from our two-tier pricing system: Standard (400 ETB) or Premium (Doctor-set pricing)'
+          }
         </p>
       </div>
 

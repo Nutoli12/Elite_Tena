@@ -4,6 +4,7 @@ import { X, Pill, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../lib/axios';
+import { Modal } from '../../services/modalService';
 
 interface CreatePrescriptionModalProps {
   isOpen: boolean;
@@ -55,14 +56,14 @@ export const CreatePrescriptionModal: React.FC<CreatePrescriptionModalProps> = (
       const response = await axios.post('/prescriptions', payload);
 
       if (response.data.success) {
-        alert('Prescription created successfully!');
+        Modal.error('Prescription created successfully!', 'Alert');
         reset();
         onSuccess?.();
         onClose();
       }
     } catch (error: any) {
       console.error('Failed to create prescription:', error);
-      alert(error.response?.data?.message || 'Failed to create prescription');
+      Modal.error(error.response?.data?.message || 'Failed to create prescription', 'Alert');
     } finally {
       setLoading(false);
     }

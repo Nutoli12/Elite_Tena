@@ -1,6 +1,7 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertTriangle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Modal } from '../ui/Modal';
+import { BaseModal } from './BaseModal';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface ConfirmModalProps {
   cancelText?: string;
   onConfirm: () => void;
   type?: 'danger' | 'warning' | 'info';
+  loading?: boolean;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -21,93 +23,94 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   onConfirm,
-  type = 'info'
+  type = 'info',
+  loading = false
 }) => {
-  const getColors = () => {
+  const getConfirmButtonColors = () => {
     switch (type) {
       case 'danger':
-        return {
-          bg: 'bg-red-50',
-          border: 'border-red-200',
-          confirmButton: 'bg-red-600 hover:bg-red-700 text-white',
-          icon: 'text-red-500'
-        };
+        return 'bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white';
       case 'warning':
-        return {
-          bg: 'bg-amber-50',
-          border: 'border-amber-200',
-          confirmButton: 'bg-amber-600 hover:bg-amber-700 text-white',
-          icon: 'text-amber-500'
-        };
+        return 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500 text-white';
       case 'info':
       default:
-        return {
-          bg: 'bg-blue-50',
-          border: 'border-blue-200',
-          confirmButton: 'bg-blue-600 hover:bg-blue-700 text-white',
-          icon: 'text-blue-500'
-        };
+        return 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 text-white';
     }
   };
 
-  const colors = getColors();
+  const getModalType = () => {
+    switch (type) {
+      case 'danger':
+        return 'error';
+      case 'warning':
+        return 'warning';
+      case 'info':
+      default:
+        return 'confirm';
+    }
+  };
 
-  const handleConfirm = () => {
-    onConfirm();
+  const handleConfirm = async () => {
+    await onConfirm();
     onClose();
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 max-w-md w-full pointer-events-auto bg-white rounded-2xl shadow-2xl ${colors.bg} ${colors.border} border-2`}
-        >
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className={`w-8 h-8 ${colors.icon}`} />
-                <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose}
+      size="md"
+      showCloseButton={false}
+    >
+      <BaseModal
+        type={getModalType()}
+        title={title}
+        message={message}
+        onClose={onClose}
+      >
+        {/* Footer */}
+        <div className="flex justify-end gap-3">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onClose}
+            disabled={loading}
+            className="
+              px-6 py-3 rounded-xl font-semibold
+              border border-gray-300 dark:border-gray-600
+              text-gray-700 dark:text-gray-300
+              hover:bg-gray-50 dark:hover:bg-gray-700
+              focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2
+              transition-all duration-200
+              disabled:opacity-50 disabled:cursor-not-allowed
+            "
+          >
+            {cancelText}
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleConfirm}
+            disabled={loading}
+            className={`
+              px-6 py-3 rounded-xl font-semibold
+              transition-all duration-200
+              focus:outline-none focus:ring-2 focus:ring-offset-2
+              disabled:opacity-50 disabled:cursor-not-allowed
+              ${getConfirmButtonColors()}
+            `}
+          >
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Processing...</span>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-6">
-              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                {message}
-              </p>
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end gap-3 p-6 pt-0">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onClose}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
-              >
-                {cancelText}
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleConfirm}
-                className={`px-6 py-3 rounded-xl font-semibold transition-colors ${colors.confirmButton}`}
-              >
-                {confirmText}
-              </motion.button>
-            </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            ) : (
+              confirmText
+            )}
+          </motion.button>
+        </div>
+      </BaseModal>
+    </Modal>
   );
 };

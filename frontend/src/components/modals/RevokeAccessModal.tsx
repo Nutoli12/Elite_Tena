@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../lib/axios';
+import { Modal } from '../../services/modalService';
 
 interface RevokeAccessModalProps {
   isOpen: boolean;
@@ -31,13 +32,13 @@ export const RevokeAccessModal: React.FC<RevokeAccessModalProps> = ({
       );
 
       if (response.data.success) {
-        alert('Access revoked successfully!');
+        Modal.error('Access revoked successfully!', 'Alert');
         onSuccess?.();
         onClose();
       }
     } catch (error: any) {
       console.error('Failed to revoke access:', error);
-      alert(error.response?.data?.error || 'Failed to revoke access');
+      Modal.error(error.response?.data?.error || 'Failed to revoke access', 'Alert');
     } finally {
       setLoading(false);
     }

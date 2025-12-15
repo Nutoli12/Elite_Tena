@@ -6,14 +6,17 @@ import {
   endCall,
   getCall,
   getCallHistory,
-  updateCallQuality
+  updateCallQuality,
+  getJitsiUrl,
+  handleJitsiWebhook,
+  getActiveCalls
 } from '../controllers/videoCallController.js';
 
 const router = express.Router();
 
 /**
  * 📹 VIDEO CALL ROUTES
- * WebRTC-based video consultations
+ * Enhanced video consultations with Jitsi Meet integration (FREE!)
  */
 
 // Call management
@@ -25,8 +28,13 @@ router.post('/:callId/end', endCall);
 // Call information
 router.get('/:callId', getCall);
 router.get('/history/:userWallet', getCallHistory);
+router.get('/active/:userWallet', getActiveCalls);
 
-// Call quality
+// Jitsi Meet integration
+router.get('/:callId/jitsi-url', getJitsiUrl);
+router.post('/jitsi-webhook', handleJitsiWebhook);
+
+// Call quality and monitoring
 router.put('/:callId/quality', updateCallQuality);
 
 export default router;

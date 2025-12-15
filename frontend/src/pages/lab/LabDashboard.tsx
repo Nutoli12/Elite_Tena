@@ -5,11 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Beaker, 
-  Upload, 
   FileText, 
   Clock,
   CheckCircle,
-  AlertCircle,
   Users
 } from 'lucide-react';
 import axios from '../../lib/axios';
@@ -18,7 +16,7 @@ import { useNavigationService } from '../../services/navigationService';
 
 export const LabDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  useTranslation(); // Keep for future i18n
   const navigate = useNavigate();
   const navigationService = useNavigationService(navigate);
   const [stats, setStats] = useState({
@@ -38,22 +36,74 @@ export const LabDashboard: React.FC = () => {
     try {
       console.log('🔍 Fetching lab data...');
       
-      // Fetch lab results
-      const labResponse = await axios.get('/lab-results');
-      if (labResponse.data.success) {
-        const results = labResponse.data.data || [];
-        console.log(`Found ${results.length} lab results`);
-        setLabResults(results.slice(0, 5)); // Show latest 5
-        
-        const today = new Date().toDateString();
-        setStats({
-          pendingTests: results.filter((r: any) => r.status === 'pending').length,
-          completedTests: results.filter((r: any) => r.status === 'completed').length,
-          todayTests: results.filter((r: any) => 
-            new Date(r.createdAt).toDateString() === today
-          ).length,
-          totalPatients: new Set(results.map((r: any) => r.patientWalletAddress || r.patientId)).size
+      // Check user role and fetch appropriate data
+      if (user?.role === 'lab_technician') {
+        // Fetch technician dashboard data
+        const dashboardResponse = await axios.get('/lab/technician/dashboard', {
+          headers: {
+            'x-user-role': user.role,
+            'x-wallet-address': user.walletAddress
+          }
         });
+        if (dashboardResponse.data.success) {
+          const data = dashboardResponse.data.data;
+          console.log('Technician dashboard data:', data);
+          
+          setStats({
+            pendingTests: data.workQueue?.pendingCount || 0,
+            completedTests: data.statistics?.completedToday || 0,
+            todayTests: data.statistics?.completedToday || 0,
+            totalPatients: data.workQueue?.processingCount || 0
+          });
+          
+          // Set recent orders as lab results for display
+          setLabResults((data.workQueue?.pendingOrders || []).slice(0, 5));
+        }
+      } else if (user?.role === 'doctor') {
+        // Fetch doctor lab overview
+        const overviewResponse = await axios.get('/lab/doctor/overview', {
+          headers: {
+            'x-user-role': user.role,
+            'x-wallet-address': user.walletAddress
+          }
+        });
+        if (overviewResponse.data.success) {
+          const data = overviewResponse.data.data;
+          console.log('Doctor lab overview:', data);
+          
+          setStats({
+            pendingTests: data.statistics?.pendingOrders || 0,
+            completedTests: data.statistics?.completedResults || 0,
+            todayTests: data.statistics?.completedResults || 0,
+            totalPatients: data.recentOrders?.length || 0
+          });
+          
+          // Set recent orders as lab results for display
+          setLabResults((data.recentOrders || []).slice(0, 5));
+        }
+      } else {
+        // For other roles, try to fetch general lab results
+        const resultsResponse = await axios.get('/lab/results', {
+          headers: {
+            'x-user-role': user?.role || 'patient',
+            'x-wallet-address': user?.walletAddress || ''
+          }
+        });
+        if (resultsResponse.data.success) {
+          const results = resultsResponse.data.data || [];
+          console.log(`Found ${results.length} lab results`);
+          setLabResults(results.slice(0, 5));
+          
+          const today = new Date().toDateString();
+          setStats({
+            pendingTests: results.filter((r: any) => r.status === 'pending').length,
+            completedTests: results.filter((r: any) => r.status === 'completed').length,
+            todayTests: results.filter((r: any) => 
+              new Date(r.createdAt).toDateString() === today
+            ).length,
+            totalPatients: new Set(results.map((r: any) => r.patientWalletAddress || r.patientId)).size
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to fetch lab data:', error);
@@ -140,7 +190,7 @@ export const LabDashboard: React.FC = () => {
             animate={{ x: 0, opacity: 1 }}
             className="text-3xl font-bold mb-2"
           >
-            Welcome, {user?.profileData?.fullName || 'Lab Technician'}!
+            Welcome, {user?.fullName || 'Lab Technician'}!
           </motion.h1>
           <motion.p
             initial={{ x: -20, opacity: 0 }}
@@ -206,7 +256,7 @@ export const LabDashboard: React.FC = () => {
       >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900">Recent Lab Tests</h2>
-          <a href="/lab-results" className="text-medical-600 hover:text-medical-700 text-sm font-medium">
+          <a href="/lab-workflow" className="text-medical-600 hover:text-medical-700 text-sm font-medium">
             View All →
           </a>
         </div>
@@ -227,13 +277,18 @@ export const LabDashboard: React.FC = () => {
                 </div>
 
                 <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900">{result.testName}</h4>
-                  <p className="text-sm text-gray-600">Patient: {result.patientId}</p>
+                  <h4 className="font-semibold text-gray-900">
+                    {result.testName || result.orderNumber || `Order #${result.id}`}
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    Patient: {result.patientId || result.patientWalletAddress || result.patient?.name || 'Unknown'}
+                  </p>
                   <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
-                    <span>{new Date(result.createdAt).toLocaleDateString()}</span>
+                    <span>{new Date(result.createdAt || result.created_at).toLocaleDateString()}</span>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      result.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      result.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      result.status === 'completed' || result.status === 'verified' ? 'bg-green-100 text-green-800' :
+                      result.status === 'pending' || result.status === 'collected' ? 'bg-yellow-100 text-yellow-800' :
+                      result.status === 'processing' ? 'bg-blue-100 text-blue-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {result.status}

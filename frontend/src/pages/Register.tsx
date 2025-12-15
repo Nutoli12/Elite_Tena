@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { motion } from 'framer-motion';
 import { 
   Shield, Mail, Lock, User, Phone, Calendar, Wallet, AlertCircle, CheckCircle, 
   MapPin, Globe, Users, Bell, MessageSquare, Heart, ArrowRight, ArrowLeft
 } from 'lucide-react';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
   const { registerWithEmail, connectWallet, registerWithWallet } = useAuth();
+  const { theme } = useTheme();
   const [authMethod, setAuthMethod] = useState<'email' | 'wallet'>('email');
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -196,11 +199,16 @@ export const Register: React.FC = () => {
   const languages = ['English', 'Amharic', 'Oromiffa', 'Tigrinya', 'Somali'];
 
   return (
-    <div className="min-h-screen healthcare-gradient flex items-center justify-center p-4">
+    <div className="min-h-screen healthcare-gradient flex items-center justify-center p-4 relative">
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
+      
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full"
+        className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-8 max-w-md w-full transition-colors duration-300"
       >
         {/* Logo */}
         <motion.div
@@ -211,8 +219,8 @@ export const Register: React.FC = () => {
           <Shield className="w-10 h-10 text-white" />
         </motion.div>
 
-        <h1 className="text-3xl font-bold text-gray-900 text-center mb-2">Join Elite Tena</h1>
-        <p className="text-gray-600 text-center mb-2">Register as a Patient</p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100 text-center mb-2">Join Elite Tena</h1>
+        <p className="text-gray-600 dark:text-slate-300 text-center mb-2">Register as a Patient</p>
         
         {/* Progress Indicator */}
         <div className="flex justify-center mb-6">

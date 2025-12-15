@@ -1,35 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { 
   Shield, Heart, Activity, Lock, Zap, Globe, 
-  FileText, CheckCircle, Moon, Sun,
+  FileText, CheckCircle,
   Wallet, ArrowRight, Sparkles
 } from 'lucide-react';
 
 import { ParticleBackground } from '../components/ui/ParticleBackground';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { useTheme } from '../contexts/ThemeContext';
 import { clearAuthData } from '../utils/authUtils';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  // AuthGuard handles authentication, no need to check here
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme } = useTheme();
   const { scrollYProgress } = useScroll();
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
-
-  useEffect(() => {
-    // Check system preference
-    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setDarkMode(isDark);
-  }, []);
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
+  
+  const darkMode = theme === 'dark';
 
 
 
@@ -151,18 +140,12 @@ export const LandingPage: React.FC = () => {
             <span className="text-2xl font-bold">Elite Tena</span>
           </motion.div>
 
-          <motion.button
+          <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setDarkMode(!darkMode)}
-            className={`p-3 rounded-xl transition-colors ${
-              darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-gray-100 hover:bg-gray-200'
-            }`}
           >
-            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </motion.button>
+            <ThemeToggle />
+          </motion.div>
         </div>
       </nav>
 

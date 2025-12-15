@@ -1,22 +1,13 @@
-@import "tailwindcss";
-
-@theme {
-  --color-medical-50: #f0f9ff;
-  --color-medical-100: #e0f2fe;
-  --color-medical-200: #bae6fd;
-  --color-medical-300: #7dd3fc;
-  --color-medical-400: #38bdf8;
-  --color-medical-500: #0ea5e9;
-  --color-medical-600: #0284c7;
-  --color-medical-700: #0369a1;
-  --color-medical-800: #075985;
-  --color-medical-900: #0c4a6e;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 html {
   font-family: 'Inter', system-ui, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Light mode styles */
 .healthcare-gradient {
   background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
 }
@@ -35,6 +26,18 @@ html {
 
 .medical-card:hover {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Dark mode medical card */
+.dark .medical-card {
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+}
+
+.dark .medical-card:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+  border-color: #4b5563;
 }
 
 .healthcare-button {
@@ -56,7 +59,12 @@ html {
   transform: scale(0.95);
 }
 
-/* Custom scrollbar */
+/* Dark mode button adjustments */
+.dark .healthcare-button {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+}
+
+/* Custom scrollbar - Light mode */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -74,6 +82,56 @@ html {
   background: #0284c7;
 }
 
+/* Custom scrollbar - Dark mode */
+.dark ::-webkit-scrollbar-track {
+  background: #374151;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #6b7280;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Dark mode body background and text */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Ensure all text is visible in dark mode */
+.dark * {
+  color: inherit;
+}
+
+/* Dark mode text improvements */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #f8fafc !important;
+}
+
+.dark p, .dark span, .dark div {
+  color: #e2e8f0;
+}
+
+.dark label {
+  color: #d1d5db !important;
+}
+
+/* Dark mode link colors */
+.dark a {
+  color: #60a5fa;
+}
+
+.dark a:hover {
+  color: #93c5fd;
+}
+
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
@@ -86,10 +144,108 @@ html {
   }
   
   .medical-card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300;
+    @apply bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md dark:hover:shadow-lg transition-all duration-300;
   }
   
   .healthcare-button {
-    @apply bg-medical-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:bg-medical-600 transition-all duration-200 transform hover:scale-105 active:scale-95;
+    @apply bg-sky-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:bg-sky-600 transition-all duration-200 transform hover:scale-105 active:scale-95;
+  }
+
+  /* Dark mode text utilities with better contrast */
+  .text-primary {
+    @apply text-gray-900 dark:text-slate-100;
+  }
+  
+  .text-secondary {
+    @apply text-gray-600 dark:text-slate-300;
+  }
+  
+  .text-muted {
+    @apply text-gray-500 dark:text-slate-400;
+  }
+
+  /* High contrast text for dark mode */
+  .text-high-contrast {
+    @apply text-gray-900 dark:text-white;
+  }
+
+  .text-medium-contrast {
+    @apply text-gray-700 dark:text-slate-200;
+  }
+
+  .text-low-contrast {
+    @apply text-gray-500 dark:text-slate-400;
+  }
+
+  /* Dark mode background utilities */
+  .bg-primary {
+    @apply bg-white dark:bg-slate-800;
+  }
+  
+  .bg-secondary {
+    @apply bg-gray-50 dark:bg-slate-900;
+  }
+  
+  .bg-card {
+    @apply bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700;
+  }
+
+  /* Dark mode border utilities */
+  .border-primary {
+    @apply border-gray-200 dark:border-slate-700;
+  }
+  
+  .border-secondary {
+    @apply border-gray-300 dark:border-slate-600;
+  }
+
+  /* Dark mode input styles with better contrast */
+  .input-primary {
+    @apply bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 placeholder-gray-500 dark:placeholder-slate-400 focus:border-sky-500 dark:focus:border-sky-400 focus:ring-sky-500 dark:focus:ring-sky-400;
+  }
+
+  /* Form elements dark mode */
+  .dark input, .dark textarea, .dark select {
+    color: #f1f5f9 !important;
+    background-color: #1e293b !important;
+    border-color: #475569 !important;
+  }
+
+  .dark input::placeholder, .dark textarea::placeholder {
+    color: #94a3b8 !important;
+  }
+
+  /* Dark mode button variants with better contrast */
+  .btn-secondary {
+    @apply bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-slate-100 hover:bg-gray-200 dark:hover:bg-slate-600 border border-gray-300 dark:border-slate-600;
+  }
+  
+  .btn-ghost {
+    @apply text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-slate-100;
+  }
+
+  /* Card text in dark mode */
+  .dark .medical-card h1, .dark .medical-card h2, .dark .medical-card h3, 
+  .dark .medical-card h4, .dark .medical-card h5, .dark .medical-card h6 {
+    color: #f8fafc !important;
+  }
+
+  .dark .medical-card p, .dark .medical-card span, .dark .medical-card div {
+    color: #e2e8f0 !important;
+  }
+
+  /* Navigation text in dark mode */
+  .dark nav a, .dark nav span, .dark nav div {
+    color: #e2e8f0 !important;
+  }
+
+  /* Table text in dark mode */
+  .dark table, .dark th, .dark td {
+    color: #e2e8f0 !important;
+  }
+
+  /* List text in dark mode */
+  .dark ul, .dark ol, .dark li {
+    color: #e2e8f0 !important;
   }
 }

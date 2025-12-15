@@ -6,6 +6,9 @@ import dotenv from 'dotenv';
 import session from 'express-session';
 import path from 'path';
 
+// Load environment variables FIRST before any other imports
+dotenv.config({ path: path.join(process.cwd(), 'server', '.env') });
+
 // AdminJS imports
 import { admin, adminRouter } from './admin.js';
 
@@ -20,7 +23,7 @@ import labTechnicianRoutes from './routes/labTechnicians.js';
 import pharmacistRoutes from './routes/pharmacists.js';
 import adminRoutes from './routes/admin.js';
 import prescriptionRoutes from './routes/prescriptions.js';
-import labResultRoutes from './routes/labResults.js';
+// import labResultRoutes from './routes/labResults.js'; // Replaced by labWorkflowRoutes
 import appointmentRoutes from './routes/appointment.js';
 import enhancedAppointmentsRoutes from './routes/enhancedAppointments.js';
 import paymentRoutes from './routes/payment.js';
@@ -40,6 +43,8 @@ import twoTierPricingRoutes from './routes/twoTierPricingMinimal.js';
 import appointmentConsentRoutes from './routes/appointmentConsent.js';
 import appointmentPaymentRoutes from './routes/appointmentPayment.js';
 import chapaPaymentRoutes from './routes/chapaPayment.js';
+import premiumConsultationsRoutes from './routes/premiumConsultations.js';
+import labWorkflowRoutes from './routes/labWorkflow.js';
 import { initializeSocket } from './services/socketService.js';
 
 // ... (imports)
@@ -56,14 +61,13 @@ const blockchainService = require('../services/blockchain.cjs');
 import db from './models/index.js';
 import { testConnection } from './config/database.js';
 
-// Load environment variables from server/.env
-dotenv.config({ path: path.join(process.cwd(), 'server', '.env') });
+// Environment variables already loaded at the top
 
 // Constants
 const PORT = process.env.PORT || 3003;
 const isProduction = process.env.NODE_ENV === 'production';
-const CORS_ORIGINS = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',')
+const CORS_ORIGINS = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
   : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
 
 // Create Express app
@@ -77,12 +81,19 @@ app.use(helmet({
   contentSecurityPolicy: false // Disable for development
 }));
 
-// CORS configuration - Allow all origins in development
+// CORS configuration - Production-ready
 app.use(cors({
-  origin: true, // Allow all origins in development
+  origin: isProduction ? CORS_ORIGINS : true, // Restrict origins in production
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Wallet-Address'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'X-Wallet-Address',
+    'x-wallet-address',  // Lab workflow headers
+    'x-user-role'        // Lab workflow headers
+  ],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   maxAge: 600 // Cache preflight for 10 minutes
 }));
@@ -152,7 +163,7 @@ app.use('/api/prescriptions', prescriptionAccessRoutes); // Prescription access 
 app.use('/api/database', databaseRoutes); // Database explorer
 app.use('/api/blockchain-sync', blockchainSyncRoutes); // Blockchain sync service
 app.use('/api/legacy-migration', legacyMigrationRoutes); // Legacy record migration
-app.use('/api/lab-results', labResultRoutes);
+// app.use('/api/lab-results', labResultRoutes); // Replaced by /api/lab routes
 app.use('/api/lab-technicians', labTechnicianRoutes);
 app.use('/api/pharmacists', pharmacistRoutes);
 app.use('/api/pharmacy', pharmacistRoutes); // Alias for pharmacists
@@ -166,6 +177,8 @@ app.use('/api/video-calls', videoCallRoutes); // Video call routes
 app.use('/api/smart-scheduling', smartSchedulingRoutes); // Smart scheduling routes
 app.use('/api/appointment-workflow', appointmentWorkflowRoutes); // Complete appointment workflow
 app.use('/api/two-tier-pricing', twoTierPricingRoutes); // Enhanced two-tier pricing system - UPDATED
+app.use('/api/premium-consultations', premiumConsultationsRoutes); // Premium Chat & Video Consultations
+app.use('/api/lab', labWorkflowRoutes); // Complete Lab Technician Workflow System
 
 // Database viewer route
 app.get('/database', (req, res) => {

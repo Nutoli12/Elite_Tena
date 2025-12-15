@@ -26,6 +26,8 @@ import videoCallRoutes from './videoCall.js';
 import chatRoutes from './chat.js';
 // Enhanced Appointment System
 import enhancedAppointmentsRoutes from './enhancedAppointments.js';
+// Premium Consultations (Chat & Video)
+import premiumConsultationsRoutes from './premiumConsultations.js';
 
 const router = express.Router();
 
@@ -57,6 +59,8 @@ router.use('/video-calls', videoCallRoutes);
 router.use('/chat', chatRoutes);
 // Enhanced Appointment System
 router.use('/enhanced-appointments', enhancedAppointmentsRoutes);
+// Premium Consultations (Chat & Video)
+router.use('/premium-consultations', premiumConsultationsRoutes);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

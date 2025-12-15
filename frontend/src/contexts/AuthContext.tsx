@@ -355,12 +355,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = localStorage.getItem('auth_token');
       if (!token) return;
 
-      const response = await axios.get('/auth/profile', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get('/auth/me');
 
-      if (response.data && response.data.data && response.data.data.user) {
-        dispatch({ type: 'SET_USER', payload: response.data.data.user });
+      if (response.data && response.data.data) {
+        const user = response.data.data;
+        const userProfile: UserProfile = {
+          id: user.walletAddress,
+          walletAddress: user.walletAddress,
+          email: user.email,
+          fullName: user.profileData?.fullName || 
+                   user.profileData?.name || 
+                   (user.profileData?.firstName && user.profileData?.lastName 
+                     ? `${user.profileData.firstName} ${user.profileData.lastName}` 
+                     : 'User'),
+          role: user.role,
+          isApproved: user.isActive,
+          createdAt: user.createdAt,
+          lastLogin: new Date().toISOString()
+        };
+        dispatch({ type: 'SET_USER', payload: userProfile });
       }
     } catch (error) {
       console.error('Failed to refresh user:', error);

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, UserCheck, Loader2, Clock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../lib/axios';
+import { Modal } from '../../services/modalService';
 
 interface QuickApproveModalProps {
   isOpen: boolean;
@@ -37,13 +38,13 @@ export const QuickApproveModal: React.FC<QuickApproveModalProps> = ({
       );
 
       if (response.data.success) {
-        alert('Access granted to pharmacy!');
+        Modal.error('Access granted to pharmacy!', 'Alert');
         onSuccess?.();
         onClose();
       }
     } catch (error: any) {
       console.error('Failed to quick approve:', error);
-      alert(error.response?.data?.error || 'Failed to grant access');
+      Modal.error(error.response?.data?.error || 'Failed to grant access', 'Alert');
     } finally {
       setLoading(false);
     }

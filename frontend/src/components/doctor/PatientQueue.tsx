@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Users, Clock, User } from 'lucide-react';
 import axios from '../../lib/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { Modal } from '../../services/modalService';
 
 export const PatientQueue: React.FC = () => {
   const { user } = useAuth();
@@ -43,12 +44,12 @@ export const PatientQueue: React.FC = () => {
       });
 
       if (response.data.success) {
-        alert('Patient called successfully!');
+        Modal.error('Patient called successfully!', 'Alert');
         fetchQueue();
       }
     } catch (error) {
       console.error('Failed to call patient:', error);
-      alert('Failed to call patient');
+      Modal.error('Failed to call patient', 'Alert');
     }
   };
 

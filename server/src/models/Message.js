@@ -41,26 +41,31 @@ export default (sequelize, DataTypes) => {
         },
         readAt: {
             type: DataTypes.DATE,
-            allowNull: true
+            allowNull: true,
+            field: 'read_at' // Map to snake_case column
         },
         fileUrl: {
             type: DataTypes.STRING,
             allowNull: true,
+            field: 'file_url', // Map to snake_case column
             comment: 'URL for file attachments (IPFS or server)'
         },
         fileName: {
             type: DataTypes.STRING,
             allowNull: true,
+            field: 'file_name', // Map to snake_case column
             comment: 'Original filename for attachments'
         },
         fileSize: {
             type: DataTypes.INTEGER,
             allowNull: true,
+            field: 'file_size', // Map to snake_case column
             comment: 'File size in bytes'
         },
         fileMimeType: {
             type: DataTypes.STRING,
             allowNull: true,
+            field: 'file_mime_type', // Map to snake_case column
             comment: 'MIME type of the file'
         },
         metadata: {
@@ -72,6 +77,7 @@ export default (sequelize, DataTypes) => {
         sequelize,
         modelName: 'Message',
         tableName: 'messages',
+        underscored: false, // Database uses camelCase columns
         indexes: [
             {
                 fields: ['appointmentId']

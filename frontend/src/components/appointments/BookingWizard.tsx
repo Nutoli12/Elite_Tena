@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import axios from '../../lib/axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { Modal } from '../../services/modalService';
 
 interface BookingWizardProps {
     isOpen: boolean;
@@ -171,13 +172,13 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({ isOpen, onClose, o
                 onSuccess?.();
                 onClose();
                 // Show success message
-                alert(selectedService.requiresApproval
+                Modal.error(selectedService.requiresApproval
                     ? 'Appointment request sent! Waiting for doctor approval.'
-                    : 'Appointment confirmed!');
+                    : 'Appointment confirmed!', 'Alert');
             }
         } catch (error: any) {
             console.error('Failed to book appointment:', error);
-            alert(error.response?.data?.message || 'Failed to book appointment');
+            Modal.error(error.response?.data?.message || 'Failed to book appointment', 'Alert');
         } finally {
             setLoading(false);
         }

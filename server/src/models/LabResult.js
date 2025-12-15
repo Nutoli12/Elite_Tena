@@ -1,153 +1,399 @@
 import { DataTypes } from 'sequelize';
 
-const LabResult = (sequelize) => {
-  const LabResult = sequelize.define('LabResult', {
+export default function(sequelize) {
+  const LabResult = sequelize.define('LabWorkflowResult', {
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
     },
-    patientWalletAddress: {
-      type: DataTypes.STRING,
+    labOrderId: {
+      type: DataTypes.INTEGER,
       allowNull: false,
-      references: {
-        model: 'patients',
-        key: 'walletAddress'
-      }
+      field: 'lab_order_id'
     },
-    doctorWalletAddress: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Doctor who ordered the test'
+    technicianWalletAddress: {
+      type: DataTypes.STRING(255),
+      field: 'technician_wallet_address'
     },
-    testType: {
-      type: DataTypes.STRING,
+    
+    // PROPER MEDICAL WORKFLOW STATUS
+    status: {
+      type: DataTypes.ENUM('draft', 'submitted', 'validated', 'reviewed', 'released', 'accepted', 'completed', 'correction_requested', 'cancelled'),
+      defaultValue: 'draft',
       allowNull: false
     },
-    testName: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    results: {
-      type: DataTypes.TEXT,
-      allowNull: true
-    },
-    notes: {
-      type: DataTypes.TEXT
-    },
-    uploadedBy: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    isActive: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
-    },
-    // Lab workflow fields
-    status: {
-      type: DataTypes.STRING,
-      defaultValue: 'pending',
-      comment: 'pending, in_progress, completed, cancelled'
-    },
-    orderedDate: {
+    submittedAt: {
       type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
+      field: 'submitted_at'
     },
-    priority: {
-      type: DataTypes.STRING,
-      defaultValue: 'routine',
-      comment: 'routine, urgent, stat'
-    },
-    instructions: {
-      type: DataTypes.TEXT,
-      comment: 'Special instructions (e.g., fasting required)'
-    },
-    reason: {
-      type: DataTypes.TEXT,
-      comment: 'Reason for ordering test'
-    },
-    sampleId: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    collectedAt: {
+    releasedAt: {
       type: DataTypes.DATE,
-      allowNull: true
+      field: 'released_at'
     },
-    collectedBy: {
-      type: DataTypes.STRING,
-      allowNull: true
+    releasedBy: {
+      type: DataTypes.STRING(255),
+      field: 'released_by'
     },
-    completedAt: {
+    acceptedAt: {
       type: DataTypes.DATE,
-      allowNull: true
+      field: 'accepted_at'
     },
-    completedBy: {
-      type: DataTypes.STRING,
-      allowNull: true
+    acceptedBy: {
+      type: DataTypes.STRING(255),
+      field: 'accepted_by'
     },
-    normalRange: {
-      type: DataTypes.STRING,
-      allowNull: true
+    correctionRequestedAt: {
+      type: DataTypes.DATE,
+      field: 'correction_requested_at'
     },
-    unit: {
-      type: DataTypes.STRING,
-      allowNull: true
+    correctionRequestedBy: {
+      type: DataTypes.STRING(255),
+      field: 'correction_requested_by'
+    },
+    correctionNotes: {
+      type: DataTypes.TEXT,
+      field: 'correction_notes'
+    },
+
+    // Result Data
+    resultData: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      field: 'result_data',
+      defaultValue: {}
     },
     interpretation: {
+      type: DataTypes.TEXT
+    },
+    technicianNotes: {
       type: DataTypes.TEXT,
-      allowNull: true
+      field: 'technician_notes'
     },
-    attachments: {
+    doctorInterpretation: {
+      type: DataTypes.TEXT,
+      field: 'doctor_interpretation'
+    },
+    doctorNotes: {
+      type: DataTypes.TEXT,
+      field: 'doctor_notes'
+    },
+    referenceRanges: {
       type: DataTypes.JSONB,
-      allowNull: true,
-      comment: 'Array of file URLs/IPFS hashes'
+      field: 'reference_ranges',
+      defaultValue: {}
     },
-    // IPFS integration
-    ipfsHash: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'IPFS hash for lab result data'
+    
+    // Quality Control Checks
+    qualityChecks: {
+      type: DataTypes.JSONB,
+      field: 'quality_checks',
+      defaultValue: {}
     },
-    // Blockchain integration fields
-    blockchainTxHash: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Blockchain transaction hash'
+    
+    // Files & Documents
+    reportFiles: {
+      type: DataTypes.JSONB,
+      field: 'report_files',
+      defaultValue: []
     },
-    blockchainLabResultId: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Blockchain-generated lab result ID'
+    rawDataFiles: {
+      type: DataTypes.JSONB,
+      field: 'raw_data_files',
+      defaultValue: []
     },
-    blockNumber: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      comment: 'Block number where transaction was mined'
+    
+    // Quality Control
+    verifiedBy: {
+      type: DataTypes.STRING(255),
+      field: 'verified_by'
     },
-    gasUsed: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      comment: 'Gas used for blockchain transaction'
+    verificationStatus: {
+      type: DataTypes.ENUM('pending', 'verified', 'rejected'),
+      defaultValue: 'pending',
+      field: 'verification_status'
     },
-    onBlockchain: {
+    verifiedAt: {
+      type: DataTypes.DATE,
+      field: 'verified_at'
+    },
+    verificationNotes: {
+      type: DataTypes.TEXT,
+      field: 'verification_notes'
+    },
+    
+    // Critical Values
+    hasCriticalValues: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
-      comment: 'Whether this lab result is stored on blockchain'
+      field: 'has_critical_values'
+    },
+    criticalValues: {
+      type: DataTypes.JSONB,
+      field: 'critical_values',
+      defaultValue: []
+    },
+    criticalNotificationSent: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'critical_notification_sent'
+    },
+    
+    // Blockchain Integration
+    ipfsResultHash: {
+      type: DataTypes.STRING(255),
+      field: 'ipfs_result_hash'
+    },
+    blockchainTxHash: {
+      type: DataTypes.STRING(255),
+      field: 'blockchain_tx_hash'
+    },
+    
+    // Metadata
+    resultDate: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+      field: 'result_date'
     }
   }, {
-    tableName: 'lab_results',
-    timestamps: true
+    tableName: 'lab_workflow_results',
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+
+    hooks: {
+      beforeCreate: async (labResult) => {
+        // Auto-detect critical values
+        await labResult.detectCriticalValues();
+      },
+      beforeUpdate: async (labResult) => {
+        if (labResult.changed('resultData')) {
+          await labResult.detectCriticalValues();
+        }
+        
+        if (labResult.changed('verificationStatus') && labResult.verificationStatus === 'verified') {
+          labResult.verifiedAt = new Date();
+        }
+      },
+      afterCreate: async (labResult) => {
+        // Send critical value notifications
+        if (labResult.hasCriticalValues && !labResult.criticalNotificationSent) {
+          await labResult.sendCriticalValueNotification();
+        }
+      }
+    }
   });
 
-  LabResult.associate = function(models) {
-    LabResult.belongsTo(models.Patient, {
-      foreignKey: 'patientWalletAddress',
-      as: 'patient'
+  // Instance methods
+  LabResult.prototype.detectCriticalValues = async function() {
+    try {
+      // Get the lab order to know which tests were performed
+      const labOrder = await this.getLabOrder();
+      if (!labOrder) return;
+
+      // Get test catalog entries for critical value ranges
+      const testCatalog = await sequelize.models.LabTestCatalog.findAll({
+        where: {
+          testCode: {
+            [sequelize.Sequelize.Op.in]: labOrder.testCodes
+          }
+        }
+      });
+
+      const criticalFindings = [];
+      
+      // Check each test result against critical values
+      for (const test of testCatalog) {
+        if (test.criticalValues && this.resultData[test.testCode]) {
+          const testResult = this.resultData[test.testCode];
+          const criticalRanges = test.criticalValues;
+          
+          for (const [parameter, value] of Object.entries(testResult)) {
+            if (typeof value === 'number' && criticalRanges[parameter]) {
+              const critical = criticalRanges[parameter];
+              
+              if ((critical.critical_low && value < critical.critical_low) ||
+                  (critical.critical_high && value > critical.critical_high)) {
+                criticalFindings.push({
+                  test: test.testCode,
+                  parameter,
+                  value,
+                  criticalRange: critical,
+                  severity: value < critical.critical_low ? 'critically_low' : 'critically_high'
+                });
+              }
+            }
+          }
+        }
+      }
+      
+      this.hasCriticalValues = criticalFindings.length > 0;
+      this.criticalValues = criticalFindings;
+      
+    } catch (error) {
+      console.error('Error detecting critical values:', error);
+    }
+  };
+
+  LabResult.prototype.sendCriticalValueNotification = async function() {
+    try {
+      if (!this.hasCriticalValues) return;
+
+      // Get lab order details
+      const labOrder = await this.getLabOrder({
+        include: [
+          { model: sequelize.models.User, as: 'patient' },
+          { model: sequelize.models.User, as: 'doctor' }
+        ]
+      });
+
+      if (!labOrder) return;
+
+      // Create critical value notification for doctor
+      await sequelize.models.Notification.create({
+        userId: labOrder.doctorWalletAddress,
+        type: 'critical_lab_values',
+        title: '🚨 Critical Lab Values Detected',
+        message: `Critical values found in lab results for ${labOrder.patient.name || 'Patient'}. Immediate review required.`,
+        data: {
+          labOrderId: labOrder.id,
+          labResultId: this.id,
+          patientName: labOrder.patient.name || 'Unknown Patient',
+          criticalValues: this.criticalValues,
+          orderNumber: labOrder.orderNumber
+        },
+        priority: 'high',
+        requiresAction: true
+      });
+
+      // Mark notification as sent
+      this.criticalNotificationSent = true;
+      await this.save();
+
+      console.log(`Critical value notification sent for lab result ${this.id}`);
+      
+    } catch (error) {
+      console.error('Error sending critical value notification:', error);
+    }
+  };
+
+  LabResult.prototype.generateSummary = function() {
+    const resultData = this.resultData || {};
+    const criticalValues = this.criticalValues || [];
+    
+    const summary = {
+      totalTests: Object.keys(resultData).length,
+      normalResults: 0,
+      abnormalResults: 0,
+      criticalResults: criticalValues.length,
+      overallStatus: 'normal'
+    };
+
+    // Analyze each test result
+    for (const [testCode, results] of Object.entries(resultData)) {
+      let testHasAbnormal = false;
+      
+      if (typeof results === 'object') {
+        for (const [parameter, value] of Object.entries(results)) {
+          // Check if this parameter has abnormal values
+          // This is a simplified check - in reality you'd compare against reference ranges
+          if (parameter.includes('status') && value !== 'normal') {
+            testHasAbnormal = true;
+          }
+        }
+      }
+      
+      if (testHasAbnormal) {
+        summary.abnormalResults++;
+      } else {
+        summary.normalResults++;
+      }
+    }
+
+    // Determine overall status
+    if (summary.criticalResults > 0) {
+      summary.overallStatus = 'critical';
+    } else if (summary.abnormalResults > 0) {
+      summary.overallStatus = 'abnormal';
+    }
+
+    return summary;
+  };
+
+  LabResult.prototype.toJSON = function() {
+    const values = { ...this.get() };
+    
+    // Add computed fields
+    values.summary = this.generateSummary();
+    values.isVerified = this.verificationStatus === 'verified';
+    values.needsReview = this.hasCriticalValues || this.verificationStatus === 'rejected';
+    
+    return values;
+  };
+
+  // Class methods
+  LabResult.getResultsByPatient = async function(patientWalletAddress, options = {}) {
+    return await this.findAll({
+      include: [
+        {
+          model: sequelize.models.LabWorkflowOrder,
+          as: 'labOrder',
+          where: { patientWalletAddress },
+          include: [
+            {
+              model: sequelize.models.User,
+              as: 'doctor',
+              attributes: ['walletAddress', 'name']
+            }
+          ]
+        }
+      ],
+      order: [['result_date', 'DESC']],
+      ...options
+    });
+  };
+
+  LabResult.getResultsByDoctor = async function(doctorWalletAddress, options = {}) {
+    return await this.findAll({
+      include: [
+        {
+          model: sequelize.models.LabWorkflowOrder,
+          as: 'labOrder',
+          where: { doctorWalletAddress },
+          include: [
+            {
+              model: sequelize.models.User,
+              as: 'patient',
+              attributes: ['walletAddress', 'name']
+            }
+          ]
+        }
+      ],
+      order: [['result_date', 'DESC']],
+      ...options
+    });
+  };
+
+  LabResult.getCriticalResults = async function(options = {}) {
+    return await this.findAll({
+      where: { 
+        hasCriticalValues: true,
+        criticalNotificationSent: false
+      },
+      include: [
+        {
+          model: sequelize.models.LabWorkflowOrder,
+          as: 'labOrder',
+          include: [
+            { model: sequelize.models.User, as: 'patient' },
+            { model: sequelize.models.User, as: 'doctor' }
+          ]
+        }
+      ],
+      order: [['created_at', 'ASC']],
+      ...options
     });
   };
 
   return LabResult;
-};
-
-export default LabResult;
+}

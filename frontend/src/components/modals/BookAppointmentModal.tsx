@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import axios from '../../lib/axios';
 import ChapaPaymentButton from '../payment/ChapaPaymentButton';
 import { useAuth } from '../../contexts/AuthContext';
+import { Modal } from '../../services/modalService';
 
 interface BookAppointmentModalProps {
   isOpen: boolean;
@@ -171,7 +172,10 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
 
     } catch (error: any) {
       console.error('❌ Failed to create pending appointment:', error);
-      alert(error.response?.data?.error || error.message || 'Failed to create pending appointment');
+      Modal.showError({
+        title: 'Appointment Creation Failed',
+        message: error.response?.data?.error || error.message || 'Failed to create pending appointment'
+      });
       throw error;
     } finally {
       setLoading(false);
@@ -202,7 +206,11 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
 
       // Show success and close modal after delay
       setTimeout(async () => {
-        alert(`Appointment confirmed! ID: ${createdAppointmentId}\n\nYour appointment is now visible in your appointments list.`);
+        Modal.showSuccess({
+          title: 'Appointment Confirmed!',
+          message: `Appointment confirmed! ID: ${createdAppointmentId}\n\nYour appointment is now visible in your appointments list.`,
+          showConfetti: true
+        });
         
         // Call onSubmit to trigger parent refresh (this will call fetchAppointments in Appointments.tsx)
         try {
@@ -220,7 +228,10 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
 
     } catch (error: any) {
       console.error('❌ Failed to confirm appointment after payment:', error);
-      alert(error.response?.data?.error || error.message || 'Failed to confirm appointment after payment');
+      Modal.showError({
+        title: 'Confirmation Failed',
+        message: error.response?.data?.error || error.message || 'Failed to confirm appointment after payment'
+      });
     } finally {
       setLoading(false);
     }
@@ -228,7 +239,11 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({ isOp
 
   const handlePaymentFailure = (error: string) => {
     console.error('💳 Payment failed:', error);
-    alert(`Payment failed: ${error}. Please try again.`);
+    Modal.showError({
+      title: 'Payment Failed',
+      message: `Payment failed: ${error}. Please try again.`,
+      showRetry: true
+    });
     setLoading(false);
   };
 

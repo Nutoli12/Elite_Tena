@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, LogOut } from 'lucide-react';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { NotificationBell } from '../NotificationBell';
+import { ThemeToggle } from '../ui/ThemeToggle';
 
 interface HealthcareLayoutProps {
   children: React.ReactNode;
@@ -24,8 +25,11 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
       { name: 'Find Doctors', href: '/patient/doctor-selection', icon: '👨‍⚕️' },
       { name: t('medical_records'), href: '/medical-records', icon: '📁' },
       { name: t('appointments'), href: '/appointments', icon: '📅' },
+      { name: 'Consultations', href: '/consultations', icon: '🩺' },
+      { name: 'Video Calls', href: '/video-calls', icon: '🎥' },
       { name: t('prescriptions'), href: '/prescriptions', icon: '💊' },
-      { name: t('lab_results'), href: '/lab-results', icon: '🧪' },
+      { name: 'Lab History', href: '/lab-workflow', icon: '🧪' },
+      { name: t('lab_results'), href: '/lab-results', icon: '📊' },
       { name: t('consent_management'), href: '/consent', icon: '🔐' },
       { name: t('payments'), href: '/payments', icon: '💰' },
       { name: 'Messages', href: '/messages', icon: '💬' },
@@ -35,6 +39,9 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
       { name: t('my_patients'), href: '/patients', icon: '👥' },
       { name: t('medical_records'), href: '/medical-records', icon: '📁' },
       { name: t('appointments'), href: '/appointments', icon: '📅' },
+      { name: 'Lab Workflow', href: '/lab-workflow', icon: '🧪' },
+      { name: 'Consultations', href: '/consultations', icon: '🩺' },
+      { name: 'Video Calls', href: '/video-calls', icon: '🎥' },
       { name: 'Pricing Dashboard', href: '/doctor/pricing-dashboard', icon: '📊' },
       { name: 'Pricing Settings', href: '/doctor/pricing-settings', icon: '💰' },
       { name: 'Payment Settings', href: '/doctor/settings', icon: '⚙️' },
@@ -46,12 +53,14 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
     ],
     lab_technician: [
       { name: t('dashboard'), href: '/dashboard', icon: '🏠' },
-      { name: t('lab_results'), href: '/lab-results', icon: '🧪' },
+      { name: 'Lab Workflow', href: '/lab-workflow', icon: '🧪' },
+      { name: t('lab_results'), href: '/lab-results', icon: '📊' },
     ],
     admin: [
       { name: 'Admin Dashboard', href: '/admin/dashboard', icon: '🏠' },
       { name: 'Staff Management', href: '/admin/staff', icon: '👥' },
       { name: 'User Management', href: '/admin/users', icon: '🔍' },
+      { name: 'Lab Workflow', href: '/lab-workflow', icon: '🧪' },
       { name: 'Analytics', href: '/admin/analytics', icon: '📊' },
       { name: 'System Settings', href: '/admin/settings', icon: '⚙️' },
       { name: 'AdminJS Panel', href: 'http://localhost:3003/admin', icon: '🔧', external: true },
@@ -61,7 +70,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
   const userNavigation = navigation[user?.role as keyof typeof navigation] || navigation.patient;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex transition-colors duration-300">
       {/* Desktop Sidebar */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -71,7 +80,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
             exit={{ x: -300 }}
             className="hidden lg:flex lg:flex-shrink-0"
           >
-            <div className="flex flex-col w-64 bg-white shadow-xl border-r border-gray-200">
+            <div className="flex flex-col w-64 bg-white dark:bg-slate-800 shadow-xl border-r border-gray-200 dark:border-slate-700 transition-colors duration-300">
               {/* Logo Section */}
               <div className="flex items-center justify-between h-16 flex-shrink-0 px-4 healthcare-gradient">
                 <motion.div
@@ -105,7 +114,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
                         whileHover={{ x: 5, backgroundColor: 'rgba(14, 165, 233, 0.1)' }}
-                        className="flex items-center px-4 py-3 text-gray-700 rounded-lg hover:text-medical-600 transition-all group"
+                        className="flex items-center px-4 py-3 text-gray-700 dark:text-slate-200 rounded-lg hover:text-medical-600 dark:hover:text-medical-400 transition-all group"
                       >
                         <span className="text-lg mr-3">{item.icon}</span>
                         <span className="font-medium">{item.name}</span>
@@ -123,8 +132,8 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
                         whileHover={{ x: 5, backgroundColor: 'rgba(14, 165, 233, 0.1)' }}
                         className={`flex items-center px-4 py-3 rounded-lg transition-all group ${
                           isActive 
-                            ? 'bg-medical-100 text-medical-600 font-semibold' 
-                            : 'text-gray-700 hover:text-medical-600'
+                            ? 'bg-medical-100 dark:bg-medical-900/30 text-medical-600 dark:text-medical-400 font-semibold' 
+                            : 'text-gray-700 dark:text-gray-300 hover:text-medical-600 dark:hover:text-medical-400'
                         }`}
                       >
                         <span className="text-lg mr-3">{item.icon}</span>
@@ -136,7 +145,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
               </nav>
 
               {/* User Section */}
-              <div className="flex-shrink-0 border-t border-gray-200 p-4">
+              <div className="flex-shrink-0 border-t border-gray-200 dark:border-slate-700 p-4">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 healthcare-gradient rounded-full flex items-center justify-center">
                     <span className="text-white font-medium">
@@ -144,16 +153,16 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-medium text-gray-900 dark:text-slate-100 truncate">
                       {user?.fullName}
                     </p>
-                    <p className="text-xs text-gray-500 capitalize truncate">
+                    <p className="text-xs text-gray-500 dark:text-slate-300 capitalize truncate">
                       {user?.role}
                     </p>
                   </div>
                   <button
                     onClick={logout}
-                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="p-2 text-gray-400 dark:text-slate-400 hover:text-gray-600 dark:hover:text-slate-200 transition-colors"
                     title={t('logout')}
                   >
                     <LogOut className="w-5 h-5" />
@@ -171,27 +180,27 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
         <motion.header
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="bg-white shadow-sm border-b border-gray-200"
+          className="bg-white dark:bg-slate-800 shadow-sm border-b border-gray-200 dark:border-slate-700 transition-colors duration-300"
         >
           <div className="flex items-center justify-between px-6 py-4">
             {/* Left Section */}
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="hidden lg:block p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                className="hidden lg:block p-2 rounded-md text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
               >
                 <Menu className="w-6 h-6" />
               </button>
               
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                className="lg:hidden p-2 rounded-md text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
               >
                 <Menu className="w-6 h-6" />
               </button>
 
               <div className="hidden sm:block">
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">
                   {t('dashboard')}
                 </h1>
               </div>
@@ -199,6 +208,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
 
             {/* Right Section */}
             <div className="flex items-center space-x-4">
+              <ThemeToggle />
               <LanguageSwitcher />
               <NotificationBell />
             </div>
@@ -212,7 +222,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="lg:hidden bg-white border-b border-gray-200"
+              className="lg:hidden bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 transition-colors duration-300"
             >
               <nav className="px-2 py-4 space-y-1">
                 {userNavigation.map((item) => {
@@ -226,7 +236,7 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
                         href={item.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-medical-50 hover:text-medical-600 transition-colors"
+                        className="flex items-center px-3 py-2 text-gray-700 dark:text-slate-200 rounded-lg hover:bg-medical-50 dark:hover:bg-medical-900/20 hover:text-medical-600 dark:hover:text-medical-400 transition-colors"
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         <span className="text-lg mr-3">{item.icon}</span>
@@ -242,8 +252,8 @@ export const HealthcareLayout: React.FC<HealthcareLayoutProps> = ({ children }) 
                       to={item.href}
                       className={`flex items-center px-3 py-2 rounded-lg transition-colors ${
                         isActive
-                          ? 'bg-medical-100 text-medical-600 font-semibold'
-                          : 'text-gray-700 hover:bg-medical-50 hover:text-medical-600'
+                          ? 'bg-medical-100 dark:bg-medical-900/30 text-medical-600 dark:text-medical-400 font-semibold'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-medical-50 dark:hover:bg-medical-900/20 hover:text-medical-600 dark:hover:text-medical-400'
                       }`}
                       onClick={() => setMobileMenuOpen(false)}
                     >

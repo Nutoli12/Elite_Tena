@@ -16,6 +16,9 @@ import {
   Edit3
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
+import videoCallService from '../../services/videoCallService';
 
 interface AppointmentActionsProps {
   appointment: any;
@@ -29,12 +32,57 @@ export const AppointmentActions: React.FC<AppointmentActionsProps> = ({
   compact = false 
 }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { showNotification } = useNotification();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleAction = async (action: string) => {
     setIsProcessing(true);
     try {
       await onAction?.(action, appointment);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleStartVideoCall = async () => {
+    if (!user?.walletAddress || !appointment.patientWalletAddress) {
+      showNotification('Unable to start video call - missing user information', 'error');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // Initiate video call with the patient
+      const response = await videoCallService.initiateCall({
+        initiatorWallet: user.walletAddress,
+        receiverWallet: appointment.patientWalletAddress,
+        appointmentId: appointment.id,
+        scheduledTime: new Date().toISOString(),
+        durationMinutes: 30
+      });
+
+      if (response.success) {
+        showNotification('Video call initiated! Patient will be notified.', 'success');
+        
+        // Navigate to video call interface
+        navigate(`/video-call/${response.data.id}`, {
+          state: {
+            callId: response.data.id,
+            patientName: appointment.patientName || 'Patient',
+            appointmentId: appointment.id,
+            isInitiator: true
+          }
+        });
+      } else {
+        showNotification(response.error || 'Failed to start video call', 'error');
+      }
+    } catch (error: any) {
+      console.error('Video call error:', error);
+      showNotification(
+        error.response?.data?.message || 'Failed to start video call', 
+        'error'
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -77,7 +125,7 @@ export const AppointmentActions: React.FC<AppointmentActionsProps> = ({
         label: isInProgress ? 'Join Video Call' : 'Start Video Call',
         icon: Video,
         color: 'bg-blue-600 hover:bg-blue-700 text-white',
-        action: () => navigate(`/messages?userId=${appointment.patientWalletAddress}&startCall=true`)
+        action: handleStartVideoCall
       });
     }
 
