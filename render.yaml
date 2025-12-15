@@ -1,22 +1,33 @@
+# Render.com Infrastructure as Code
 services:
+  # PostgreSQL Database
+  - type: pserv
+    name: elite-tena-database
+    env: node
+    plan: free
+    databases:
+      - name: elite_tena_db
+        user: elite_tena_user
+
+  # Web Service (Backend)
   - type: web
     name: elite-tena-backend
     env: node
     plan: free
-    buildCommand: cd server && npm install
-    startCommand: cd server && npm start
-    healthCheckPath: /api/health
+    repo: https://github.com/Nutoli12/Elite_Tena
+    branch: feature/system-restructure
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: NODE_VERSION
+        value: 18
       - key: JWT_SECRET
         value: elite-tena-super-secure-jwt-secret-2024
-      - key: CHAPA_SECRET_KEY
-        value: CHASECK_TEST-your-test-secret-key
-      - key: CHAPA_PUBLIC_KEY
-        value: CHASECK_TEST-your-test-public-key
       - key: CORS_ORIGINS
         value: https://elite-tena-healthcare.netlify.app
       - key: SESSION_SECRET
@@ -25,7 +36,15 @@ services:
         value: admin@elitetena.com
       - key: ADMIN_PASSWORD
         value: admin123
-
-databases:
-  - name: elite-tena-db
-    plan: free
+      - key: CHAPA_SECRET_KEY
+        value: CHASECK_TEST-jP1PvRveaH0GqCRiN8O4AucVDvZQjhq
+      - key: CHAPA_PUBLIC_KEY
+        value: CHASECK_TEST-jP1PvRveaH0GqCRiN8O4AucVDvZQjhq
+      - key: CONTRACT_ADDRESS
+        value: 0x2c0cE04B1013451660f62DE12924404bead3894
+      - key: BLOCKCHAIN_RPC_URL
+        value: https://eth-sepolia.g.alchemy.com/v2/-bDd7BdV8nVlJ8WOpcO8Z
+      - key: DAILY_API_KEY
+        value: 26c5ee3911d07cd67e36fa6c75fedade6ba19056e2e4db3a428f200
+      - key: DAILY_DOMAIN
+        value: Elitetena.daily.co
