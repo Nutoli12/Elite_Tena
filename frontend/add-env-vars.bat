@@ -1,0 +1,19 @@
+@echo off
+echo Adding environment variables to Vercel...
+
+echo Adding VITE_API_BASE_URL...
+npx vercel env add VITE_API_BASE_URL production
+
+echo Adding VITE_SOCKET_URL...
+npx vercel env add VITE_SOCKET_URL production
+
+echo Adding VITE_ENVIRONMENT...
+npx vercel env add VITE_ENVIRONMENT production
+
+echo Adding VITE_CHAPA_PUBLIC_KEY...
+npx vercel env add VITE_CHAPA_PUBLIC_KEY production
+
+echo Environment variables added! Now redeploying...
+npx vercel --prod
+
+echo Done!

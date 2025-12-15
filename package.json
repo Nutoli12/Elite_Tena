@@ -1,18 +1,19 @@
 {
-  "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "dotenv": "^17.2.3",
-    "ethers": "^6.15.0",
-    "hardhat": "^2.26.3",
-    "hardhat-deploy": "^1.0.4",
-    "typescript": "^5.9.3"
+  "name": "elite-tena-healthcare-system",
+  "version": "1.0.0",
+  "description": "Elite Tena Healthcare Management System",
+  "main": "server/src/server.js",
+  "scripts": {
+    "start": "cd server && npm start",
+    "dev": "cd server && npm run dev",
+    "build": "cd server && npm install",
+    "install-server": "cd server && npm install",
+    "install-frontend": "cd frontend && npm install"
   },
-  "dependencies": {
-    "@pinata/sdk": "^2.1.0",
-    "axios": "^1.13.2",
-    "pg": "^8.16.3",
-    "socket.io-client": "^4.8.1"
-  }
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["healthcare", "medical", "blockchain", "nodejs", "react"],
+  "author": "Elite Tena",
+  "license": "MIT"
 }
